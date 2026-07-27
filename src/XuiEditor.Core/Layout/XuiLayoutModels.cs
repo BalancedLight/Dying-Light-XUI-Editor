@@ -28,6 +28,13 @@ public enum XuiRenderKind
     Unknown,
 }
 
+public enum XuiPaintKind
+{
+    None,
+    SolidColor,
+    Texture,
+}
+
 public enum XuiTextHorizontalAlignment
 {
     Left,
@@ -85,6 +92,8 @@ public sealed record XuiRenderNode(
     bool VisualResolved)
 {
     public XuiVector2 AuthoredSize { get; init; } = Size;
+
+    public XuiPaintKind PaintKind { get; init; }
 
     public double PointSize { get; init; }
 

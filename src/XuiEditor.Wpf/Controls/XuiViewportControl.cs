@@ -590,34 +590,23 @@ public sealed class XuiViewportControl : FrameworkElement
         switch (node.Kind)
         {
             case XuiRenderKind.Image:
-                if (node.ImagePath.Length > 0 &&
-                    _textureBitmaps.TryGetValue(node.ImagePath, out LoadedTexture? texture))
-                {
-                    DrawTexture(drawing, texture, bounds, node.Color);
-                }
-                else
-                {
-                    RequestTexture(node.ImagePath);
-                }
-
-                break;
-
             case XuiRenderKind.Rectangle:
-                if (node.ImagePath.Length == 0)
+                if (node.PaintKind == XuiPaintKind.SolidColor)
                 {
                     drawing.DrawRectangle(colorBrush, null, bounds);
                 }
-                else if (_textureBitmaps.TryGetValue(
+                else if (node.PaintKind == XuiPaintKind.Texture &&
+                         _textureBitmaps.TryGetValue(
                              node.ImagePath,
-                             out LoadedTexture? rectangleTexture))
+                             out LoadedTexture? texture))
                 {
                     DrawTexture(
                         drawing,
-                        rectangleTexture,
+                        texture,
                         bounds,
                         node.Color);
                 }
-                else
+                else if (node.PaintKind == XuiPaintKind.Texture)
                 {
                     RequestTexture(node.ImagePath);
                 }
@@ -1972,10 +1961,34 @@ public sealed class XuiViewportControl : FrameworkElement
         drawing.DrawText(text, origin);
     }
 
-    private static double SelectRulerStep(double scale)
+    internal static double SelectRulerStep(double scale)
     {
-        double[] steps = [10, 20, 50, 100, 200, 500];
-        return steps.First(step => step * scale >= 45);
+        if (!double.IsFinite(scale) || scale <= 0)
+        {
+            return 500;
+        }
+
+        double required = Math.Max(10, 45 / scale);
+        if (!double.IsFinite(required))
+        {
+            return double.MaxValue;
+        }
+
+        double magnitude = Math.Pow(
+            10,
+            Math.Floor(Math.Log10(required)));
+        double normalized = required / magnitude;
+        double multiplier = normalized <= 1
+            ? 1
+            : normalized <= 2
+                ? 2
+                : normalized <= 5
+                    ? 5
+                    : 10;
+        double step = magnitude * multiplier;
+        return double.IsFinite(step) && step > 0
+            ? step
+            : double.MaxValue;
     }
 
     private void DrawRulerLabel(

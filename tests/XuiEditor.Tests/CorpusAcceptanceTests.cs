@@ -23,6 +23,7 @@ public sealed class CorpusAcceptanceTests
             @"data\menu\scr\menumain_pc.xui",
             @"data\menu\scr\menuskin.xui",
             @"data\menu\scr\intro.xui",
+            @"data\menu\hud\hud_skin.xui",
         ];
 
         foreach (string relativePath in relativePaths)
@@ -68,6 +69,29 @@ public sealed class CorpusAcceptanceTests
         TimeSpan total = stopwatch.Elapsed;
 
         Assert.IsGreaterThan(1_000, frame.Nodes.Count);
+        XuiRenderNode[] whitePaintNodes = frame.Nodes
+            .Where(static node =>
+                node.ImagePath.Trim().Equals(
+                    "white",
+                    StringComparison.OrdinalIgnoreCase) &&
+                node.Kind is XuiRenderKind.Image or XuiRenderKind.Rectangle)
+            .ToArray();
+        Assert.IsGreaterThan(100, whitePaintNodes.Length);
+        Assert.IsTrue(whitePaintNodes.All(static node =>
+            node.PaintKind == XuiPaintKind.SolidColor));
+        HashSet<string> supportedMaterialKeys = frame.Nodes
+            .Where(static node =>
+                node.Material.Trim().Equals(
+                    "menu_antialias.mat",
+                    StringComparison.OrdinalIgnoreCase) &&
+                node.Kind is XuiRenderKind.Image or XuiRenderKind.Rectangle)
+            .Select(static node => node.Key)
+            .ToHashSet(StringComparer.Ordinal);
+        Assert.IsGreaterThan(0, supportedMaterialKeys.Count);
+        Assert.IsFalse(frame.Diagnostics.Any(diagnostic =>
+            diagnostic.Code == "XUI-LAYOUT004" &&
+            diagnostic.NodeKey is not null &&
+            supportedMaterialKeys.Contains(diagnostic.NodeKey)));
         Assert.IsFalse(timelines.Diagnostics.Any(static diagnostic =>
             diagnostic.Code == "XUI-TL005"));
         Assert.IsLessThan(TimeSpan.FromSeconds(8), parseTime);

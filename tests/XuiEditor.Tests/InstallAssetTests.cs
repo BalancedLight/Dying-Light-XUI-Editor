@@ -135,6 +135,14 @@ public sealed class InstallAssetTests
             resolver.ResolveTextureDefinition(healthBar.ImagePath));
         Assert.IsTrue(medkitBackground.IsShown);
         Assert.AreEqual("white", medkitBackground.ImagePath);
+        Assert.AreEqual(
+            XuiPaintKind.SolidColor,
+            medkitBackground.PaintKind);
+        Assert.IsFalse(frame.Diagnostics.Any(static diagnostic =>
+            diagnostic.Code == "XUI-LAYOUT009" &&
+            diagnostic.Message.Contains(
+                "'white'",
+                StringComparison.OrdinalIgnoreCase)));
         Assert.IsFalse(timelines.Diagnostics.Any(static diagnostic =>
             diagnostic.Code == "XUI-TL005"));
     }

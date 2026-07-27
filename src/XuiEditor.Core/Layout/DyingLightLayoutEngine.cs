@@ -265,6 +265,7 @@ public sealed class DyingLightLayoutEngine
                            visualBindings is not null
             ? visualBindings.ImagePath
             : properties.Text("ImagePath");
+        XuiPaintKind paintKind = ClassifyPaint(kind, imagePath);
         string fontId = properties.Text(
             "Font",
             properties.Text("DefaultFont")).Trim();
@@ -437,9 +438,14 @@ public sealed class DyingLightLayoutEngine
         XuiRect? clipBounds = ParentClip(parent);
         bool clipChildren = properties.Boolean("ClipChildren", false, diagnostics);
         bool useMask = properties.Boolean("UseMask", false, diagnostics);
+        string material = properties.Text("Material");
+        string normalizedMaterial = material.Trim();
+        bool materialApproximation =
+            normalizedMaterial.Length > 0 &&
+            !IsSupportedStaticMaterial(normalizedMaterial, kind);
 
         bool approximation = kind == XuiRenderKind.Unknown ||
-                             properties.Text("Material").Length > 0 ||
+                             materialApproximation ||
                              (visualId.Length > 0 && visualTemplate is null) ||
                              resolutionApproximation;
         if (kind == XuiRenderKind.Unknown)
@@ -452,12 +458,12 @@ public sealed class DyingLightLayoutEngine
                 syntax.Key));
         }
 
-        if (properties.Text("Material").Length > 0)
+        if (materialApproximation)
         {
             diagnostics.Add(new XuiDiagnostic(
                 "XUI-LAYOUT004",
                 XuiDiagnosticSeverity.Info,
-                $"Material '{properties.Text("Material")}' uses a static editor approximation.",
+                $"Material '{normalizedMaterial}' uses a static editor approximation.",
                 syntax.Span,
                 syntax.Key));
         }
@@ -500,7 +506,6 @@ public sealed class DyingLightLayoutEngine
 
         XuiColor defaultColor = kind switch
         {
-            XuiRenderKind.Image => XuiColor.Transparent,
             XuiRenderKind.Text => properties.Color(
                 "DefaultFontColor",
                 XuiColor.White,
@@ -561,8 +566,7 @@ public sealed class DyingLightLayoutEngine
                     diagnostics),
                 diagnostics)
             : XuiColor.Transparent;
-        if (imagePath.Length > 0 &&
-            kind is XuiRenderKind.Image or XuiRenderKind.Rectangle &&
+        if (paintKind == XuiPaintKind.Texture &&
             assetResolver is not null &&
             assetResolver.ResolveTextureDefinition(imagePath) is null)
         {
@@ -600,7 +604,7 @@ public sealed class DyingLightLayoutEngine
             clipBounds,
             text,
             imagePath,
-            properties.Text("Material"),
+            material,
             fontId,
             color,
             visualId,
@@ -611,6 +615,7 @@ public sealed class DyingLightLayoutEngine
             visualTemplate is not null)
         {
             AuthoredSize = new XuiVector2(authoredWidth, authoredHeight),
+            PaintKind = paintKind,
             PointSize = pointSize,
             Uppercase = uppercase,
             MultiLine = multiLine,
@@ -1833,6 +1838,39 @@ public sealed class DyingLightLayoutEngine
 
         return XuiRenderKind.Unknown;
     }
+
+    private static XuiPaintKind ClassifyPaint(
+        XuiRenderKind kind,
+        string imagePath)
+    {
+        if (kind is not XuiRenderKind.Image and not XuiRenderKind.Rectangle)
+        {
+            return XuiPaintKind.None;
+        }
+
+        string normalizedPath = imagePath.Trim();
+        if (normalizedPath.Equals("white", StringComparison.OrdinalIgnoreCase))
+        {
+            return XuiPaintKind.SolidColor;
+        }
+
+        if (normalizedPath.Length > 0)
+        {
+            return XuiPaintKind.Texture;
+        }
+
+        return kind == XuiRenderKind.Rectangle
+            ? XuiPaintKind.SolidColor
+            : XuiPaintKind.None;
+    }
+
+    private static bool IsSupportedStaticMaterial(
+        string material,
+        XuiRenderKind kind) =>
+        kind is XuiRenderKind.Image or XuiRenderKind.Rectangle &&
+        material.Equals(
+            "menu_antialias.mat",
+            StringComparison.OrdinalIgnoreCase);
 
     private static bool IsTextPresenter(
         string name,

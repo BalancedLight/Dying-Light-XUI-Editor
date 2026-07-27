@@ -413,10 +413,97 @@ public sealed class LayoutTests
         XuiRenderNode image = frame.Nodes.Single(static node =>
             node.Id == "Missing");
 
-        Assert.AreEqual(Core.Values.XuiColor.Transparent, image.Color);
+        Assert.AreEqual(XuiPaintKind.Texture, image.PaintKind);
+        Assert.AreEqual(Core.Values.XuiColor.White, image.Color);
         Assert.IsTrue(image.IsApproximation);
         Assert.IsTrue(frame.Diagnostics.Any(static diagnostic =>
             diagnostic.Code == "XUI-LAYOUT009"));
+    }
+
+    [TestMethod]
+    public void WhiteImageAliasIsSolidColorWithoutTextureLookup()
+    {
+        XuiDocument document = Document(
+            "<IUIAARectangle><Properties><Id>Lower</Id><Width>40</Width><Height>20</Height>" +
+            "<ImagePath>white</ImagePath><Color>0x80402010</Color>" +
+            "<Opacity>0.5</Opacity><Material>menu_antialias.mat</Material>" +
+            "</Properties></IUIAARectangle>" +
+            "<MyImage><Properties><Id>Upper</Id><Width>30</Width><Height>10</Height>" +
+            "<ImagePath>  White  </ImagePath></Properties></MyImage>");
+        CountingAssetResolver resolver = new();
+
+        XuiRenderFrame frame = DyingLightLayoutEngine.Evaluate(
+            document,
+            new XuiViewport(100, 100),
+            0,
+            resolver);
+        XuiRenderNode lower = frame.Nodes.Single(static node =>
+            node.Id == "Lower");
+        XuiRenderNode upper = frame.Nodes.Single(static node =>
+            node.Id == "Upper");
+
+        Assert.AreEqual(XuiRenderKind.Rectangle, lower.Kind);
+        Assert.AreEqual(XuiPaintKind.SolidColor, lower.PaintKind);
+        Assert.AreEqual(new XuiColor(0x80, 0x40, 0x20, 0x10), lower.Color);
+        Assert.AreEqual(0.5, lower.Opacity, 0.001);
+        Assert.IsFalse(lower.IsApproximation);
+        Assert.AreEqual(XuiPaintKind.SolidColor, upper.PaintKind);
+        Assert.AreEqual(XuiColor.White, upper.Color);
+        Assert.AreEqual(0, resolver.TextureDefinitionRequests);
+        Assert.IsFalse(frame.Diagnostics.Any(static diagnostic =>
+            diagnostic.Code is "XUI-LAYOUT004" or "XUI-LAYOUT009"));
+        StringAssert.Contains(document.Text, "<ImagePath>  White  </ImagePath>");
+    }
+
+    [TestMethod]
+    public void PaintClassificationKeepsUnsupportedMaterialsHonest()
+    {
+        XuiDocument document = Document(
+            "<IUIAARectangle><Properties><Id>Variant</Id><Width>40</Width><Height>20</Height>" +
+            "<ImagePath>white</ImagePath><Color>0xff223344</Color>" +
+            "<Material>menu_antialias_clip.mat</Material>" +
+            "</Properties></IUIAARectangle>" +
+            "<IUIAARectangle><Properties><Id>Plain</Id><Width>20</Width><Height>20</Height>" +
+            "</Properties></IUIAARectangle>" +
+            "<MyImage><Properties><Id>EmptyImage</Id><Width>20</Width><Height>20</Height>" +
+            "</Properties></MyImage>");
+
+        XuiRenderFrame frame = Frame(document);
+        XuiRenderNode variant = frame.Nodes.Single(static node =>
+            node.Id == "Variant");
+        XuiRenderNode plain = frame.Nodes.Single(static node =>
+            node.Id == "Plain");
+        XuiRenderNode emptyImage = frame.Nodes.Single(static node =>
+            node.Id == "EmptyImage");
+
+        Assert.AreEqual(XuiPaintKind.SolidColor, variant.PaintKind);
+        Assert.IsTrue(variant.IsApproximation);
+        Assert.IsTrue(frame.Diagnostics.Any(diagnostic =>
+            diagnostic.Code == "XUI-LAYOUT004" &&
+            diagnostic.NodeKey == variant.Key));
+        Assert.AreEqual(XuiPaintKind.SolidColor, plain.PaintKind);
+        Assert.AreEqual(XuiPaintKind.None, emptyImage.PaintKind);
+    }
+
+    [TestMethod]
+    public void WhiteSolidPaintRetainsNestedTransformAndClip()
+    {
+        XuiDocument document = Document(
+            "<AdvGroup><Properties><Id>ClipParent</Id><Width>30</Width><Height>20</Height>" +
+            "<Position>5,7,0</Position><ClipChildren>true</ClipChildren></Properties>" +
+            "<IUIAARectangle><Properties><Id>Fill</Id><Width>40</Width><Height>30</Height>" +
+            "<Position>10,4,0</Position><Scale>2,1,1</Scale>" +
+            "<ImagePath>white</ImagePath><Color>0x7f123456</Color>" +
+            "</Properties></IUIAARectangle></AdvGroup>");
+
+        XuiRenderNode fill = Frame(document).Nodes.Single(static node =>
+            node.Id == "Fill");
+
+        Assert.AreEqual(XuiPaintKind.SolidColor, fill.PaintKind);
+        Assert.AreEqual(new XuiRect(15, 11, 80, 30), fill.WorldBounds);
+        Assert.IsNotNull(fill.ClipBounds);
+        Assert.AreEqual(new XuiRect(5, 7, 30, 20), fill.ClipBounds.Value);
+        Assert.AreEqual(new XuiColor(0x7f, 0x12, 0x34, 0x56), fill.Color);
     }
 
     [TestMethod]
@@ -524,4 +611,64 @@ public sealed class LayoutTests
             document,
             new XuiViewport(100, 100),
             0);
+
+    private sealed class CountingAssetResolver : IAssetResolver
+    {
+        public int TextureDefinitionRequests { get; private set; }
+
+        public IReadOnlyList<XuiAssetRoot> Roots { get; } = [];
+
+        public IReadOnlyList<Core.Diagnostics.XuiDiagnostic> Diagnostics { get; } = [];
+
+        public IReadOnlyList<XuiResolvedFile> Files { get; } = [];
+
+        public ILocalizationCatalog? Localization => null;
+
+        public Task RebuildAsync(CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public XuiResolvedFile? ResolveFile(string pathOrName) => null;
+
+        public XuiTextureRegion? ResolveTextureDefinition(string imagePath)
+        {
+            TextureDefinitionRequests++;
+            return null;
+        }
+
+        public XuiVisualTemplate? ResolveVisual(string visualId) => null;
+
+        public Task<ResolvedTexture?> ResolveTextureAsync(
+            string imagePath,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<ResolvedTexture?>(null);
+
+        public ResolvedFont ResolveFont(
+            string fontId,
+            double requestedSize,
+            IReadOnlyDictionary<string, string>? userMappings = null) =>
+            new(
+                fontId,
+                "Segoe UI",
+                requestedSize,
+                true,
+                null,
+                []);
+
+        public XuiTextMeasurement MeasureText(
+            string fontId,
+            string text,
+            double requestedSize,
+            double maximumWidth,
+            bool multiline,
+            bool uppercase,
+            double characterSpacingAdjust = 0) =>
+            new(0, 0, 1, false);
+
+        public string ResolveText(string keyOrLiteral) => keyOrLiteral;
+
+        public ValueTask<ResolvedBitmapFont?> ResolveBitmapFontAsync(
+            string fontId,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult<ResolvedBitmapFont?>(null);
+    }
 }

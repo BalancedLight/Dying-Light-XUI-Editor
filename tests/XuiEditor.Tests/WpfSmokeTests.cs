@@ -1,5 +1,8 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Text;
@@ -8,6 +11,7 @@ using XuiEditor.Core.Assets;
 using XuiEditor.Core.Documents;
 using XuiEditor.Core.Layout;
 using XuiEditor.Wpf;
+using XuiEditor.Wpf.Controls;
 using XuiEditor.Wpf.Models;
 using XuiEditor.Wpf.Services;
 
@@ -51,6 +55,261 @@ public sealed class WpfSmokeTests
         Assert.AreEqual(300, hierarchy, 0.5);
         Assert.AreEqual(360, inspector, 0.5);
         Assert.AreEqual(250, timeline, 0.5);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void WhiteAliasRendersAsAuthoredSolidColor()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<IUIAARectangle><Properties><Id>Fill</Id><Width>100</Width><Height>100</Height>" +
+            "<ImagePath>white</ImagePath><Color>0xff274665</Color>" +
+            "<Material>menu_antialias.mat</Material></Properties></IUIAARectangle>" +
+            "</XuiCanvas>");
+        XuiRenderFrame frame = DyingLightLayoutEngine.Evaluate(
+            document,
+            new XuiViewport(100, 100),
+            0);
+        XuiViewportControl viewport = new()
+        {
+            Width = 240,
+            Height = 240,
+            ShowGrid = false,
+            ShowSafeArea = false,
+            ShowUnknownBounds = false,
+        };
+        viewport.SetFrame(frame);
+        viewport.Measure(new Size(240, 240));
+        viewport.Arrange(new Rect(0, 0, 240, 240));
+        viewport.UpdateLayout();
+        RenderTargetBitmap bitmap = new(
+            240,
+            240,
+            96,
+            96,
+            PixelFormats.Pbgra32);
+
+        bitmap.Render(viewport);
+
+        byte[] pixel = new byte[4];
+        bitmap.CopyPixels(new Int32Rect(120, 120, 1, 1), pixel, 4, 0);
+        Assert.AreEqual(0x65, pixel[0], 1);
+        Assert.AreEqual(0x46, pixel[1], 1);
+        Assert.AreEqual(0x27, pixel[2], 1);
+        Assert.AreEqual(0xff, pixel[3], 1);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void ViewportZoomsToFivePercentAndBackWithoutRulerFailure()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>1280</Width><Height>720</Height>" +
+            "</Properties></XuiCanvas>");
+        XuiViewportControl viewport = new()
+        {
+            Width = 900,
+            Height = 600,
+        };
+        viewport.SetFrame(DyingLightLayoutEngine.Evaluate(
+            document,
+            XuiViewport.Default,
+            0));
+        viewport.Measure(new Size(900, 600));
+        viewport.Arrange(new Rect(0, 0, 900, 600));
+        viewport.UpdateLayout();
+
+        for (int index = 0; index < 80; index++)
+        {
+            viewport.ZoomBy(1 / 1.2);
+        }
+
+        Assert.AreEqual(0.05, viewport.Zoom, 0.000001);
+        RenderTargetBitmap bitmap = new(
+            900,
+            600,
+            96,
+            96,
+            PixelFormats.Pbgra32);
+        bitmap.Render(viewport);
+
+        MouseWheelEventArgs wheel = new(
+            Mouse.PrimaryDevice,
+            Environment.TickCount,
+            -120)
+        {
+            RoutedEvent = Mouse.MouseWheelEvent,
+            Source = viewport,
+        };
+        viewport.RaiseEvent(wheel);
+        Assert.AreEqual(0.05, viewport.Zoom, 0.000001);
+
+        for (int index = 0; index < 100; index++)
+        {
+            viewport.ZoomBy(1.2);
+        }
+
+        Assert.AreEqual(32, viewport.Zoom, 0.000001);
+        bitmap.Render(viewport);
+    }
+
+    [TestMethod]
+    public void RulerStepIsFiniteAcrossFormerFailureBoundaryAndInvalidScales()
+    {
+        Assert.AreEqual(500, XuiViewportControl.SelectRulerStep(0.09));
+        Assert.AreEqual(1000, XuiViewportControl.SelectRulerStep(0.089));
+        Assert.AreEqual(10, XuiViewportControl.SelectRulerStep(10));
+
+        double[] scales =
+        [
+            double.Epsilon,
+            0,
+            -1,
+            double.NaN,
+            double.PositiveInfinity,
+            double.NegativeInfinity,
+        ];
+        foreach (double scale in scales)
+        {
+            double step = XuiViewportControl.SelectRulerStep(scale);
+            string message = scale.ToString(CultureInfo.InvariantCulture);
+            Assert.IsTrue(double.IsFinite(step), message);
+            Assert.IsGreaterThan(0, step, message);
+        }
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void NativeControlGalleryUsesDarkClientAreaTemplates()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        CheckBox checkBox = new()
+        {
+            Content = "Loop",
+            IsChecked = true,
+            Margin = new Thickness(8),
+        };
+        Slider slider = new()
+        {
+            Minimum = 0,
+            Maximum = 10,
+            Value = 4,
+            TickFrequency = 1,
+            TickPlacement = TickPlacement.BottomRight,
+            Margin = new Thickness(8),
+        };
+        ScrollBar horizontalScroll = new()
+        {
+            Orientation = Orientation.Horizontal,
+            Minimum = 0,
+            Maximum = 100,
+            Value = 40,
+            ViewportSize = 20,
+            Height = 14,
+            Margin = new Thickness(8),
+        };
+        ScrollBar verticalScroll = new()
+        {
+            Orientation = Orientation.Vertical,
+            Minimum = 0,
+            Maximum = 100,
+            Value = 40,
+            ViewportSize = 20,
+            Height = 90,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(8),
+        };
+        Expander expander = new()
+        {
+            Header = "Raw XML",
+            Content = new TextBlock { Text = "<Properties />" },
+            IsExpanded = true,
+            Margin = new Thickness(8),
+        };
+        ToolTip toolTip = new()
+        {
+            Content = "Dark tooltip",
+            Style = (Style)application.Resources[typeof(ToolTip)],
+        };
+        ContextMenu contextMenu = new()
+        {
+            Items = { new MenuItem { Header = "Dark menu item" } },
+            Style = (Style)application.Resources[typeof(ContextMenu)],
+        };
+        StackPanel gallery = new()
+        {
+            Width = 520,
+            Height = 360,
+            Background = (Brush)application.Resources["WindowBrush"],
+            Children =
+            {
+                checkBox,
+                slider,
+                horizontalScroll,
+                verticalScroll,
+                expander,
+                new Separator(),
+            },
+        };
+        gallery.Measure(new Size(520, 360));
+        gallery.Arrange(new Rect(0, 0, 520, 360));
+        gallery.UpdateLayout();
+        toolTip.ApplyTemplate();
+        contextMenu.ApplyTemplate();
+
+        Border checkBorder = (Border)checkBox.Template.FindName(
+            "CheckBorder",
+            checkBox);
+        Track sliderTrack = (Track)slider.Template.FindName(
+            "PART_Track",
+            slider);
+        Track horizontalTrack = (Track)horizontalScroll.Template.FindName(
+            "PART_Track",
+            horizontalScroll);
+        Border expandSite = (Border)expander.Template.FindName(
+            "ExpandSite",
+            expander);
+        Assert.AreEqual(
+            ((SolidColorBrush)application.Resources["AccentBrush"]).Color,
+            ((SolidColorBrush)checkBorder.Background).Color);
+        Assert.AreEqual(4, sliderTrack.Value, 0.001);
+        Assert.AreEqual(40, horizontalTrack.Value, 0.001);
+        Assert.AreEqual(Visibility.Visible, expandSite.Visibility);
+        Assert.IsTrue(IsDark(toolTip.Background));
+        Assert.IsTrue(IsDark(contextMenu.Background));
+
+        RenderTargetBitmap bitmap = new(
+            520,
+            360,
+            96,
+            96,
+            PixelFormats.Pbgra32);
+        bitmap.Render(gallery);
+        int stride = 520 * 4;
+        byte[] pixels = new byte[stride * 360];
+        bitmap.CopyPixels(pixels, stride, 0);
+        int nearlyWhitePixels = 0;
+        for (int offset = 0; offset <= pixels.Length - 4; offset += 4)
+        {
+            if (pixels[offset] >= 245 &&
+                pixels[offset + 1] >= 245 &&
+                pixels[offset + 2] >= 245 &&
+                pixels[offset + 3] > 0)
+            {
+                nearlyWhitePixels++;
+            }
+        }
+
+        Assert.IsLessThan(
+            520 * 360 * 0.03,
+            nearlyWhitePixels,
+            "A native control rendered a large system-light surface.");
     }
 
     [STATestMethod]
@@ -268,6 +527,12 @@ public sealed class WpfSmokeTests
             }
         }
     }
+
+    private static bool IsDark(Brush brush) =>
+        brush is SolidColorBrush solid &&
+        solid.Color.R < 128 &&
+        solid.Color.G < 128 &&
+        solid.Color.B < 128;
 
     private static string FindDesktopRoot()
     {
