@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>DyingLightXuiEditor</AssemblyName>
+    <RootNamespace>XuiEditor.Wpf</RootNamespace>
+    <ApplicationIcon />
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\XuiEditor.Core\XuiEditor.Core.csproj" />
+  </ItemGroup>
+</Project>

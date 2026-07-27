@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+artifacts/
+.vs/
+TestResults/
+*.user
+*.suo
+
+
+#Ignore vscode AI rules
+.github\instructions\codacy.instructions.md

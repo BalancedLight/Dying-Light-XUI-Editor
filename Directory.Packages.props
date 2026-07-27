@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="BCnEncoder.Net" Version="2.3.0" />
+    <PackageVersion Include="MSTest" Version="4.3.2" />
+  </ItemGroup>
+</Project>

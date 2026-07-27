@@ -1,0 +1,115 @@
+<Window x:Class="XuiEditor.Wpf.AssetRootsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Asset Roots and Font Mappings"
+        Width="820"
+        Height="590"
+        MinWidth="650"
+        MinHeight="450"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip">
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="12" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="12" />
+            <RowDefinition Height="150" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="Writable workspace"
+                   FontWeight="SemiBold"
+                   Margin="0,0,0,5" />
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="WorkspaceText" Grid.Column="0" />
+            <Button Grid.Column="1"
+                    Content="Browse…"
+                    Margin="7,0,0,0"
+                    Click="BrowseWorkspace_Click" />
+        </Grid>
+
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <DockPanel Grid.Column="0">
+                <TextBlock DockPanel.Dock="Top"
+                           Text="Asset roots — first match wins (workspace, loose mods, extracted data)"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,5" />
+                <DataGrid x:Name="RootsGrid"
+                          ItemsSource="{Binding Roots}"
+                          SelectedIndex="0"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          HeadersVisibility="Column"
+                          SelectionMode="Single"
+                          Background="{StaticResource PanelBrush}"
+                          Foreground="{StaticResource TextBrush}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Path"
+                                            Binding="{Binding Path}"
+                                            Width="*" />
+                        <DataGridComboBoxColumn Header="Kind"
+                                                SelectedItemBinding="{Binding Kind}"
+                                                Width="140" />
+                        <DataGridCheckBoxColumn Header="Read only"
+                                                Binding="{Binding IsReadOnly}"
+                                                Width="80" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+            <StackPanel Grid.Column="1" Margin="9,26,0,0">
+                <Button Content="Add loose mod…" Click="AddLoose_Click" />
+                <Button Content="Add extracted…" Click="AddExtracted_Click" />
+                <Button Content="Remove" Click="Remove_Click" />
+                <Separator Margin="3,8" />
+                <Button Content="Move up" Click="MoveUp_Click" />
+                <Button Content="Move down" Click="MoveDown_Click" />
+            </StackPanel>
+        </Grid>
+
+        <DockPanel Grid.Row="5">
+            <TextBlock DockPanel.Dock="Top"
+                       Text="Optional exact font mappings (engine ID or family → installed family or font file)"
+                       FontWeight="SemiBold"
+                       Margin="0,0,0,5" />
+            <DataGrid x:Name="FontMappingsGrid"
+                      ItemsSource="{Binding FontMappings}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="True"
+                      HeadersVisibility="Column"
+                      Background="{StaticResource PanelBrush}"
+                      Foreground="{StaticResource TextBrush}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Engine font"
+                                        Binding="{Binding EngineId}"
+                                        Width="220" />
+                    <DataGridTextColumn Header="Installed family or .ttf/.otf path"
+                                        Binding="{Binding Mapping}"
+                                        Width="*" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </DockPanel>
+
+        <DockPanel Grid.Row="6" Margin="0,13,0,0">
+            <TextBlock DockPanel.Dock="Left"
+                       Foreground="{StaticResource MutedTextBrush}"
+                       VerticalAlignment="Center"
+                       Text="Game/extraction roots are indexed read-only; assets are never copied into the app." />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Cancel" IsCancel="True" MinWidth="85" />
+                <Button Content="OK" IsDefault="True" MinWidth="85"
+                        Click="Ok_Click" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>
