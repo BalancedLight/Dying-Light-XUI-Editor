@@ -13,9 +13,13 @@ game output:
 - **Localization.** The selected installed locale uses English fallback.
   Tokens absent from both catalogs remain tokens; the editor does not invent
   translated strings.
-- **Shaders and materials.** Unsupported proprietary shaders and runtime
-  materials use their static bounds, template, color, opacity, and texture
-  where possible. Shader-specific effects are approximate.
+- **Shaders and materials.** The stock sprite, text, antialias, button,
+  clipping, tint, and forced-mask families have explicit editor profiles.
+  Unsupported proprietary shaders use their static bounds, template, color,
+  opacity, and texture where possible. Shader-specific effects are approximate.
+- **Map and radar materials.** Runtime map shapes, radar geometry,
+  fog-of-war, noise, and damage-indicator geometry remain transparent with
+  optional editor bounds. The editor does not fabricate game-generated data.
 - **Masks.** Rectangular/transformed clipping is represented. Proprietary
   alpha-mask shader behavior is approximate.
 - **Engine controls.** Controls that depend on game code render transparently
@@ -23,7 +27,7 @@ game output:
   are never inserted into the actual preview.
 - **Runtime content.** Online news, saves, profiles, inventory, server data,
   native list population, and similar game-owned content are not fabricated.
-  Editable preview scenarios can supply clearly editor-only values and reveal
+  Curated preview presets can supply clearly editor-only values and reveal
   hidden authored nodes without changing the source document.
 - **Probabilistic tiles.** The highest-probability declared variant is selected
   deterministically and diagnosed so repeated previews stay stable.

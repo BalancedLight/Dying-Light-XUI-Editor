@@ -48,6 +48,7 @@ public sealed class TimelineEditorControl : FrameworkElement
     private TrackKey? _selectedKey;
     private TrackKey? _dragKey;
     private int _dragTick;
+    private bool _waitingForSelection;
 
     public TimelineEditorControl()
     {
@@ -82,7 +83,8 @@ public sealed class TimelineEditorControl : FrameworkElement
     public void SetData(
         XuiTimelineSet? timelineSet,
         IEnumerable<string> selectedIds,
-        int tick)
+        int tick,
+        bool showAllWhenEmpty = false)
     {
         ArgumentNullException.ThrowIfNull(selectedIds);
         string? selectedSyntaxKey = _selectedKey?.Frame.Syntax.Key;
@@ -90,9 +92,14 @@ public sealed class TimelineEditorControl : FrameworkElement
         _tick = Math.Max(0, tick);
         HashSet<string> targets = new(selectedIds, StringComparer.Ordinal);
         _tracks.Clear();
+        _waitingForSelection =
+            timelineSet is not null &&
+            targets.Count == 0 &&
+            !showAllWhenEmpty;
         if (timelineSet is not null)
         {
-            IEnumerable<XuiTimeline> timelines = targets.Count == 0
+            IEnumerable<XuiTimeline> timelines = targets.Count == 0 &&
+                                                 showAllWhenEmpty
                 ? timelineSet.Timelines
                 : timelineSet.Timelines.Where(timeline =>
                     targets.Contains(timeline.TargetId));
@@ -271,7 +278,11 @@ public sealed class TimelineEditorControl : FrameworkElement
 
         if (_tracks.Count == 0)
         {
-            DrawEmpty(drawing, "The current selection has no animated tracks");
+            DrawEmpty(
+                drawing,
+                _waitingForSelection
+                    ? "Select a hierarchy or canvas node to view its tracks"
+                    : "The current selection has no animated tracks");
         }
 
         DrawRows(drawing);

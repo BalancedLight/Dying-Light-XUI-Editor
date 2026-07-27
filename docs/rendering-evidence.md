@@ -100,6 +100,25 @@ emits a diagnostic rather than producing a random preview.
 
 Colors use Dying Light's observed `0xAARRGGBB` representation.
 
+## Materials and masked groups
+
+The Dying Light decompile shows `UIMaskedGroup` selecting separate defaults
+for image, text, and antialiased-rectangle descendants. With
+`ForceMaterials=true`, the editor recursively applies `ImageMaskMaterial`,
+`TextMaskMaterial`, and `AARectangleMaskMaterial`, matching the stock
+`menu_mask_clip.mat`, `menu_text_clip.mat`, and
+`menu_antialias_clip.mat` pattern.
+
+`sprite*.mat`, `menu_text*.mat`, `menu_antialias*.mat`, button backgrounds,
+clip families, and HUD color modulation receive explicit material profiles.
+The special `ImagePath=white` alias performs no texture lookup and fills the
+node from its authored ARGB color. Effect-group materials do not paint an
+opaque group rectangle.
+
+Map, radar, fog-of-war, noise, and similar materials depend on runtime
+geometry or shader inputs. Their authored bounds are retained for inspection,
+but generated content is not invented.
+
 ## Evidence discipline
 
 Every approximation is explicit. Unknown controls are transparent, missing

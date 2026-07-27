@@ -45,6 +45,7 @@ public sealed class DyingLightAssetResolver : IAssetResolver
     private ILocalizationCatalog? _localization;
     private InputGlyphCatalog _inputGlyphs = new();
     private IReadOnlyList<XuiDiagnostic> _diagnostics = [];
+    private long _revision;
 
     public DyingLightAssetResolver(
         IEnumerable<XuiAssetRoot> roots,
@@ -87,6 +88,8 @@ public sealed class DyingLightAssetResolver : IAssetResolver
     }
 
     public IReadOnlyList<XuiAssetRoot> Roots { get; }
+
+    public long Revision => Interlocked.Read(ref _revision);
 
     public IReadOnlyList<IXuiAssetSource> Sources => _sources;
 
@@ -152,6 +155,7 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         _decodedImages.Clear();
         _assetContents.Clear();
         _resolvedBitmapFonts.Clear();
+        Interlocked.Increment(ref _revision);
     }
 
     public XuiResolvedFile? ResolveFile(string pathOrName)

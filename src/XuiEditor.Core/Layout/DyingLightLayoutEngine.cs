@@ -18,9 +18,22 @@ public sealed class DyingLightLayoutEngine
         XuiViewport viewport,
         int tick,
         IAssetResolver? assetResolver = null,
+        XuiRenderContext? renderContext = null) =>
+        DyingLightLayoutSession
+            .Compile(document, assetResolver)
+            .Sample(viewport, tick, renderContext);
+
+    internal static XuiRenderFrame EvaluateCompiled(
+        XuiDocument document,
+        XuiViewport viewport,
+        int tick,
+        XuiTimelineSet timelineSet,
+        DyingLightLayoutCompilation compilation,
+        IAssetResolver? assetResolver = null,
         XuiRenderContext? renderContext = null)
     {
         ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(timelineSet);
         if (viewport.Width <= 0 ||
             viewport.Height <= 0 ||
             viewport.DpiScale <= 0)
@@ -31,19 +44,21 @@ public sealed class DyingLightLayoutEngine
         }
 
         List<XuiDiagnostic> diagnostics = [];
-        XuiTimelineSet timelineSet = XuiTimelineParser.Parse(document);
         diagnostics.AddRange(timelineSet.Diagnostics);
         AnimationOverrides animation = BuildAnimationOverrides(
             timelineSet,
             tick);
 
         XuiRenderContext context = renderContext ?? new XuiRenderContext();
+        CompiledXuiNode compiledRoot = compilation.Node(
+            document.Root,
+            document.Text);
         PropertyBag rootProperties = new(
             document.Root,
-            document.Text,
+            compiledRoot.Properties,
             overrides: null,
             runtimeOverrides: context.EffectiveScenario.PropertiesFor(
-                XuiModelReader.GetId(document.Root, document.Text) ?? string.Empty,
+                compiledRoot.Id,
                 document.Root.Key));
         double designWidth = rootProperties.Number("Width", 1280, diagnostics);
         double designHeight = rootProperties.Number("Height", 720, diagnostics);
@@ -73,6 +88,7 @@ public sealed class DyingLightLayoutEngine
             document.Root,
             parent: null,
             document.Text,
+            compilation,
             animation,
             diagnostics,
             renderNodes,
@@ -86,6 +102,7 @@ public sealed class DyingLightLayoutEngine
             visualBindings: null,
             visualStack: [],
             timelineRecursionBarrier: null,
+            forcedMaterials: null,
             resolution,
             authoredParentSizeOverride: null,
             arrangedPositionOverride: null,
@@ -96,13 +113,14 @@ public sealed class DyingLightLayoutEngine
             viewport,
             viewportTransform,
             renderNodes,
-            diagnostics);
+            AggregateDiagnostics(diagnostics));
     }
 
     private static void EvaluateNode(
         XuiSyntaxNode syntax,
         XuiRenderNode? parent,
         string source,
+        DyingLightLayoutCompilation compilation,
         AnimationOverrides animation,
         List<XuiDiagnostic> diagnostics,
         List<XuiRenderNode> result,
@@ -116,6 +134,7 @@ public sealed class DyingLightLayoutEngine
         VisualInstanceBindings? visualBindings,
         HashSet<string> visualStack,
         string? timelineRecursionBarrier,
+        ForcedMaterialSet? forcedMaterials,
         ResolutionContext resolution,
         XuiVector2? authoredParentSizeOverride,
         XuiVector3? arrangedPositionOverride,
@@ -127,7 +146,8 @@ public sealed class DyingLightLayoutEngine
                 $"The XUI render tree exceeds the {MaximumRenderNodes:N0}-node safety limit.");
         }
 
-        string id = XuiModelReader.GetId(syntax, source) ?? string.Empty;
+        CompiledXuiNode compiledNode = compilation.Node(syntax, source);
+        string id = compiledNode.Id;
         IReadOnlyDictionary<string, XuiAnimatedValue>? overrides =
             animation.ForNode(
                 id,
@@ -137,12 +157,12 @@ public sealed class DyingLightLayoutEngine
             renderContext.EffectiveScenario.PropertiesFor(id, syntax.Key);
         PropertyBag properties = new(
             syntax,
-            source,
+            compiledNode.Properties,
             overrides,
             runtimeOverrides);
         PropertyBag authoredProperties = new(
             syntax,
-            source,
+            compiledNode.Properties,
             overrides: null,
             runtimeOverrides: null);
         string effectiveKey = keyPrefix.Length == 0
@@ -151,12 +171,14 @@ public sealed class DyingLightLayoutEngine
         string effectiveSelectionKey = selectionKey ?? effectiveKey;
         string visualId = properties.Text("Visual").Trim();
         XuiVisualTemplate? visualTemplate =
-            assetResolver?.ResolveVisual(visualId);
+            compilation.ResolveVisual(visualId);
         PropertyBag? visualRootProperties = visualTemplate is null
             ? null
             : new PropertyBag(
                 visualTemplate.Syntax,
-                visualTemplate.Source,
+                compilation.Node(
+                    visualTemplate.Syntax,
+                    visualTemplate.Source).Properties,
                 overrides: null,
                 runtimeOverrides: null);
 
@@ -251,7 +273,20 @@ public sealed class DyingLightLayoutEngine
             ref scale,
             diagnostics);
 
-        XuiRenderKind kind = Classify(syntax.Name, properties);
+        XuiRenderKind kind = Classify(compiledNode, properties);
+        string authoredMaterial = properties.Text("Material").Trim();
+        string material =
+            forcedMaterials?.MaterialFor(kind, syntax.Name) ??
+            authoredMaterial;
+        XuiMaterialProfile materialProfile =
+            forcedMaterials is null &&
+            kind == compiledNode.Kind &&
+            string.Equals(
+                material,
+                compiledNode.Material,
+                StringComparison.Ordinal)
+                ? compiledNode.MaterialProfile
+                : compilation.ResolveMaterial(material, kind);
         string text = IsTextPresenter(syntax.Name, properties) &&
                       visualBindings is not null
             ? visualBindings.Text
@@ -265,7 +300,10 @@ public sealed class DyingLightLayoutEngine
                            visualBindings is not null
             ? visualBindings.ImagePath
             : properties.Text("ImagePath");
-        XuiPaintKind paintKind = ClassifyPaint(kind, imagePath);
+        XuiPaintKind paintKind = ClassifyPaint(
+            kind,
+            imagePath,
+            materialProfile);
         string fontId = properties.Text(
             "Font",
             properties.Text("DefaultFont")).Trim();
@@ -351,11 +389,12 @@ public sealed class DyingLightLayoutEngine
             }
         }
 
-        XuiSyntaxNode[] visualChildren =
-            XuiModelReader.VisualChildren(syntax).ToArray();
+        IReadOnlyList<XuiSyntaxNode> visualChildren =
+            compiledNode.VisualChildren;
         XuiVector2? parentToTextSize = MeasureParentToTextChildren(
             visualChildren,
             source,
+            compilation,
             animation,
             assetResolver,
             renderContext,
@@ -377,6 +416,7 @@ public sealed class DyingLightLayoutEngine
             properties,
             visualChildren,
             source,
+            compilation,
             animation,
             renderContext,
             assetResolver,
@@ -438,11 +478,9 @@ public sealed class DyingLightLayoutEngine
         XuiRect? clipBounds = ParentClip(parent);
         bool clipChildren = properties.Boolean("ClipChildren", false, diagnostics);
         bool useMask = properties.Boolean("UseMask", false, diagnostics);
-        string material = properties.Text("Material");
-        string normalizedMaterial = material.Trim();
         bool materialApproximation =
-            normalizedMaterial.Length > 0 &&
-            !IsSupportedStaticMaterial(normalizedMaterial, kind);
+            material.Length > 0 &&
+            materialProfile.IsApproximation;
 
         bool approximation = kind == XuiRenderKind.Unknown ||
                              materialApproximation ||
@@ -463,7 +501,8 @@ public sealed class DyingLightLayoutEngine
             diagnostics.Add(new XuiDiagnostic(
                 "XUI-LAYOUT004",
                 XuiDiagnosticSeverity.Info,
-                $"Material '{normalizedMaterial}' uses a static editor approximation.",
+                $"Material '{material}' uses a static editor approximation. " +
+                materialProfile.Description,
                 syntax.Span,
                 syntax.Key));
         }
@@ -616,6 +655,7 @@ public sealed class DyingLightLayoutEngine
         {
             AuthoredSize = new XuiVector2(authoredWidth, authoredHeight),
             PaintKind = paintKind,
+            MaterialProfile = materialProfile,
             PointSize = pointSize,
             Uppercase = uppercase,
             MultiLine = multiLine,
@@ -645,6 +685,21 @@ public sealed class DyingLightLayoutEngine
             result[^1] = childParent;
         }
 
+        ForcedMaterialSet? childForcedMaterials = forcedMaterials;
+        if (properties.Boolean("ForceMaterials", false, diagnostics))
+        {
+            childForcedMaterials = new ForcedMaterialSet(
+                properties.Text(
+                    "ImageMaskMaterial",
+                    "menu_mask_clip.mat"),
+                properties.Text(
+                    "TextMaskMaterial",
+                    "menu_text_clip.mat"),
+                properties.Text(
+                    "AARectangleMaskMaterial",
+                    "menu_antialias_clip.mat"));
+        }
+
         if (visualTemplate is not null)
         {
             ExpandVisualTemplate(
@@ -652,6 +707,7 @@ public sealed class DyingLightLayoutEngine
                 childParent,
                 renderNode,
                 assetResolver!,
+                compilation,
                 renderContext,
                 tick,
                 resolution,
@@ -659,6 +715,7 @@ public sealed class DyingLightLayoutEngine
                 result,
                 ids,
                 visualStack,
+                childForcedMaterials,
                 ref declarationOrder);
         }
 
@@ -676,6 +733,7 @@ public sealed class DyingLightLayoutEngine
                 child,
                 childParent,
                 source,
+                compilation,
                 animation,
                 diagnostics,
                 result,
@@ -689,6 +747,7 @@ public sealed class DyingLightLayoutEngine
                 visualBindings,
                 visualStack,
                 childTimelineBarrier,
+                childForcedMaterials,
                 resolution,
                 authoredParentSizeOverride:
                     childArrangement is null ? null : childParent.Size,
@@ -702,6 +761,7 @@ public sealed class DyingLightLayoutEngine
         XuiRenderNode parent,
         XuiRenderNode instance,
         IAssetResolver assetResolver,
+        DyingLightLayoutCompilation compilation,
         XuiRenderContext renderContext,
         int tick,
         ResolutionContext resolution,
@@ -709,6 +769,7 @@ public sealed class DyingLightLayoutEngine
         List<XuiRenderNode> result,
         HashSet<string> ids,
         HashSet<string> visualStack,
+        ForcedMaterialSet? forcedMaterials,
         ref int declarationOrder)
     {
         if (visualStack.Count >= MaximumVisualNesting)
@@ -744,7 +805,9 @@ public sealed class DyingLightLayoutEngine
                 instance.ImagePath);
             PropertyBag visualRootProperties = new(
                 visualTemplate.Syntax,
-                visualTemplate.Source,
+                compilation.Node(
+                    visualTemplate.Syntax,
+                    visualTemplate.Source).Properties,
                 overrides: null,
                 runtimeOverrides: null);
             XuiVector2 visualRootSize = new(
@@ -756,13 +819,16 @@ public sealed class DyingLightLayoutEngine
                     "Height",
                     instance.AuthoredSize.Y,
                     diagnostics));
-            XuiSyntaxNode[] visualChildren =
-                XuiModelReader.VisualChildren(visualTemplate.Syntax).ToArray();
+            IReadOnlyList<XuiSyntaxNode> visualChildren =
+                compilation.Node(
+                    visualTemplate.Syntax,
+                    visualTemplate.Source).VisualChildren;
             PanelArrangement? arrangement = ArrangePanelChildren(
                 visualTemplate.Syntax.Name,
                 visualRootProperties,
                 visualChildren,
                 visualTemplate.Source,
+                compilation,
                 animation,
                 renderContext,
                 assetResolver,
@@ -775,6 +841,7 @@ public sealed class DyingLightLayoutEngine
                     child,
                     parent,
                     visualTemplate.Source,
+                    compilation,
                     animation,
                     diagnostics,
                     result,
@@ -788,6 +855,7 @@ public sealed class DyingLightLayoutEngine
                     bindings,
                     visualStack,
                     timelineRecursionBarrier: null,
+                    forcedMaterials,
                     resolution,
                     authoredParentSizeOverride: visualRootSize,
                     arrangedPositionOverride:
@@ -837,6 +905,7 @@ public sealed class DyingLightLayoutEngine
     private static XuiVector2? MeasureParentToTextChildren(
         IReadOnlyList<XuiSyntaxNode> children,
         string source,
+        DyingLightLayoutCompilation compilation,
         AnimationOverrides animation,
         IAssetResolver? assetResolver,
         XuiRenderContext renderContext,
@@ -853,17 +922,19 @@ public sealed class DyingLightLayoutEngine
         double height = 0;
         foreach (XuiSyntaxNode child in children)
         {
-            string id = XuiModelReader.GetId(child, source) ?? string.Empty;
+            CompiledXuiNode compiledChild =
+                compilation.Node(child, source);
+            string id = compiledChild.Id;
             PropertyBag properties = new(
                 child,
-                source,
+                compiledChild.Properties,
                 animation.ForNode(id, child.Key, childTimelineBarrier),
                 renderContext.EffectiveScenario.PropertiesFor(id, child.Key));
             if (!properties.Boolean(
                     "AutoSizeParentToText",
                     false,
                     diagnostics) ||
-                Classify(child.Name, properties) != XuiRenderKind.Text)
+                Classify(compiledChild, properties) != XuiRenderKind.Text)
             {
                 continue;
             }
@@ -958,6 +1029,7 @@ public sealed class DyingLightLayoutEngine
         PropertyBag parentProperties,
         IReadOnlyList<XuiSyntaxNode> children,
         string source,
+        DyingLightLayoutCompilation compilation,
         AnimationOverrides animation,
         XuiRenderContext renderContext,
         IAssetResolver? assetResolver,
@@ -987,10 +1059,12 @@ public sealed class DyingLightLayoutEngine
         List<PanelChild> panelChildren = [];
         foreach (XuiSyntaxNode child in children)
         {
-            string id = XuiModelReader.GetId(child, source) ?? string.Empty;
+            CompiledXuiNode compiledChild =
+                compilation.Node(child, source);
+            string id = compiledChild.Id;
             PropertyBag properties = new(
                 child,
-                source,
+                compiledChild.Properties,
                 animation.ForNode(id, child.Key, childTimelineBarrier),
                 renderContext.EffectiveScenario.PropertiesFor(id, child.Key));
             bool shown = properties.Boolean("Show", true, diagnostics);
@@ -1032,7 +1106,7 @@ public sealed class DyingLightLayoutEngine
                 0,
                 properties.Number("Height", 0, diagnostics));
             if (assetResolver is not null &&
-                Classify(child.Name, properties) == XuiRenderKind.Text)
+                Classify(compiledChild, properties) == XuiRenderKind.Text)
             {
                 string text = properties.Text(
                     "Text",
@@ -1791,59 +1865,45 @@ public sealed class DyingLightLayoutEngine
             : new XuiRect(left, top, right - left, bottom - top);
     }
 
-    private static XuiRenderKind Classify(string name, PropertyBag properties)
+    private static XuiRenderKind Classify(
+        CompiledXuiNode compiled,
+        PropertyBag properties)
     {
         string classOverride = properties.Text("ClassOverride");
-        string combined = name + " " + classOverride;
-        if (combined.Contains("Canvas", StringComparison.OrdinalIgnoreCase) ||
-            combined.Contains("Scene", StringComparison.OrdinalIgnoreCase))
+        string visual = properties.Text("Visual").Trim();
+        if (string.Equals(
+                classOverride,
+                compiled.ClassOverride,
+                StringComparison.Ordinal) &&
+            string.Equals(
+                visual,
+                compiled.Visual,
+                StringComparison.Ordinal))
         {
-            return XuiRenderKind.Scene;
+            return compiled.Kind;
         }
 
-        if (combined.Contains("Text", StringComparison.OrdinalIgnoreCase) ||
-            combined.Contains("Html", StringComparison.OrdinalIgnoreCase))
-        {
-            return XuiRenderKind.Text;
-        }
-
-        if (combined.Contains("Rectangle", StringComparison.OrdinalIgnoreCase))
-        {
-            return XuiRenderKind.Rectangle;
-        }
-
-        if (combined.Contains("Image", StringComparison.OrdinalIgnoreCase))
-        {
-            return XuiRenderKind.Image;
-        }
-
-        if (combined.Contains("Group", StringComparison.OrdinalIgnoreCase) ||
-            combined.Contains("Panel", StringComparison.OrdinalIgnoreCase))
-        {
-            return XuiRenderKind.Group;
-        }
-
-        if (combined.Contains("Presenter", StringComparison.OrdinalIgnoreCase))
-        {
-            return XuiRenderKind.Presenter;
-        }
-
-        if (name.StartsWith("UI", StringComparison.Ordinal) ||
-            name.StartsWith("Adv", StringComparison.Ordinal) ||
-            classOverride.StartsWith("UI", StringComparison.Ordinal) ||
-            properties.Text("Visual").Length > 0)
-        {
-            return XuiRenderKind.Control;
-        }
-
-        return XuiRenderKind.Unknown;
+        return DyingLightLayoutCompilation.Classify(
+            compiled.SyntaxName,
+            classOverride,
+            visual);
     }
 
     private static XuiPaintKind ClassifyPaint(
         XuiRenderKind kind,
-        string imagePath)
+        string imagePath,
+        XuiMaterialProfile materialProfile)
     {
-        if (kind is not XuiRenderKind.Image and not XuiRenderKind.Rectangle)
+        if (kind is not XuiRenderKind.Image and
+            not XuiRenderKind.Rectangle and
+            not XuiRenderKind.Shape)
+        {
+            return XuiPaintKind.None;
+        }
+
+        if (materialProfile.SuppressSelfPaint ||
+            kind == XuiRenderKind.Shape &&
+            materialProfile.RequiresRuntimeData)
         {
             return XuiPaintKind.None;
         }
@@ -1859,18 +1919,10 @@ public sealed class DyingLightLayoutEngine
             return XuiPaintKind.Texture;
         }
 
-        return kind == XuiRenderKind.Rectangle
+        return kind is XuiRenderKind.Rectangle or XuiRenderKind.Shape
             ? XuiPaintKind.SolidColor
             : XuiPaintKind.None;
     }
-
-    private static bool IsSupportedStaticMaterial(
-        string material,
-        XuiRenderKind kind) =>
-        kind is XuiRenderKind.Image or XuiRenderKind.Rectangle &&
-        material.Equals(
-            "menu_antialias.mat",
-            StringComparison.OrdinalIgnoreCase);
 
     private static bool IsTextPresenter(
         string name,
@@ -1920,6 +1972,68 @@ public sealed class DyingLightLayoutEngine
     private sealed record VisualInstanceBindings(
         string Text,
         string ImagePath);
+
+    private sealed record ForcedMaterialSet(
+        string ImageMaterial,
+        string TextMaterial,
+        string AARectangleMaterial)
+    {
+        public string? MaterialFor(
+            XuiRenderKind kind,
+            string elementName) =>
+            kind switch
+            {
+                XuiRenderKind.Text => TextMaterial,
+                XuiRenderKind.Rectangle
+                    when elementName.Contains(
+                        "AARectangle",
+                        StringComparison.OrdinalIgnoreCase) =>
+                    AARectangleMaterial,
+                XuiRenderKind.Image or XuiRenderKind.Shape => ImageMaterial,
+                _ => null,
+            };
+    }
+
+    private static List<XuiDiagnostic> AggregateDiagnostics(
+        IReadOnlyList<XuiDiagnostic> diagnostics)
+    {
+        Dictionary<(string Code, string Message), List<XuiDiagnostic>>
+            materialGroups = [];
+        List<XuiDiagnostic> result = [];
+        foreach (XuiDiagnostic diagnostic in diagnostics)
+        {
+            if (diagnostic.Code != "XUI-LAYOUT004")
+            {
+                result.Add(diagnostic);
+                continue;
+            }
+
+            (string, string) key = (diagnostic.Code, diagnostic.Message);
+            if (!materialGroups.TryGetValue(
+                    key,
+                    out List<XuiDiagnostic>? group))
+            {
+                group = [];
+                materialGroups.Add(key, group);
+            }
+
+            group.Add(diagnostic);
+        }
+
+        foreach (List<XuiDiagnostic> group in materialGroups.Values)
+        {
+            XuiDiagnostic first = group[0];
+            result.Add(group.Count == 1
+                ? first
+                : first with
+                {
+                    Message =
+                        $"{first.Message} ({group.Count:N0} affected nodes; first shown.)",
+                });
+        }
+
+        return result;
+    }
 
     private readonly record struct ResolutionContext(
         XuiVector2 DesignSize,
@@ -2023,27 +2137,21 @@ public sealed class DyingLightLayoutEngine
 
     private sealed class PropertyBag
     {
-        private readonly Dictionary<string, string> _values;
+        private readonly IReadOnlyDictionary<string, string> _values;
         private readonly IReadOnlyDictionary<string, XuiAnimatedValue>? _overrides;
         private readonly IReadOnlyDictionary<string, string>? _runtimeOverrides;
         private readonly XuiSyntaxNode _syntax;
 
         public PropertyBag(
             XuiSyntaxNode syntax,
-            string source,
+            IReadOnlyDictionary<string, string> values,
             IReadOnlyDictionary<string, XuiAnimatedValue>? overrides,
             IReadOnlyDictionary<string, string>? runtimeOverrides)
         {
             _syntax = syntax;
             _overrides = overrides;
             _runtimeOverrides = runtimeOverrides;
-            _values = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (XuiPropertyEntry property in XuiModelReader.GetProperties(
-                         syntax,
-                         source))
-            {
-                _values[property.Name] = property.Value;
-            }
+            _values = values;
         }
 
         public XuiSyntaxNode Syntax => _syntax;

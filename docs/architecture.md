@@ -7,14 +7,16 @@ fast tests:
 
 - `XuiDocument`, `XuiSyntaxNode`, and ordered `XuiPropertyEntry`
 - `IXuiCommand` and document history
-- `DyingLightLayoutEngine`
+- `DyingLightLayoutEngine`, compiled `DyingLightLayoutSession`, and
+  `XuiMaterialCatalog`
 - `IAssetResolver` and Dying Light resource models
 - `XuiTimeline`, tracks, keyframes, named frames, and `TimelineEvaluator`
 
-`XuiEditor.Wpf` supplies the desktop shell. The hierarchy is a recycling,
-virtualized flat list rather than a recursive control tree. The canvas uses
-`DrawingVisual` instances so XUI nodes do not become thousands of heavyweight
-WPF controls.
+`XuiEditor.Wpf` supplies the desktop shell. A revision-bound hierarchy index
+feeds a recycling, virtualized flat list rather than a recursive control tree.
+The canvas retains one lightweight visual per render node below a camera
+container, so panning and zooming update a transform instead of repainting
+thousands of HUD nodes.
 
 `XuiEditor.Tests` exercises the core directly and starts WPF only for focused
 fixed-DPI rendering and workspace behavior tests.
@@ -65,6 +67,17 @@ properties.
 The WPF canvas consumes this result and has no authority to reinterpret the
 document. This keeps layout behavior deterministic and testable without a UI
 thread.
+
+The desktop keeps a `DyingLightLayoutSession` while the document and asset
+resolver revisions remain unchanged. Timeline parsing and immutable metadata
+are reused during playback; document or asset-index changes invalidate the
+session. Render frames are diffed by stable node key, and completed textures
+redraw only the visuals that reference them.
+
+Materials resolve to explicit default-alpha, text, clip, tint,
+group-pass-through, runtime-generated, or unsupported profiles. Recovered
+`UIMaskedGroup::ApplyMaterials` behavior recursively substitutes its image,
+text, and antialiased-rectangle materials when `ForceMaterials` is enabled.
 
 ## Asset resolution
 

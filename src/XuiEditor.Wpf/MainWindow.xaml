@@ -171,6 +171,10 @@
                           Click="LoadReferenceImage_Click" />
                 <MenuItem Header="Clear Reference Image"
                           Click="ClearReferenceImage_Click" />
+                <MenuItem Header="Force-show Selection"
+                          Click="ForceShowSelected_Click" />
+                <MenuItem Header="Clear Force-show"
+                          Click="ClearForceShown_Click" />
             </MenuItem>
             <MenuItem Header="_Animation">
                 <MenuItem Header="_Play / Pause" InputGestureText="Space"
@@ -225,6 +229,28 @@
                                   Margin="2"
                                   Checked="ToolbarSnap_Changed"
                                   Unchecked="ToolbarSnap_Changed" />
+                    <Separator Margin="5,3" />
+                    <TextBlock Text="Preview"
+                               Margin="4,0"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               VerticalAlignment="Center" />
+                    <ComboBox x:Name="PreviewScenarioCombo"
+                              Width="155"
+                              DisplayMemberPath="DisplayName"
+                              AutomationProperties.Name="Preview scenario"
+                              AutomationProperties.AutomationId="PreviewScenarioCombo"
+                              ToolTip="Choose representative game-supplied HUD values"
+                              SelectionChanged="PreviewScenario_SelectionChanged" />
+                    <TextBlock Text="Reference"
+                               Margin="7,0,3,0"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               VerticalAlignment="Center" />
+                    <Slider x:Name="ReferenceOpacitySlider"
+                            Width="72"
+                            Minimum="0"
+                            Maximum="1"
+                            ToolTip="Reference image opacity"
+                            ValueChanged="ReferenceOpacitySlider_ValueChanged" />
                 </StackPanel>
                 <TextBlock x:Name="DocumentPathText"
                            DockPanel.Dock="Right"
@@ -252,10 +278,21 @@
                 <DockPanel>
                     <Border DockPanel.Dock="Top" Style="{StaticResource PaneHeader}">
                         <DockPanel>
-                            <TextBlock x:Name="HierarchyCountText"
-                                       DockPanel.Dock="Right"
-                                       Foreground="{StaticResource MutedTextBrush}"
-                                       VerticalAlignment="Center" />
+                            <StackPanel DockPanel.Dock="Right"
+                                        Orientation="Horizontal">
+                                <Button Style="{StaticResource CompactButton}"
+                                        Content="Collapse"
+                                        ToolTip="Collapse all hierarchy branches"
+                                        Click="CollapseHierarchy_Click" />
+                                <Button Style="{StaticResource CompactButton}"
+                                        Content="Reveal"
+                                        ToolTip="Reveal the current canvas selection"
+                                        Click="RevealHierarchySelection_Click" />
+                                <TextBlock x:Name="HierarchyCountText"
+                                           Margin="7,0,0,0"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
                             <TextBlock Text="Hierarchy"
                                        FontWeight="SemiBold"
                                        VerticalAlignment="Center" />
@@ -275,6 +312,7 @@
                              ItemsSource="{Binding HierarchyRows}"
                              SelectionMode="Extended"
                              SelectionChanged="HierarchyList_SelectionChanged"
+                             KeyDown="HierarchyList_KeyDown"
                              VirtualizingPanel.IsVirtualizing="True"
                              VirtualizingPanel.VirtualizationMode="Recycling"
                              VirtualizingPanel.ScrollUnit="Pixel"
@@ -567,6 +605,11 @@
                                               IsChecked="True"
                                               VerticalAlignment="Center"
                                               Margin="9,0" />
+                                    <ToggleButton x:Name="AllTracksToggle"
+                                                  Content="All tracks"
+                                                  ToolTip="Show every timeline when no hierarchy node is selected"
+                                                  Checked="AllTracksToggle_Changed"
+                                                  Unchecked="AllTracksToggle_Changed" />
                                     <TextBlock Text="Speed"
                                                Foreground="{StaticResource MutedTextBrush}"
                                                VerticalAlignment="Center"
@@ -694,101 +737,6 @@
                                                     TickChanged="TimelineEditor_TickChanged"
                                                     SelectedKeyFrameChanged="TimelineEditor_SelectedKeyFrameChanged"
                                                     KeyFrameMoveRequested="TimelineEditor_KeyFrameMoveRequested" />
-                </Grid>
-            </TabItem>
-            <TabItem Header="Preview Data">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Border Grid.Row="0"
-                            Background="{StaticResource PanelRaisedBrush}"
-                            BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="0,0,0,1"
-                            Padding="7,5">
-                        <DockPanel>
-                            <StackPanel DockPanel.Dock="Right"
-                                        Orientation="Horizontal">
-                                <Button Content="Force-show selection"
-                                        Click="ForceShowSelected_Click"
-                                        ToolTip="Reveal selected runtime-hidden controls without editing the XUI" />
-                                <Button Content="Clear force-show"
-                                        Click="ClearForceShown_Click" />
-                                <Separator Margin="6,3" />
-                                <Button Content="Reference…"
-                                        Click="LoadReferenceImage_Click" />
-                                <Button Content="Clear"
-                                        Click="ClearReferenceImage_Click" />
-                                <TextBlock Text="Opacity"
-                                           Margin="7,0,4,0"
-                                           VerticalAlignment="Center"
-                                           Foreground="{StaticResource MutedTextBrush}" />
-                                <Slider x:Name="ReferenceOpacitySlider"
-                                        Width="90"
-                                        Minimum="0"
-                                        Maximum="1"
-                                        ValueChanged="ReferenceOpacitySlider_ValueChanged" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Scenario"
-                                           Margin="0,0,6,0"
-                                           VerticalAlignment="Center"
-                                           Foreground="{StaticResource MutedTextBrush}" />
-                                <ComboBox x:Name="PreviewScenarioCombo"
-                                          Width="190"
-                                          DisplayMemberPath="DisplayName"
-                                          AutomationProperties.Name="Preview scenario"
-                                          AutomationProperties.AutomationId="PreviewScenarioCombo"
-                                          ToolTip="Choose representative runtime values for controls whose data is normally supplied by the game"
-                                          SelectionChanged="PreviewScenario_SelectionChanged" />
-                                <TextBlock x:Name="PreviewScenarioDescription"
-                                           Margin="10,0,0,0"
-                                           VerticalAlignment="Center"
-                                           Foreground="{StaticResource MutedTextBrush}"
-                                           TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                        </DockPanel>
-                    </Border>
-                    <Grid Grid.Row="1">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <DataGrid x:Name="PreviewPropertiesGrid"
-                                  Grid.Column="0"
-                                  ItemsSource="{Binding PreviewProperties}"
-                                  AutoGenerateColumns="False"
-                                  CanUserAddRows="True"
-                                  HeadersVisibility="Column"
-                                  CellEditEnding="PreviewPropertiesGrid_CellEditEnding">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Target ID or node key"
-                                                    Binding="{Binding Target}"
-                                                    Width="220" />
-                                <DataGridComboBoxColumn Header="Property"
-                                                        SelectedItemBinding="{Binding Property}"
-                                                        Width="150" />
-                                <DataGridTextColumn Header="Runtime value"
-                                                    Binding="{Binding Value}"
-                                                    Width="*" />
-                            </DataGrid.Columns>
-                        </DataGrid>
-                        <StackPanel Grid.Column="1"
-                                    Margin="8,4,0,0">
-                            <Button Content="Add row"
-                                    Click="AddPreviewProperty_Click" />
-                            <Button Content="Delete row"
-                                    Click="DeletePreviewProperty_Click" />
-                            <Button Content="Reset scenario"
-                                    Click="ResetPreviewScenario_Click" />
-                            <TextBlock Margin="4,10,4,0"
-                                       Width="190"
-                                       TextWrapping="Wrap"
-                                       Foreground="{StaticResource MutedTextBrush}"
-                                       Text="These values are editor-only runtime data. They never change the XUI or get saved." />
-                        </StackPanel>
-                    </Grid>
                 </Grid>
             </TabItem>
             <TabItem Header="Diagnostics">

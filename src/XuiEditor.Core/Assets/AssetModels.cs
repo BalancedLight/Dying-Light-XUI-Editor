@@ -151,6 +151,8 @@ public sealed record XuiVisualTemplate(
 
 public interface IAssetResolver
 {
+    long Revision => 0;
+
     IReadOnlyList<XuiAssetRoot> Roots { get; }
 
     IReadOnlyList<XuiDiagnostic> Diagnostics { get; }

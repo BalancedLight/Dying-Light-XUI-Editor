@@ -160,6 +160,9 @@ public sealed class XuiDocument
 
     public void Execute(IXuiCommand command) => History.Execute(command);
 
+    public void ExecuteBatch(string description, Action edits) =>
+        History.ExecuteBatch(description, edits);
+
     public void Undo() => History.Undo();
 
     public void Redo() => History.Redo();

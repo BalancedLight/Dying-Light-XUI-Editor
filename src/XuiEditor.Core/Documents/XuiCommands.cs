@@ -17,6 +17,7 @@ public sealed class XuiCommandHistory
     private readonly XuiDocument _document;
     private readonly Stack<IXuiCommand> _undo = [];
     private readonly Stack<IXuiCommand> _redo = [];
+    private List<IXuiCommand>? _activeBatch;
 
     public XuiCommandHistory(XuiDocument document)
     {
@@ -39,6 +40,55 @@ public sealed class XuiCommandHistory
     {
         ArgumentNullException.ThrowIfNull(command);
         command.Execute(_document);
+        if (_activeBatch is not null)
+        {
+            _activeBatch.Add(command);
+            return;
+        }
+
+        _undo.Push(command);
+        _redo.Clear();
+        HistoryChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void ExecuteBatch(string description, Action edits)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        ArgumentNullException.ThrowIfNull(edits);
+        if (_activeBatch is not null)
+        {
+            edits();
+            return;
+        }
+
+        List<IXuiCommand> commands = [];
+        _activeBatch = commands;
+        try
+        {
+            edits();
+        }
+        catch
+        {
+            for (int index = commands.Count - 1; index >= 0; index--)
+            {
+                commands[index].Undo(_document);
+            }
+
+            throw;
+        }
+        finally
+        {
+            _activeBatch = null;
+        }
+
+        if (commands.Count == 0)
+        {
+            return;
+        }
+
+        IXuiCommand command = commands.Count == 1
+            ? commands[0]
+            : new XuiCompositeCommand(description, commands);
         _undo.Push(command);
         _redo.Clear();
         HistoryChanged?.Invoke(this, EventArgs.Empty);
@@ -51,7 +101,16 @@ public sealed class XuiCommandHistory
             return;
         }
 
-        command.Undo(_document);
+        try
+        {
+            command.Undo(_document);
+        }
+        catch
+        {
+            _undo.Push(command);
+            throw;
+        }
+
         _redo.Push(command);
         HistoryChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -63,7 +122,16 @@ public sealed class XuiCommandHistory
             return;
         }
 
-        command.Execute(_document);
+        try
+        {
+            command.Execute(_document);
+        }
+        catch
+        {
+            _redo.Push(command);
+            throw;
+        }
+
         _undo.Push(command);
         HistoryChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -76,6 +144,73 @@ public sealed class XuiCommandHistory
     }
 
     public event EventHandler? HistoryChanged;
+}
+
+public sealed class XuiCompositeCommand : IXuiCommand
+{
+    private readonly IXuiCommand[] _commands;
+
+    public XuiCompositeCommand(
+        string description,
+        IReadOnlyList<IXuiCommand> commands)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        ArgumentNullException.ThrowIfNull(commands);
+        if (commands.Count == 0)
+        {
+            throw new ArgumentException(
+                "A composite XUI command must contain at least one edit.",
+                nameof(commands));
+        }
+
+        Description = description;
+        _commands = commands.ToArray();
+    }
+
+    public string Description { get; }
+
+    public void Execute(XuiDocument document)
+    {
+        int completed = 0;
+        try
+        {
+            for (; completed < _commands.Length; completed++)
+            {
+                _commands[completed].Execute(document);
+            }
+        }
+        catch
+        {
+            for (int index = completed - 1; index >= 0; index--)
+            {
+                _commands[index].Undo(document);
+            }
+
+            throw;
+        }
+    }
+
+    public void Undo(XuiDocument document)
+    {
+        int firstUndone = _commands.Length;
+        try
+        {
+            for (int index = _commands.Length - 1; index >= 0; index--)
+            {
+                _commands[index].Undo(document);
+                firstUndone = index;
+            }
+        }
+        catch
+        {
+            for (int index = firstUndone; index < _commands.Length; index++)
+            {
+                _commands[index].Execute(document);
+            }
+
+            throw;
+        }
+    }
 }
 
 public sealed class XuiTextEditCommand : IXuiCommand

@@ -1,9 +1,12 @@
 using System.Diagnostics;
+using System.Windows;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using XuiEditor.Core.Animation;
 using XuiEditor.Core.Assets;
 using XuiEditor.Core.Documents;
+using XuiEditor.Core.Diagnostics;
 using XuiEditor.Core.Layout;
+using XuiEditor.Wpf;
 
 namespace XuiEditor.Tests;
 
@@ -92,10 +95,70 @@ public sealed class CorpusAcceptanceTests
             diagnostic.Code == "XUI-LAYOUT004" &&
             diagnostic.NodeKey is not null &&
             supportedMaterialKeys.Contains(diagnostic.NodeKey)));
+        XuiDiagnostic[] materialDiagnostics = frame.Diagnostics
+            .Where(static diagnostic => diagnostic.Code == "XUI-LAYOUT004")
+            .ToArray();
+        Assert.IsLessThan(
+            100,
+            materialDiagnostics.Length,
+            "Material diagnostics should be aggregated by profile/material.");
+        Assert.IsTrue(materialDiagnostics
+            .GroupBy(static diagnostic => diagnostic.Message)
+            .All(static group => group.Count() == 1));
         Assert.IsFalse(timelines.Diagnostics.Any(static diagnostic =>
             diagnostic.Code == "XUI-TL005"));
         Assert.IsLessThan(TimeSpan.FromSeconds(8), parseTime);
         Assert.IsLessThan(TimeSpan.FromSeconds(15), total);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    [Timeout(30_000)]
+    public void LargeHudUsesRetainedWorkspaceForNavigation()
+    {
+        RequireCorpus();
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        string path = Path.Combine(ExtractedRoot, @"data\menu\hud\hud.xui");
+        XuiDocument document = XuiDocument.OpenAsync(path)
+            .GetAwaiter()
+            .GetResult();
+        using MainWindow window = new()
+        {
+            Width = 1500,
+            Height = 930,
+        };
+        Stopwatch attachClock = Stopwatch.StartNew();
+        window.AttachDocumentForTesting(document);
+        attachClock.Stop();
+
+        Assert.IsGreaterThan(
+            1_000,
+            window.ViewportForTesting.RetainedNodeVisualCountForTesting);
+        Assert.IsLessThan(TimeSpan.FromSeconds(5), attachClock.Elapsed);
+
+        long contentRedraws =
+            window.ViewportForTesting.NodeContentRedrawCountForTesting;
+        Stopwatch navigationClock = Stopwatch.StartNew();
+        for (int index = 0; index < 30; index++)
+        {
+            window.ViewportForTesting.ZoomBy(index % 2 == 0 ? 1.05 : 1 / 1.05);
+        }
+
+        navigationClock.Stop();
+        Assert.AreEqual(
+            contentRedraws,
+            window.ViewportForTesting.NodeContentRedrawCountForTesting);
+        Assert.IsLessThan(
+            TimeSpan.FromMilliseconds(500),
+            navigationClock.Elapsed);
+
+        Stopwatch filterClock = Stopwatch.StartNew();
+        window.SetHierarchyFilterForTesting("Hud");
+        filterClock.Stop();
+        Assert.IsLessThan(
+            TimeSpan.FromMilliseconds(150),
+            filterClock.Elapsed);
     }
 
     [TestMethod]

@@ -1,5 +1,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using XuiEditor.Core.Assets;
+using XuiEditor.Core.Diagnostics;
 using XuiEditor.Core.Documents;
 using XuiEditor.Core.Layout;
 using XuiEditor.Core.Values;
@@ -483,6 +484,180 @@ public sealed class LayoutTests
             diagnostic.NodeKey == variant.Key));
         Assert.AreEqual(XuiPaintKind.SolidColor, plain.PaintKind);
         Assert.AreEqual(XuiPaintKind.None, emptyImage.PaintKind);
+    }
+
+    [TestMethod]
+    public void MaterialCatalogClassifiesEvidenceBackedFamilies()
+    {
+        Assert.AreEqual(
+            XuiMaterialBehavior.DefaultAlpha,
+            XuiMaterialCatalog.Resolve(
+                "menu_button_back.mat",
+                XuiRenderKind.Image).Behavior);
+        Assert.AreEqual(
+            XuiMaterialBehavior.Text,
+            XuiMaterialCatalog.Resolve(
+                "sprite_text_vc_white.mat",
+                XuiRenderKind.Text).Behavior);
+        Assert.AreEqual(
+            XuiMaterialBehavior.Clip,
+            XuiMaterialCatalog.Resolve(
+                "menu_mask_clip.mat",
+                XuiRenderKind.Image).Behavior);
+        Assert.AreEqual(
+            XuiMaterialBehavior.Clip,
+            XuiMaterialCatalog.Resolve(
+                "hud_car_fuel_bar.mat",
+                XuiRenderKind.Image).Behavior);
+        Assert.AreEqual(
+            XuiMaterialBehavior.Tint,
+            XuiMaterialCatalog.Resolve(
+                "hud_colorize.mat",
+                XuiRenderKind.Image).Behavior);
+        Assert.AreEqual(
+            XuiMaterialBehavior.Tint,
+            XuiMaterialCatalog.Resolve(
+                "menu_gamma.mat",
+                XuiRenderKind.Image).Behavior);
+        Assert.AreEqual(
+            XuiMaterialBehavior.GroupPassThrough,
+            XuiMaterialCatalog.Resolve(
+                "button_main_group.mat",
+                XuiRenderKind.Group).Behavior);
+        Assert.AreEqual(
+            XuiMaterialBehavior.RuntimeGenerated,
+            XuiMaterialCatalog.Resolve(
+                "map_area_stroke.mat",
+                XuiRenderKind.Shape).Behavior);
+        Assert.IsTrue(
+            XuiMaterialCatalog.Resolve(
+                "menu_viewport.mat",
+                XuiRenderKind.Image).SuppressSelfPaint);
+    }
+
+    [TestMethod]
+    public void ForcedMaskedGroupSubstitutesDescendantMaterialsByNodeKind()
+    {
+        XuiDocument document = Document(
+            "<UIMaskedGroup><Properties><Id>Mask</Id><Width>100</Width><Height>100</Height>" +
+            "<ForceMaterials>true</ForceMaterials>" +
+            "<ImageMaskMaterial>menu_mask_clip.mat</ImageMaskMaterial>" +
+            "<TextMaskMaterial>menu_text_clip.mat</TextMaskMaterial>" +
+            "<AARectangleMaskMaterial>menu_antialias_clip.mat</AARectangleMaskMaterial>" +
+            "</Properties>" +
+            "<MyImage><Properties><Id>Image</Id><Width>10</Width><Height>10</Height>" +
+            "<ImagePath>white</ImagePath><Material>sprite.mat</Material></Properties></MyImage>" +
+            "<MyText><Properties><Id>Text</Id><Width>20</Width><Height>10</Height>" +
+            "<Text>Masked</Text><Material>menu_text.mat</Material></Properties></MyText>" +
+            "<IUIAARectangle><Properties><Id>Rect</Id><Width>10</Width><Height>10</Height>" +
+            "<ImagePath>white</ImagePath><Material>menu_antialias.mat</Material>" +
+            "</Properties></IUIAARectangle></UIMaskedGroup>");
+
+        XuiRenderFrame frame = Frame(document);
+        XuiRenderNode image = frame.Nodes.Single(static node =>
+            node.Id == "Image");
+        XuiRenderNode text = frame.Nodes.Single(static node =>
+            node.Id == "Text");
+        XuiRenderNode rectangle = frame.Nodes.Single(static node =>
+            node.Id == "Rect");
+
+        Assert.AreEqual("menu_mask_clip.mat", image.Material);
+        Assert.AreEqual("menu_text_clip.mat", text.Material);
+        Assert.AreEqual("menu_antialias_clip.mat", rectangle.Material);
+        Assert.AreEqual(XuiMaterialBehavior.Clip, image.MaterialProfile.Behavior);
+        Assert.AreEqual(XuiMaterialBehavior.Clip, text.MaterialProfile.Behavior);
+        Assert.AreEqual(
+            XuiMaterialBehavior.Clip,
+            rectangle.MaterialProfile.Behavior);
+    }
+
+    [TestMethod]
+    public void RuntimeGeneratedShapeStaysTransparentAndDiagnostic()
+    {
+        XuiDocument document = Document(
+            "<IUIShape><Properties><Id>MapArea</Id><Width>80</Width><Height>60</Height>" +
+            "<ImagePath>white</ImagePath><Material>map_area_stroke.mat</Material>" +
+            "</Properties></IUIShape>");
+
+        XuiRenderFrame frame = Frame(document);
+        XuiRenderNode shape = frame.Nodes.Single(static node =>
+            node.Id == "MapArea");
+
+        Assert.AreEqual(XuiRenderKind.Shape, shape.Kind);
+        Assert.AreEqual(XuiPaintKind.None, shape.PaintKind);
+        Assert.IsTrue(shape.MaterialProfile.RequiresRuntimeData);
+        Assert.IsTrue(shape.IsApproximation);
+        Assert.IsTrue(frame.Diagnostics.Any(static diagnostic =>
+            diagnostic.Code == "XUI-LAYOUT004"));
+    }
+
+    [TestMethod]
+    public void RepeatedUnsupportedMaterialDiagnosticsAreAggregated()
+    {
+        XuiDocument document = Document(
+            "<MyImage><Properties><Id>A</Id><Width>10</Width><Height>10</Height>" +
+            "<ImagePath>white</ImagePath><Material>custom_shader.mat</Material>" +
+            "</Properties></MyImage>" +
+            "<MyImage><Properties><Id>B</Id><Width>10</Width><Height>10</Height>" +
+            "<ImagePath>white</ImagePath><Material>custom_shader.mat</Material>" +
+            "</Properties></MyImage>");
+
+        XuiRenderFrame frame = Frame(document);
+        XuiDiagnostic[] diagnostics = frame.Diagnostics
+            .Where(static diagnostic => diagnostic.Code == "XUI-LAYOUT004")
+            .ToArray();
+
+        Assert.HasCount(1, diagnostics);
+        StringAssert.Contains(diagnostics[0].Message, "2 affected nodes");
+    }
+
+    [TestMethod]
+    public void CompiledLayoutSessionRejectsStaleDocumentRevision()
+    {
+        XuiDocument document = Document(
+            "<MyImage><Properties><Id>A</Id><Width>10</Width><Height>10</Height>" +
+            "</Properties></MyImage>");
+        DyingLightLayoutSession session =
+            DyingLightLayoutSession.Compile(document);
+        XuiPropertyEntry width = XuiModelReader.GetProperty(
+            document.Root,
+            document.Text,
+            "Width")!;
+        document.Execute(XuiCommandFactory.SetElementValue(
+            document,
+            width.Element,
+            "120"));
+
+        Assert.IsFalse(session.IsCurrent(document, assetResolver: null));
+        Assert.Throws<InvalidOperationException>(() =>
+            session.Sample(new XuiViewport(100, 100), 0));
+    }
+
+    [TestMethod]
+    public void CompiledLayoutSessionReusesStaticMetadataAcrossTicks()
+    {
+        XuiDocument document = Document(
+            "<AdvGroup><Properties><Id>Panel</Id></Properties>" +
+            "<IUIAARectangle><Properties><Id>Fill</Id><Width>20</Width><Height>10</Height>" +
+            "<Material>menu_antialias.mat</Material><ImagePath>white</ImagePath>" +
+            "</Properties></IUIAARectangle></AdvGroup>");
+        DyingLightLayoutSession session =
+            DyingLightLayoutSession.Compile(document);
+        int nodeCount = session.CompiledNodeCount;
+        int materialCount = session.CompiledMaterialProfileCount;
+
+        XuiRenderFrame first =
+            session.Sample(new XuiViewport(1280, 720), 0);
+        XuiRenderFrame second =
+            session.Sample(new XuiViewport(1280, 720), 12);
+
+        Assert.IsGreaterThanOrEqualTo(3, nodeCount);
+        Assert.IsGreaterThanOrEqualTo(2, materialCount);
+        Assert.AreEqual(nodeCount, session.CompiledNodeCount);
+        Assert.AreEqual(
+            materialCount,
+            session.CompiledMaterialProfileCount);
+        Assert.AreEqual(first.Nodes.Count, second.Nodes.Count);
     }
 
     [TestMethod]

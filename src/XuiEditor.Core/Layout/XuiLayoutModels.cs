@@ -23,6 +23,7 @@ public enum XuiRenderKind
     Image,
     Text,
     Rectangle,
+    Shape,
     Presenter,
     Control,
     Unknown,
@@ -94,6 +95,9 @@ public sealed record XuiRenderNode(
     public XuiVector2 AuthoredSize { get; init; } = Size;
 
     public XuiPaintKind PaintKind { get; init; }
+
+    public XuiMaterialProfile MaterialProfile { get; init; } =
+        XuiMaterialProfile.Default;
 
     public double PointSize { get; init; }
 

@@ -5,8 +5,16 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>DyingLightXuiEditor</AssemblyName>
     <RootNamespace>XuiEditor.Wpf</RootNamespace>
-    <ApplicationIcon />
+    <ApplicationIcon>Assets\DyingLightXuiEditor.ico</ApplicationIcon>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>None</DebugType>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\XuiEditor.Core\XuiEditor.Core.csproj" />

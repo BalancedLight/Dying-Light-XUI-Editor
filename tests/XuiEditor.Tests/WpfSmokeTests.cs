@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Collections.Specialized;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -8,8 +10,11 @@ using System.Windows.Media.Imaging;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using XuiEditor.Core.Assets;
+using XuiEditor.Core.Animation;
+using XuiEditor.Core.Diagnostics;
 using XuiEditor.Core.Documents;
 using XuiEditor.Core.Layout;
+using XuiEditor.Core.Values;
 using XuiEditor.Wpf;
 using XuiEditor.Wpf.Controls;
 using XuiEditor.Wpf.Models;
@@ -314,6 +319,291 @@ public sealed class WpfSmokeTests
 
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
+    public void MainMenuDropdownUsesEditorOwnedDarkTemplate()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        MenuItem child = new()
+        {
+            Header = "Open",
+            InputGestureText = "Ctrl+O",
+        };
+        MenuItem root = new()
+        {
+            Header = "File",
+            Items = { child },
+        };
+        Menu menu = new()
+        {
+            Items = { root },
+        };
+        Window host = new()
+        {
+            Width = 360,
+            Height = 180,
+            Content = menu,
+            WindowStyle = WindowStyle.None,
+            ShowInTaskbar = false,
+        };
+
+        try
+        {
+            host.Show();
+            root.ApplyTemplate();
+            root.IsSubmenuOpen = true;
+            host.Dispatcher.Invoke(
+                static () => { },
+                System.Windows.Threading.DispatcherPriority.Render);
+            child.ApplyTemplate();
+
+            Border itemBorder = (Border)child.Template.FindName(
+                "ItemBorder",
+                child);
+            Border submenuBorder = (Border)root.Template.FindName(
+                "SubmenuBorder",
+                root);
+            Assert.IsTrue(root.OverridesDefaultStyle);
+            Assert.IsTrue(child.OverridesDefaultStyle);
+            Assert.IsTrue(IsDark(itemBorder.Background));
+            Assert.IsTrue(IsDark(submenuBorder.Background));
+            Assert.AreEqual(
+                ((SolidColorBrush)application.Resources["AccentBrush"]).Color,
+                ((SolidColorBrush)submenuBorder.BorderBrush).Color);
+        }
+        finally
+        {
+            root.IsSubmenuOpen = false;
+            host.Close();
+        }
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void PreviewPresetsRemainInToolbarWithoutManualDataGrid()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        using MainWindow window = new();
+        FrameworkElement content = (FrameworkElement)window.Content;
+        content.Measure(new Size(1280, 760));
+        content.Arrange(new Rect(0, 0, 1280, 760));
+        content.UpdateLayout();
+
+        Assert.IsNotNull(window.FindName("PreviewScenarioCombo"));
+        Assert.IsNull(window.FindName("PreviewPropertiesGrid"));
+        Assert.IsFalse(
+            Descendants(content)
+                .OfType<TabItem>()
+                .Any(static tab =>
+                    string.Equals(
+                        tab.Header?.ToString(),
+                        "Preview Data",
+                        StringComparison.Ordinal)));
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void RetainedViewportUpdatesCameraAndLiveTransformsWithoutRepaintingNodes()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<AdvGroup><Properties><Id>Parent</Id><Width>50</Width><Height>50</Height>" +
+            "<Position>10,10,0</Position><ClipChildren>1</ClipChildren></Properties>" +
+            "<IUIAARectangle><Properties><Id>Child</Id><Width>10</Width><Height>10</Height>" +
+            "<Position>5,5,0</Position><ImagePath>white</ImagePath>" +
+            "<Color>0xff445566</Color></Properties></IUIAARectangle></AdvGroup>" +
+            "</XuiCanvas>");
+        XuiRenderFrame frame = DyingLightLayoutEngine.Evaluate(
+            document,
+            new XuiViewport(100, 100),
+            0);
+        XuiRenderNode parent = frame.Nodes.Single(static node =>
+            node.Id == "Parent");
+        XuiRenderNode child = frame.Nodes.Single(static node =>
+            node.Id == "Child");
+        XuiViewportControl viewport = new()
+        {
+            Width = 600,
+            Height = 400,
+            ShowGrid = false,
+            ShowSafeArea = false,
+        };
+        viewport.SetFrame(frame);
+        viewport.Measure(new Size(600, 400));
+        viewport.Arrange(new Rect(0, 0, 600, 400));
+        viewport.UpdateLayout();
+
+        Assert.AreEqual(
+            frame.Nodes.Count,
+            viewport.RetainedNodeVisualCountForTesting);
+        Assert.IsTrue(
+            viewport.RetainedContainerHasClipForTesting(parent.Key));
+        Assert.IsTrue(
+            viewport.RetainedContainerHasClipForTesting(child.Key));
+        long redraws = viewport.NodeContentRedrawCountForTesting;
+        long cameraUpdates = viewport.CameraUpdateCountForTesting;
+        viewport.ZoomBy(1.2);
+        Assert.AreEqual(redraws, viewport.NodeContentRedrawCountForTesting);
+        Assert.IsGreaterThan(
+            cameraUpdates,
+            viewport.CameraUpdateCountForTesting);
+
+        viewport.SetSelectedKeys([parent.Key, child.Key]);
+        var originalParent =
+            viewport.RetainedLocalTransformForTesting(parent.Key);
+        var originalChild =
+            viewport.RetainedLocalTransformForTesting(child.Key);
+        viewport.PreviewTransformForTesting(
+            parent.Key,
+            XuiTransformKind.Move,
+            new XuiVector2(8, 6));
+        var movedParent =
+            viewport.RetainedLocalTransformForTesting(parent.Key);
+        var unchangedChild =
+            viewport.RetainedLocalTransformForTesting(child.Key);
+        Assert.AreNotEqual(originalParent.M31, movedParent.M31);
+        Assert.AreEqual(originalChild, unchangedChild);
+        Assert.AreEqual(redraws, viewport.NodeContentRedrawCountForTesting);
+        viewport.CancelTransformForTesting();
+        Assert.AreEqual(
+            originalParent,
+            viewport.RetainedLocalTransformForTesting(parent.Key));
+
+        viewport.PreviewTransformForTesting(
+            parent.Key,
+            XuiTransformKind.Rotate,
+            default,
+            rotationDelta: 30);
+        Assert.AreNotEqual(
+            originalParent,
+            viewport.RetainedLocalTransformForTesting(parent.Key));
+        viewport.CancelTransformForTesting();
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void MultiSelectionRotationCommitsRootNodesAsOneUndoStep()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<AdvGroup><Properties><Id>Parent</Id><Width>50</Width><Height>50</Height></Properties>" +
+            "<MyImage><Properties><Id>Child</Id><Width>10</Width><Height>10</Height>" +
+            "</Properties></MyImage></AdvGroup>" +
+            "<MyImage><Properties><Id>Other</Id><Width>10</Width><Height>10</Height>" +
+            "</Properties></MyImage></XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        XuiSyntaxNode parent = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Parent");
+        XuiSyntaxNode child = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Child");
+        XuiSyntaxNode other = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Other");
+        window.SelectNodeKeysForTesting(
+            [parent.Key, child.Key, other.Key]);
+
+        window.CommitTransformForTesting(
+            new XuiTransformCommittedEventArgs(
+                parent.Key,
+                XuiTransformKind.Rotate,
+                default,
+                default,
+                30,
+                default));
+
+        XuiSyntaxNode currentParent =
+            XuiModelReader.VisualDescendants(document.Root).Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Parent");
+        XuiSyntaxNode currentChild =
+            XuiModelReader.VisualDescendants(document.Root).Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Child");
+        XuiSyntaxNode currentOther =
+            XuiModelReader.VisualDescendants(document.Root).Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Other");
+        Assert.AreEqual(
+            "30.000000",
+            XuiModelReader.GetPropertyValue(
+                currentParent,
+                document.Text,
+                "Rotation"));
+        Assert.IsNull(XuiModelReader.GetPropertyValue(
+            currentChild,
+            document.Text,
+            "Rotation"));
+        Assert.AreEqual(
+            "30.000000",
+            XuiModelReader.GetPropertyValue(
+                currentOther,
+                document.Text,
+                "Rotation"));
+        Assert.AreEqual(
+            "Rotate selection",
+            document.History.UndoDescription);
+
+        document.Undo();
+        Assert.AreEqual(source, document.Text);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void TextureDiagnosticsDoNotReevaluateTheDocument()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<MyImage><Properties><Id>Image</Id><Width>10</Width><Height>10</Height>" +
+            "</Properties></MyImage></XuiCanvas>");
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        long evaluations = window.LayoutEvaluationCountForTesting;
+
+        window.ApplyTextureDiagnosticsForTesting(
+            "test_image",
+            [
+                new XuiDiagnostic(
+                    "XUI-ASSET-TEST",
+                    XuiDiagnosticSeverity.Info,
+                    "Texture completed."),
+            ]);
+
+        Assert.AreEqual(
+            evaluations,
+            window.LayoutEvaluationCountForTesting);
+        Assert.IsTrue(window.FilteredDiagnostics.Any(static diagnostic =>
+            diagnostic.Code == "XUI-ASSET-TEST"));
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void TimelineWaitsForSelectionUnlessAllTracksIsExplicit()
+    {
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<MyImage><Properties><Id>Animated</Id><Width>10</Width><Height>10</Height>" +
+            "</Properties></MyImage><Timelines><Timeline><Id>Animated</Id>" +
+            "<TimelineProp>Opacity</TimelineProp><KeyFrame><Time>0</Time>" +
+            "<Interpolation>0</Interpolation><Prop>1</Prop></KeyFrame>" +
+            "</Timeline></Timelines></XuiCanvas>");
+        XuiTimelineSet timelines = XuiTimelineParser.Parse(document);
+        TimelineEditorControl control = new();
+
+        control.SetData(timelines, [], 0);
+        Assert.AreEqual(0, control.VisibleTrackCountForTesting);
+        control.SetData(timelines, [], 0, showAllWhenEmpty: true);
+        Assert.AreEqual(1, control.VisibleTrackCountForTesting);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
     [Timeout(20_000)]
     public void LargeHierarchyFiltersWithoutOverlapOrExpansionStateLoss()
     {
@@ -340,7 +630,22 @@ public sealed class WpfSmokeTests
         string[] expansionBeforeFilter =
             window.ExpandedKeysForTesting.Order(StringComparer.Ordinal).ToArray();
 
+        int hierarchyResets = 0;
+        window.HierarchyRows.CollectionChanged += (_, eventArgs) =>
+        {
+            if (eventArgs.Action == NotifyCollectionChangedAction.Reset)
+            {
+                hierarchyResets++;
+            }
+        };
+        Stopwatch filterClock = Stopwatch.StartNew();
         window.SetHierarchyFilterForTesting("Item02199");
+        filterClock.Stop();
+        Assert.IsLessThan(
+            TimeSpan.FromMilliseconds(150),
+            filterClock.Elapsed,
+            $"Indexed hierarchy filtering took {filterClock.Elapsed.TotalMilliseconds:0.0} ms.");
+        Assert.AreEqual(1, hierarchyResets);
         Assert.AreEqual(3, window.HierarchyRows.Count);
         window.SetHierarchyFilterForTesting(string.Empty);
         CollectionAssert.AreEqual(
@@ -512,6 +817,41 @@ public sealed class WpfSmokeTests
         Assert.DoesNotContain("SoundPlayer", combined, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaPlayer", combined, StringComparison.Ordinal);
         Assert.DoesNotContain("<MediaElement", combined, StringComparison.Ordinal);
+    }
+
+    [TestMethod]
+    public void PublishContractIsSingleFileAndUsesMultiResolutionIcon()
+    {
+        string root = FindDesktopRoot();
+        string project = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "XuiEditor.Wpf",
+            "XuiEditor.Wpf.csproj"));
+        StringAssert.Contains(project, "<PublishSingleFile>true</PublishSingleFile>");
+        StringAssert.Contains(
+            project,
+            "<SelfContained Condition=\"'$(RuntimeIdentifier)' != ''\">true</SelfContained>");
+        StringAssert.Contains(
+            project,
+            "<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>");
+        StringAssert.Contains(
+            project,
+            "<ApplicationIcon>Assets\\DyingLightXuiEditor.ico</ApplicationIcon>");
+
+        string iconPath = Path.Combine(
+            root,
+            "src",
+            "XuiEditor.Wpf",
+            "Assets",
+            "DyingLightXuiEditor.ico");
+        byte[] icon = File.ReadAllBytes(iconPath);
+        Assert.IsGreaterThan(6, icon.Length);
+        Assert.AreEqual(0, BitConverter.ToUInt16(icon, 0));
+        Assert.AreEqual(1, BitConverter.ToUInt16(icon, 2));
+        Assert.IsGreaterThanOrEqualTo(
+            (ushort)8,
+            BitConverter.ToUInt16(icon, 4));
     }
 
     private static IEnumerable<DependencyObject> Descendants(DependencyObject parent)

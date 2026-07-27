@@ -197,6 +197,79 @@ public sealed class DocumentRoundTripTests
     }
 
     [TestMethod]
+    public void BatchEditsUndoAndRedoAsOneCommand()
+    {
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>1</Width><Height>2</Height></Properties></XuiCanvas>");
+
+        document.ExecuteBatch("Resize element", () =>
+        {
+            XuiPropertyEntry width = XuiModelReader.GetProperty(
+                document.Root,
+                document.Text,
+                "Width")!;
+            document.Execute(XuiCommandFactory.SetElementValue(
+                document,
+                width.Element,
+                "10"));
+            XuiPropertyEntry height = XuiModelReader.GetProperty(
+                document.Root,
+                document.Text,
+                "Height")!;
+            document.Execute(XuiCommandFactory.SetElementValue(
+                document,
+                height.Element,
+                "20"));
+        });
+
+        StringAssert.Contains(document.Text, "<Width>10</Width>");
+        StringAssert.Contains(document.Text, "<Height>20</Height>");
+        Assert.AreEqual("Resize element", document.History.UndoDescription);
+
+        document.Undo();
+        StringAssert.Contains(document.Text, "<Width>1</Width>");
+        StringAssert.Contains(document.Text, "<Height>2</Height>");
+        Assert.IsFalse(document.History.CanUndo);
+
+        document.Redo();
+        StringAssert.Contains(document.Text, "<Width>10</Width>");
+        StringAssert.Contains(document.Text, "<Height>20</Height>");
+    }
+
+    [TestMethod]
+    public void FailedBatchRollsBackEveryCompletedEdit()
+    {
+        const string source =
+            "<XuiCanvas><Properties><Width>1</Width><Height>2</Height></Properties></XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        IXuiCommand width = XuiCommandFactory.SetElementValue(
+            document,
+            XuiModelReader.GetProperty(
+                document.Root,
+                document.Text,
+                "Width")!.Element,
+            "100");
+        IXuiCommand staleHeight = XuiCommandFactory.SetElementValue(
+            document,
+            XuiModelReader.GetProperty(
+                document.Root,
+                document.Text,
+                "Height")!.Element,
+            "200");
+
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            document.ExecuteBatch("Invalid resize", () =>
+            {
+                document.Execute(width);
+                document.Execute(staleHeight);
+            }));
+
+        Assert.AreEqual(source, document.Text);
+        Assert.IsFalse(document.History.CanUndo);
+        Assert.IsFalse(document.History.CanRedo);
+    }
+
+    [TestMethod]
     public void RawElementReplacementIsTransactionalAndUndoable()
     {
         string source =

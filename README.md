@@ -10,14 +10,16 @@ compatibility.
 
 ## Run the portable build
 
-The self-contained Windows x64 build is:
+The self-contained Windows x64 build is one executable:
 
 ```text
 artifacts\publish\win-x64\DyingLightXuiEditor.exe
 ```
 
-It does not require Unity or an installed .NET runtime. Dying Light assets are
-not bundled.
+It does not require Unity or an installed .NET runtime, and it does not need
+framework DLLs beside it. Native WPF components are unpacked to .NET's
+per-user single-file cache when the editor starts. Dying Light assets are not
+bundled.
 
 On first use:
 
@@ -42,16 +44,18 @@ sources are always read-only. Opening an installed or extracted file requires
   duplicate properties, unknown nodes, line endings, and encoding.
 - Atomic same-directory saves with one backup, external-change detection,
   undo/redo, recent files, and isolated recovery snapshots.
-- A virtualized, fixed-height hierarchy with stable expansion state, search,
-  breadcrumbs, visibility/lock switches, and synchronized selection.
-- A `DrawingVisual` canvas with pan, zoom, fit, actual pixels, rulers, grid,
-  safe-area overlay, snapping, declaration-order compositing, clipping,
-  selection bounds, and transform handles.
+- An indexed, virtualized, fixed-height hierarchy with stable expansion
+  state, debounced search, collapse/reveal commands, breadcrumbs,
+  visibility/lock switches, and synchronized selection.
+- A retained `DrawingVisual` canvas with transform-only pan/zoom, fit, actual
+  pixels, rulers, grid, safe-area overlay, snapping, declaration-order
+  compositing, clipping, selection bounds, and live transform handles.
 - Typed property groups plus a raw/unknown escape hatch. Invalid values remain
   visible with diagnostics instead of being silently normalized.
 - Dying Light anchors, pivots, transforms, opacity/show inheritance, keep and
   resolution flags, stack/wrap-panel layout, visual templates, stock control
-  families, DDS textures, atlases, tilesets, and nine-slice definitions.
+  families, evidence-backed material profiles, forced-mask substitution, DDS
+  textures, atlases, tilesets, and nine-slice definitions.
 - Direct install-backed resolution for PAK and RP6L/RPACK assets. In
   particular, HUD definitions referring to `hud_dw` resolve the real
   `hud_dw.dds` atlas from the installed menu packs.
@@ -59,8 +63,8 @@ sources are always read-only. Opening an installed or extracted file requires
   bitmap metrics, private input glyphs, and font-atlas DDS resources. Exact
   engine bitmap fonts are used when available; mappings and diagnosed
   fallbacks remain available.
-- Editable preview scenarios for hidden/runtime-populated HUD text and
-  imagery, per-node force-show controls, and a variable-opacity reference
+- Curated preview presets for hidden/runtime-populated HUD text and imagery,
+  per-node force-show controls, and a variable-opacity reference
   screenshot overlay. Scenario data affects only the preview and never
   rewrites the XUI.
 - Full 60 Hz timeline parsing, playback, sampling, keyframe editing,
@@ -84,6 +88,7 @@ fake labels into the rendered scene.
 | Indent / outdent | `Alt+Right` / `Alt+Left` |
 | Fit / actual pixels | `F` / `0` |
 | Zoom in / out | `+` / `-` |
+| Focus hierarchy search | `Ctrl+F` |
 | Play or pause | `Space` |
 | Previous / next tick | `,` / `.` |
 | Copy / paste keyframe | `Ctrl+Alt+C` / `Ctrl+Alt+V` |
@@ -104,6 +109,10 @@ dotnet publish src\XuiEditor.Wpf\XuiEditor.Wpf.csproj `
   -c Release -r win-x64 --self-contained true --no-restore `
   -o artifacts\publish\win-x64
 ```
+
+The project enables .NET single-file publishing and embeds the supplied
+multi-resolution XUI icon, so the publish directory contains
+`DyingLightXuiEditor.exe` as the distributable application.
 
 The solution contains:
 

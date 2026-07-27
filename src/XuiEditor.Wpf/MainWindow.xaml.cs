@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -34,6 +33,8 @@ public partial class MainWindow : Window, IDisposable
         "DefaultFont", "PointSize", "TextStyle", "Visual", "ClassOverride",
         "NavUp", "NavDown", "NavLeft", "NavRight", "NavTabForward",
         "NavTabBackward", "ClipChildren", "UseMask", "MaskSource",
+        "ForceMaterials", "ImageMaskMaterial", "TextMaskMaterial",
+        "AARectangleMaskMaterial",
         "KeepPosX", "KeepPosY", "KeepWidth", "KeepHeight",
         "KeepPosXOnParentSizeChange", "KeepPosYOnParentSizeChange",
         "KeepWidthOnParentSizeChange", "KeepHeightOnParentSizeChange",
@@ -59,7 +60,8 @@ public partial class MainWindow : Window, IDisposable
     private static readonly HashSet<string> BooleanProperties = new(
         StringComparer.Ordinal)
     {
-        "Show", "ClipChildren", "UseMask", "KeepPosX", "KeepPosY",
+        "Show", "ClipChildren", "UseMask", "ForceMaterials",
+        "KeepPosX", "KeepPosY",
         "KeepWidth", "KeepHeight", "KeepPosXOnParentSizeChange",
         "KeepPosYOnParentSizeChange", "KeepWidthOnParentSizeChange",
         "KeepHeightOnParentSizeChange", "KeepPosXOnResolutionChange",
@@ -88,13 +90,6 @@ public partial class MainWindow : Window, IDisposable
         "Color", "TextColor", "OutlineColor", "DefaultFontColor",
         "ShadowColor", "DropShadowColor",
     };
-    private static readonly string[] PreviewPropertyNames =
-    [
-        "Text", "SourceString", "ImagePath", "Material", "Show", "Opacity",
-        "Position", "Scale", "Rotation", "Width", "Height", "Color",
-        "TextColor", "Outline", "OutlineColor", "Shadow", "Pivot",
-        "Const0", "Const1", "TextProgress", "DefaultFontColor",
-    ];
     private readonly EditorSettings _settings;
     private readonly HashSet<string> _expanded = new(StringComparer.Ordinal);
     private readonly HashSet<string> _selectedKeys = new(StringComparer.Ordinal);
@@ -104,12 +99,16 @@ public partial class MainWindow : Window, IDisposable
     private readonly HashSet<string> _lockedKeys = new(StringComparer.Ordinal);
     private readonly Dictionary<string, IReadOnlyList<XuiDiagnostic>>
         _textureDiagnostics = new(StringComparer.Ordinal);
+    private IReadOnlyList<XuiDiagnostic> _evaluationDiagnostics = [];
     private readonly DispatcherTimer _playbackTimer;
     private readonly DispatcherTimer _recoveryTimer;
+    private readonly DispatcherTimer _hierarchySearchTimer;
     private readonly Stopwatch _playbackClock = new();
     private XuiDocument? _document;
     private DyingLightInstallIndex? _installIndex;
     private DyingLightAssetResolver? _assetResolver;
+    private DyingLightLayoutSession? _layoutSession;
+    private HierarchyIndex? _hierarchyIndex;
     private XuiTimelineSet? _timelineSet;
     private FileSystemWatcher? _watcher;
     private bool _syncingSelection;
@@ -122,11 +121,11 @@ public partial class MainWindow : Window, IDisposable
     private bool _isPlaying;
     private double _playbackRemainder;
     private int _currentTick;
+    private long _layoutEvaluationCount;
     private string? _copiedKeyFrameXml;
     private string? _selectedNamedFrameKey;
     private DateTime _ignoreWatcherUntilUtc;
     private bool _allowClose;
-    private bool _updatingPreviewScenario;
     private string? _recoverySuggestedPath;
     private RecoverySnapshot? _activeRecovery;
     private bool _disposed;
@@ -136,7 +135,6 @@ public partial class MainWindow : Window, IDisposable
         _settings = EditorSettingsStore.Load();
         HierarchyRows = [];
         InspectorProperties = [];
-        PreviewProperties = [];
         FilteredDiagnostics = [];
         InitializeComponent();
         DataContext = this;
@@ -148,14 +146,6 @@ public partial class MainWindow : Window, IDisposable
                     StringComparison.Ordinal)) ??
             XuiPreviewScenario.Empty;
         ReferenceOpacitySlider.Value = _settings.ReferenceOverlayOpacity;
-        DataGridComboBoxColumn? previewPropertyColumn =
-            PreviewPropertiesGrid.Columns
-                .OfType<DataGridComboBoxColumn>()
-                .FirstOrDefault();
-        if (previewPropertyColumn is not null)
-        {
-            previewPropertyColumn.ItemsSource = PreviewPropertyNames;
-        }
 
         Viewport.TextureDiagnosticsAvailable +=
             Viewport_TextureDiagnosticsAvailable;
@@ -176,15 +166,25 @@ public partial class MainWindow : Window, IDisposable
         {
             IsEnabled = false,
         };
+        _hierarchySearchTimer = new DispatcherTimer(
+            TimeSpan.FromMilliseconds(150),
+            DispatcherPriority.Background,
+            (timer, _) =>
+            {
+                ((DispatcherTimer)timer!).Stop();
+                ApplyHierarchyFilter();
+            },
+            Dispatcher)
+        {
+            IsEnabled = false,
+        };
     }
 
-    public ObservableCollection<HierarchyRow> HierarchyRows { get; }
+    public BatchObservableCollection<HierarchyRow> HierarchyRows { get; }
 
-    public ObservableCollection<InspectorPropertyRow> InspectorProperties { get; }
+    public BatchObservableCollection<InspectorPropertyRow> InspectorProperties { get; }
 
-    public ObservableCollection<PreviewPropertyRow> PreviewProperties { get; }
-
-    public ObservableCollection<XuiDiagnostic> FilteredDiagnostics { get; }
+    public BatchObservableCollection<XuiDiagnostic> FilteredDiagnostics { get; }
 
     internal IReadOnlyCollection<string> ExpandedKeysForTesting => _expanded;
 
@@ -193,6 +193,9 @@ public partial class MainWindow : Window, IDisposable
     internal XuiViewportControl ViewportForTesting => Viewport;
 
     internal TimelineEditorControl TimelineForTesting => TimelineEditor;
+
+    internal long LayoutEvaluationCountForTesting =>
+        _layoutEvaluationCount;
 
     internal XuiRenderContext PreviewRenderContextForTesting =>
         BuildRenderContext();
@@ -234,8 +237,12 @@ public partial class MainWindow : Window, IDisposable
         BuildHierarchy();
     }
 
-    internal void SetHierarchyFilterForTesting(string filter) =>
+    internal void SetHierarchyFilterForTesting(string filter)
+    {
         HierarchySearch.Text = filter;
+        _hierarchySearchTimer.Stop();
+        ApplyHierarchyFilter();
+    }
 
     internal void SelectNodeKeysForTesting(IEnumerable<string> nodeKeys)
     {
@@ -246,6 +253,19 @@ public partial class MainWindow : Window, IDisposable
         SelectRowsFromKeys();
         UpdateSelectionSurfaces();
     }
+
+    internal void CommitTransformForTesting(
+        XuiTransformCommittedEventArgs eventArgs) =>
+        Viewport_TransformCommitted(this, eventArgs);
+
+    internal void ApplyTextureDiagnosticsForTesting(
+        string imagePath,
+        IReadOnlyList<XuiDiagnostic> diagnostics) =>
+        Viewport_TextureDiagnosticsAvailable(
+            this,
+            new XuiTextureDiagnosticsEventArgs(
+                imagePath,
+                diagnostics));
 
     private async void Window_Loaded(object sender, RoutedEventArgs eventArgs)
     {
@@ -504,75 +524,14 @@ public partial class MainWindow : Window, IDisposable
         object sender,
         SelectionChangedEventArgs eventArgs)
     {
-        if (_updatingPreviewScenario ||
-            PreviewScenarioCombo.SelectedItem is not XuiPreviewScenario scenario)
+        if (PreviewScenarioCombo.SelectedItem is not XuiPreviewScenario scenario)
         {
             return;
         }
 
         _settings.PreviewScenarioId = scenario.Id;
-        LoadPreviewScenario(scenario);
+        PreviewScenarioCombo.ToolTip = scenario.Description;
         RefreshEvaluation();
-    }
-
-    private void PreviewPropertiesGrid_CellEditEnding(
-        object sender,
-        DataGridCellEditEndingEventArgs eventArgs)
-    {
-        _ = Dispatcher.BeginInvoke(
-            DispatcherPriority.Background,
-            RefreshEvaluation);
-    }
-
-    private void AddPreviewProperty_Click(
-        object sender,
-        RoutedEventArgs eventArgs)
-    {
-        XuiSyntaxNode? node = SelectedNodes().FirstOrDefault();
-        PreviewPropertyRow row = new()
-        {
-            Target = node is null || _document is null
-                ? string.Empty
-                : PreviewTargetFor(node),
-            Property = "Text",
-        };
-        PreviewProperties.Add(row);
-        PreviewPropertiesGrid.SelectedItem = row;
-        PreviewPropertiesGrid.ScrollIntoView(row);
-        RefreshEvaluation();
-    }
-
-    private void DeletePreviewProperty_Click(
-        object sender,
-        RoutedEventArgs eventArgs)
-    {
-        PreviewPropertyRow[] selected =
-            PreviewPropertiesGrid.SelectedItems
-                .OfType<PreviewPropertyRow>()
-                .ToArray();
-        if (selected.Length == 0 &&
-            PreviewPropertiesGrid.SelectedItem is PreviewPropertyRow single)
-        {
-            selected = [single];
-        }
-
-        foreach (PreviewPropertyRow row in selected)
-        {
-            PreviewProperties.Remove(row);
-        }
-
-        RefreshEvaluation();
-    }
-
-    private void ResetPreviewScenario_Click(
-        object sender,
-        RoutedEventArgs eventArgs)
-    {
-        if (PreviewScenarioCombo.SelectedItem is XuiPreviewScenario scenario)
-        {
-            LoadPreviewScenario(scenario);
-            RefreshEvaluation();
-        }
     }
 
     private void ForceShowSelected_Click(
@@ -816,6 +775,74 @@ public partial class MainWindow : Window, IDisposable
         BuildHierarchy();
     }
 
+    private void CollapseHierarchy_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        _expanded.Clear();
+        _expanded.Add(_document.Root.Key);
+        BuildHierarchy();
+        SelectRowsFromKeys();
+    }
+
+    private void RevealHierarchySelection_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        EnsureSelectedAncestorsExpanded();
+        BuildHierarchy();
+        SelectRowsFromKeys();
+        HierarchyList.Focus();
+    }
+
+    private void HierarchyList_KeyDown(
+        object sender,
+        KeyEventArgs eventArgs)
+    {
+        if (HierarchyList.SelectedItem is not HierarchyRow row)
+        {
+            return;
+        }
+
+        if (eventArgs.Key == Key.Right && row.HasChildren)
+        {
+            _expanded.Add(row.NodeKey);
+        }
+        else if (eventArgs.Key == Key.Left)
+        {
+            if (_expanded.Remove(row.NodeKey))
+            {
+                // The selected row stays selected after the branch collapses.
+            }
+            else if (_hierarchyIndex?.Find(row.NodeKey)?.ParentKey is
+                     string parentKey)
+            {
+                _selectedKeys.Clear();
+                _selectedKeys.Add(parentKey);
+                EnsureSelectedAncestorsExpanded();
+            }
+        }
+        else
+        {
+            return;
+        }
+
+        BuildHierarchy();
+        SelectRowsFromKeys();
+        UpdateSelectionSurfaces();
+        eventArgs.Handled = true;
+    }
+
+    private void AllTracksToggle_Changed(
+        object sender,
+        RoutedEventArgs eventArgs) =>
+        UpdateTimelineData();
+
     private void HierarchyVisibility_Click(
         object sender,
         RoutedEventArgs eventArgs)
@@ -859,6 +886,12 @@ public partial class MainWindow : Window, IDisposable
     private void HierarchySearch_TextChanged(
         object sender,
         TextChangedEventArgs eventArgs)
+    {
+        _hierarchySearchTimer.Stop();
+        _hierarchySearchTimer.Start();
+    }
+
+    private void ApplyHierarchyFilter()
     {
         string filter = HierarchySearch.Text.Trim();
         if (filter.Length > 0 && !_filterActive)
@@ -949,7 +982,7 @@ public partial class MainWindow : Window, IDisposable
         {
             IReadOnlyList<string> targetKeys =
                 _selectedKeys.Contains(eventArgs.NodeKey)
-                    ? _selectedKeys.ToArray()
+                    ? SelectedTransformRootKeys()
                     : [eventArgs.NodeKey];
             ExecuteBatch(() =>
             {
@@ -964,10 +997,14 @@ public partial class MainWindow : Window, IDisposable
                         _document.SyntaxTree.FindByKey(key);
                     if (node is not null)
                     {
-                        ApplyPositionDelta(node, eventArgs.PositionDelta);
+                        ApplyPositionDelta(
+                            node,
+                            eventArgs.PositionDeltas.GetValueOrDefault(
+                                key,
+                                eventArgs.PositionDelta));
                     }
                 }
-            });
+            }, "Move selection");
             return;
         }
 
@@ -1015,14 +1052,63 @@ public partial class MainWindow : Window, IDisposable
                         (eventArgs.OriginalSize.Y + eventArgs.SizeDelta.Y)
                         .ToString("0.000000", CultureInfo.InvariantCulture));
                 }
-            });
+            }, "Resize element");
             return;
         }
 
         if (eventArgs.Kind == XuiTransformKind.Rotate)
         {
-            ApplyRotationDelta(selectedNode, eventArgs.RotationDelta);
+            IReadOnlyList<string> targetKeys =
+                _selectedKeys.Contains(eventArgs.NodeKey)
+                    ? SelectedTransformRootKeys()
+                    : [eventArgs.NodeKey];
+            ExecuteBatch(() =>
+            {
+                foreach (string key in targetKeys)
+                {
+                    if (IsLocked(key))
+                    {
+                        continue;
+                    }
+
+                    XuiSyntaxNode? node =
+                        _document.SyntaxTree.FindByKey(key);
+                    if (node is not null)
+                    {
+                        ApplyRotationDelta(
+                            node,
+                            eventArgs.RotationDelta);
+                    }
+                }
+            }, "Rotate selection");
         }
+    }
+
+    private string[] SelectedTransformRootKeys()
+    {
+        if (_document is null)
+        {
+            return [];
+        }
+
+        return _selectedKeys
+            .Where(key =>
+            {
+                XuiSyntaxNode? parent =
+                    _document.SyntaxTree.FindByKey(key)?.Parent;
+                while (parent is not null)
+                {
+                    if (_selectedKeys.Contains(parent.Key))
+                    {
+                        return false;
+                    }
+
+                    parent = parent.Parent;
+                }
+
+                return true;
+            })
+            .ToArray();
     }
 
     private void ApplyPositionDelta(
@@ -1550,7 +1636,12 @@ public partial class MainWindow : Window, IDisposable
     {
         bool editingText = Keyboard.FocusedElement is TextBoxBase;
         ModifierKeys modifiers = Keyboard.Modifiers;
-        if (modifiers == ModifierKeys.Control && eventArgs.Key == Key.O)
+        if (modifiers == ModifierKeys.Control && eventArgs.Key == Key.F)
+        {
+            HierarchySearch.Focus();
+            HierarchySearch.SelectAll();
+        }
+        else if (modifiers == ModifierKeys.Control && eventArgs.Key == Key.O)
         {
             Open_Click(this, new RoutedEventArgs());
         }
@@ -1785,6 +1876,9 @@ public partial class MainWindow : Window, IDisposable
         _forceShownKeys.Clear();
         _lockedKeys.Clear();
         _selectedNamedFrameKey = null;
+        _layoutSession = null;
+        _hierarchyIndex = null;
+        _evaluationDiagnostics = [];
         StopPlayback();
         _currentTick = 0;
     }
@@ -1835,11 +1929,13 @@ public partial class MainWindow : Window, IDisposable
             locale: _settings.Locale,
             inputGlyphScheme: _settings.InputGlyphScheme);
         _textureDiagnostics.Clear();
-        Viewport.SetAssetResolver(_assetResolver);
+        _layoutSession = null;
+        Viewport.SetAssetResolver(null);
         AssetStatusText.Text = "Indexing external assets…";
         try
         {
             await _assetResolver.RebuildAsync().ConfigureAwait(true);
+            Viewport.SetAssetResolver(_assetResolver);
             int diagnosticCount = _assetResolver.Diagnostics.Count;
             AssetStatusText.Text =
                 $"{_assetResolver.Files.Count:N0} assets · " +
@@ -1965,7 +2061,7 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
-        _timelineSet = XuiTimelineParser.Parse(_document);
+        EnsureCompiledLayout();
         BuildHierarchy();
         SelectRowsFromKeys();
         BuildInspector();
@@ -1985,11 +2081,11 @@ public partial class MainWindow : Window, IDisposable
 
         try
         {
-            XuiRenderFrame frame = DyingLightLayoutEngine.Evaluate(
-                _document,
+            EnsureCompiledLayout();
+            _layoutEvaluationCount++;
+            XuiRenderFrame frame = _layoutSession!.Sample(
                 XuiViewport.Default,
                 _currentTick,
-                _assetResolver,
                 BuildRenderContext());
             Viewport.SetFrame(frame);
             Viewport.SetSelectedKeys(_selectedKeys);
@@ -2003,12 +2099,8 @@ public partial class MainWindow : Window, IDisposable
             TickText.Text = string.Create(
                 CultureInfo.InvariantCulture,
                 $"{_currentTick} ticks  ·  {_currentTick / 60.0:0.000}s");
-            SetDiagnostics(
-                frame.Diagnostics
-                    .Concat(_assetResolver?.Diagnostics ?? [])
-                    .Concat(_textureDiagnostics.Values.SelectMany(
-                        static diagnostics => diagnostics))
-                    .ToArray());
+            _evaluationDiagnostics = frame.Diagnostics;
+            RefreshDiagnosticsOnly();
             DocumentStatsText.Text =
                 $"{frame.Nodes.Count:N0} nodes · {_timelineSet?.Timelines.Count ?? 0:N0} timelines";
         }
@@ -2026,94 +2118,47 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
+    private void EnsureCompiledLayout()
+    {
+        if (_document is null)
+        {
+            _layoutSession = null;
+            _timelineSet = null;
+            return;
+        }
+
+        if (_layoutSession?.IsCurrent(_document, _assetResolver) == true)
+        {
+            _timelineSet = _layoutSession.Timelines;
+            return;
+        }
+
+        _layoutSession = DyingLightLayoutSession.Compile(
+            _document,
+            _assetResolver);
+        _timelineSet = _layoutSession.Timelines;
+    }
+
+    private void RefreshDiagnosticsOnly()
+    {
+        SetDiagnostics(
+            _evaluationDiagnostics
+                .Concat(_assetResolver?.Diagnostics ?? [])
+                .Concat(_textureDiagnostics.Values.SelectMany(
+                    static diagnostics => diagnostics))
+                .ToArray());
+    }
+
     private XuiRenderContext BuildRenderContext()
     {
         XuiPreviewScenario selected =
             PreviewScenarioCombo?.SelectedItem as XuiPreviewScenario ??
             XuiPreviewScenario.Empty;
-        XuiPreviewProperty[] properties = PreviewProperties
-            .Where(static row =>
-                !string.IsNullOrWhiteSpace(row.Target) &&
-                !string.IsNullOrWhiteSpace(row.Property))
-            .Select(static row => new XuiPreviewProperty(
-                row.Target.Trim(),
-                row.Property.Trim(),
-                row.Value ?? string.Empty))
-            .ToArray();
-        HashSet<string> scenarioForceShown = new(
-            selected.ForceShownTargets,
-            StringComparer.Ordinal);
-        HashSet<string> explicitlyHidden = properties
-            .Where(static property =>
-                property.Property.Equals(
-                    "Show",
-                    StringComparison.OrdinalIgnoreCase) &&
-                XuiValueParser.TryBoolean(property.Value, out bool shown) &&
-                !shown)
-            .Select(static property => property.Target)
-            .ToHashSet(StringComparer.Ordinal);
-        scenarioForceShown.UnionWith(
-            properties
-                .Where(property =>
-                    !explicitlyHidden.Contains(property.Target))
-                .Select(static property => property.Target));
-        XuiPreviewScenario effective = new(
-            selected.Id,
-            selected.DisplayName,
-            selected.Description,
-            properties,
-            scenarioForceShown);
         return new XuiRenderContext(
-            effective,
+            selected,
             _forceShownKeys,
             ForceHiddenTargets: null,
             ResolveLocalization: true);
-    }
-
-    private string PreviewTargetFor(XuiSyntaxNode node)
-    {
-        if (_document is null)
-        {
-            return node.Key;
-        }
-
-        string? id = XuiModelReader.GetId(node, _document.Text);
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            return node.Key;
-        }
-
-        int matches = XuiModelReader.VisualDescendants(_document.Root)
-            .Prepend(_document.Root)
-            .Count(candidate => string.Equals(
-                XuiModelReader.GetId(candidate, _document.Text),
-                id,
-                StringComparison.Ordinal));
-        return matches == 1 ? id : node.Key;
-    }
-
-    private void LoadPreviewScenario(XuiPreviewScenario scenario)
-    {
-        _updatingPreviewScenario = true;
-        try
-        {
-            PreviewProperties.Clear();
-            foreach (XuiPreviewProperty property in scenario.Properties)
-            {
-                PreviewProperties.Add(new PreviewPropertyRow
-                {
-                    Target = property.Target,
-                    Property = property.Property,
-                    Value = property.Value,
-                });
-            }
-
-            PreviewScenarioDescription.Text = scenario.Description;
-        }
-        finally
-        {
-            _updatingPreviewScenario = false;
-        }
     }
 
     private void Viewport_TextureDiagnosticsAvailable(
@@ -2121,106 +2166,30 @@ public partial class MainWindow : Window, IDisposable
         XuiTextureDiagnosticsEventArgs eventArgs)
     {
         _textureDiagnostics[eventArgs.ImagePath] = eventArgs.Diagnostics;
-        if (_document is not null)
-        {
-            RefreshEvaluation();
-        }
+        RefreshDiagnosticsOnly();
     }
 
     private void BuildHierarchy()
     {
         if (_document is null)
         {
-            HierarchyRows.Clear();
+            HierarchyRows.ReplaceAll([]);
             return;
         }
 
+        if (_hierarchyIndex?.IsCurrent(_document) != true)
+        {
+            _hierarchyIndex = HierarchyIndex.Build(_document);
+        }
+
         string filter = HierarchySearch?.Text.Trim() ?? string.Empty;
-        Dictionary<string, bool> subtreeMatches = new(StringComparer.Ordinal);
-        bool SubtreeMatches(XuiSyntaxNode node)
-        {
-            bool matches = NodeMatches(node, filter);
-            foreach (XuiSyntaxNode child in XuiModelReader.VisualChildren(node))
-            {
-                matches |= SubtreeMatches(child);
-            }
-
-            subtreeMatches[node.Key] = matches;
-            return matches;
-        }
-
-        _ = SubtreeMatches(_document.Root);
-        List<HierarchyRow> rows = [];
-        void Add(XuiSyntaxNode node, int depth, bool ancestorMatched)
-        {
-            bool selfMatches = NodeMatches(node, filter);
-            bool include = filter.Length == 0 ||
-                           ancestorMatched ||
-                           subtreeMatches.GetValueOrDefault(node.Key);
-            if (!include)
-            {
-                return;
-            }
-
-            XuiSyntaxNode[] children =
-                XuiModelReader.VisualChildren(node).ToArray();
-            bool expanded = filter.Length > 0 || _expanded.Contains(node.Key);
-            string id = XuiModelReader.GetId(node, _document.Text) ?? string.Empty;
-            string display = id.Length > 0 ? id : $"<{node.Name}>";
-            rows.Add(new HierarchyRow(
-                node,
-                display,
-                depth,
-                children.Length > 0,
-                expanded,
-                !_hiddenKeys.Contains(node.Key),
-                _lockedKeys.Contains(node.Key)));
-            if (!expanded)
-            {
-                return;
-            }
-
-            foreach (XuiSyntaxNode child in children)
-            {
-                Add(child, depth + 1, ancestorMatched || selfMatches);
-            }
-        }
-
-        Add(_document.Root, 0, false);
-        HierarchyRows.Clear();
-        foreach (HierarchyRow row in rows)
-        {
-            HierarchyRows.Add(row);
-        }
-
+        IReadOnlyList<HierarchyRow> rows = _hierarchyIndex.Flatten(
+            filter,
+            _expanded,
+            _hiddenKeys,
+            _lockedKeys);
+        HierarchyRows.ReplaceAll(rows);
         HierarchyCountText.Text = $"{rows.Count:N0}";
-    }
-
-    private bool NodeMatches(XuiSyntaxNode node, string filter)
-    {
-        if (filter.Length == 0 || _document is null)
-        {
-            return true;
-        }
-
-        if (node.Name.Contains(filter, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        foreach (string property in new[] { "Id", "Visual", "ClassOverride" })
-        {
-            string? value = XuiModelReader.GetPropertyValue(
-                node,
-                _document.Text,
-                property);
-            if (value?.Contains(filter, StringComparison.OrdinalIgnoreCase) == true)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private void BuildInspector()
@@ -2397,7 +2366,11 @@ public partial class MainWindow : Window, IDisposable
             .Where(static id => !string.IsNullOrEmpty(id))
             .Cast<string>()
             .ToArray();
-        TimelineEditor.SetData(_timelineSet, selectedIds, _currentTick);
+        TimelineEditor.SetData(
+            _timelineSet,
+            selectedIds,
+            _currentTick,
+            AllTracksToggle.IsChecked == true);
         RefreshKeyFrameEditor();
     }
 
@@ -2849,13 +2822,31 @@ public partial class MainWindow : Window, IDisposable
         UpdateSelectionSurfaces();
     }
 
-    private void ExecuteBatch(Action edits)
+    private void ExecuteBatch(
+        Action edits,
+        string description = "Edit selection")
     {
         _suppressRefresh = true;
         _refreshPending = false;
         try
         {
-            edits();
+            if (_document is null)
+            {
+                edits();
+            }
+            else
+            {
+                _document.ExecuteBatch(description, edits);
+            }
+        }
+        catch (Exception exception) when (
+            exception is XuiParseException or
+            InvalidOperationException or
+            ArgumentException)
+        {
+            _refreshPending = true;
+            StatusText.Text =
+                $"Edit rejected; the document was restored: {exception.Message}";
         }
         finally
         {
@@ -3010,17 +3001,14 @@ public partial class MainWindow : Window, IDisposable
     private void FilterDiagnostics()
     {
         string filter = DiagnosticsSearch?.Text.Trim() ?? string.Empty;
-        FilteredDiagnostics.Clear();
-        foreach (XuiDiagnostic diagnostic in _allDiagnostics)
-        {
-            if (filter.Length == 0 ||
+        FilteredDiagnostics.ReplaceAll(
+            _allDiagnostics.Where(diagnostic =>
+                filter.Length == 0 ||
                 diagnostic.Code.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
                 diagnostic.Message.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
-                diagnostic.NodeKey?.Contains(filter, StringComparison.OrdinalIgnoreCase) == true)
-            {
-                FilteredDiagnostics.Add(diagnostic);
-            }
-        }
+                diagnostic.NodeKey?.Contains(
+                    filter,
+                    StringComparison.OrdinalIgnoreCase) == true));
     }
 
     private async Task<bool> SaveDocumentAsync(bool forceSaveAs)
@@ -3211,15 +3199,13 @@ public partial class MainWindow : Window, IDisposable
         Viewport.ShowUnknownBounds = _settings.ShowUnknownBounds;
         Viewport.SnapEnabled = _settings.SnapEnabled;
         Viewport.GridSize = Math.Max(1, _settings.GridSize);
-        Viewport.SetFrame(
-            _document is null
-                ? null
-                : DyingLightLayoutEngine.Evaluate(
-                    _document,
-                    XuiViewport.Default,
-                    _currentTick,
-                    _assetResolver,
-                    BuildRenderContext()));
+        if (_document is null)
+        {
+            Viewport.SetFrame(null);
+            return;
+        }
+
+        RefreshEvaluation();
     }
 
     private void AddRecentFile(string path)
@@ -3377,7 +3363,9 @@ public partial class MainWindow : Window, IDisposable
         }
 
         if (name is "Opacity" or "Show" or "Color" or "Material" or "UseMask" or
-            "MaskSource" or "ClipChildren" or "ClipMaskChannel")
+            "MaskSource" or "ClipChildren" or "ClipMaskChannel" or
+            "ForceMaterials" or "ImageMaskMaterial" or "TextMaskMaterial" or
+            "AARectangleMaskMaterial")
         {
             return "Appearance";
         }
@@ -3546,6 +3534,7 @@ public partial class MainWindow : Window, IDisposable
         _watcher = null;
         _playbackTimer.Stop();
         _recoveryTimer.Stop();
+        _hierarchySearchTimer.Stop();
         GC.SuppressFinalize(this);
     }
 }
