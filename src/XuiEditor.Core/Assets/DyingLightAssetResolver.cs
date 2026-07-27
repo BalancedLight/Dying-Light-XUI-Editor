@@ -91,6 +91,8 @@ public sealed class DyingLightAssetResolver : IAssetResolver
 
     public long Revision => Interlocked.Read(ref _revision);
 
+    public XuiInputGlyphScheme InputGlyphScheme => _inputGlyphScheme;
+
     public IReadOnlyList<IXuiAssetSource> Sources => _sources;
 
     public IReadOnlyList<XuiResolvedFile> Files
@@ -1081,7 +1083,9 @@ public sealed class DyingLightAssetResolver : IAssetResolver
 
             if (fileName.Equals(
                     "common_texts_all.bin",
-                    StringComparison.OrdinalIgnoreCase))
+                    StringComparison.OrdinalIgnoreCase) ||
+                extension.Equals(".scr", StringComparison.OrdinalIgnoreCase) &&
+                IsLocalizationSource(relative))
             {
                 localizationSources.Add((
                     InferLocale(resolved) ?? _locale,
@@ -1758,26 +1762,43 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         List<XuiDiagnostic> diagnostics,
         CancellationToken cancellationToken)
     {
-        Dictionary<string, LocalizationCatalog> catalogs =
+        Dictionary<string, List<LocalizationCatalog>> catalogs =
             new(StringComparer.OrdinalIgnoreCase);
         foreach ((string locale, XuiResolvedFile file) in sources)
         {
-            if (catalogs.ContainsKey(locale))
-            {
-                continue;
-            }
-
             try
             {
-                byte[] bytes = file.ReadAllBytesAsync(cancellationToken)
-                    .AsTask()
-                    .GetAwaiter()
-                    .GetResult();
-                LocalizationCatalog parsed = LocalizationCatalogParser.Parse(
-                    bytes,
-                    locale,
-                    sourcePath: file.DisplayPath);
-                catalogs.Add(locale, parsed);
+                LocalizationCatalog parsed;
+                if (Path.GetExtension(file.RelativePath).Equals(
+                        ".scr",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    parsed = LocalizationCatalogParser.ParseSource(
+                        ReadText(file, diagnostics, cancellationToken),
+                        locale,
+                        sourcePath: file.DisplayPath);
+                }
+                else
+                {
+                    byte[] bytes = file.ReadAllBytesAsync(cancellationToken)
+                        .AsTask()
+                        .GetAwaiter()
+                        .GetResult();
+                    parsed = LocalizationCatalogParser.Parse(
+                        bytes,
+                        locale,
+                        sourcePath: file.DisplayPath);
+                }
+
+                if (!catalogs.TryGetValue(
+                        locale,
+                        out List<LocalizationCatalog>? localeCatalogs))
+                {
+                    localeCatalogs = [];
+                    catalogs.Add(locale, localeCatalogs);
+                }
+
+                localeCatalogs.Add(parsed);
                 diagnostics.AddRange(parsed.Diagnostics);
             }
             catch (Exception exception) when (
@@ -1792,20 +1813,65 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             }
         }
 
-        catalogs.TryGetValue("En", out LocalizationCatalog? english);
-        if (!catalogs.TryGetValue(_locale, out LocalizationCatalog? selected))
+        LocalizationCatalog? english = MergeLocalizationCatalogs(
+            "En",
+            catalogs.GetValueOrDefault("En"),
+            fallback: null);
+        LocalizationCatalog? selected = MergeLocalizationCatalogs(
+            _locale,
+            catalogs.GetValueOrDefault(_locale),
+            string.Equals(_locale, "En", StringComparison.OrdinalIgnoreCase)
+                ? null
+                : english);
+        if (selected is null)
         {
             return english;
         }
 
-        return english is null ||
-               ReferenceEquals(selected, english)
-            ? selected
-            : new LocalizationCatalog(
-                selected.Locale,
-                selected.Entries,
-                selected.Diagnostics,
-                english);
+        return selected;
+    }
+
+    private static LocalizationCatalog? MergeLocalizationCatalogs(
+        string locale,
+        List<LocalizationCatalog>? catalogs,
+        ILocalizationCatalog? fallback)
+    {
+        if (catalogs is null || catalogs.Count == 0)
+        {
+            return null;
+        }
+
+        Dictionary<string, XuiLocalizedString> merged =
+            new(StringComparer.Ordinal);
+        List<XuiDiagnostic> diagnostics = [];
+        int declarationOrder = 0;
+
+        // Asset roots are indexed in precedence order. Merge from lowest to
+        // highest precedence so a loose mod/workspace catalog replaces the
+        // installed value while still inheriting every stock string it does
+        // not declare.
+        for (int catalogIndex = catalogs.Count - 1;
+             catalogIndex >= 0;
+             catalogIndex--)
+        {
+            LocalizationCatalog catalog = catalogs[catalogIndex];
+            diagnostics.AddRange(catalog.Diagnostics);
+            foreach (XuiLocalizedString entry in catalog.Entries)
+            {
+                merged[entry.Key] = entry with
+                {
+                    DeclarationOrder = declarationOrder++,
+                };
+            }
+        }
+
+        return new LocalizationCatalog(
+            locale,
+            merged.Values
+                .OrderBy(static entry => entry.DeclarationOrder)
+                .ToArray(),
+            diagnostics,
+            fallback);
     }
 
     private static InputGlyphCatalog BuildInputGlyphs(
@@ -1867,6 +1933,30 @@ public sealed class DyingLightAssetResolver : IAssetResolver
 
     private static string? InferLocale(XuiResolvedFile file)
     {
+        string normalized = NormalizeKey(file.RelativePath);
+        string[] parts = normalized.Split(
+            Path.DirectorySeparatorChar,
+            StringSplitOptions.RemoveEmptyEntries);
+        for (int index = 0; index + 1 < parts.Length; index++)
+        {
+            if (!parts[index].Equals(
+                    "Locale",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            string localeFromPath = parts[index + 1];
+            if (localeFromPath.Length is >= 2 and <= 8 &&
+                localeFromPath.All(static character =>
+                    char.IsLetter(character) ||
+                    character is '-' or '_'))
+            {
+                return DyingLightInstallProfile.NormalizeLocale(
+                    localeFromPath);
+            }
+        }
+
         string containerName = Path.GetFileNameWithoutExtension(
             file.Entry?.Origin.ContainerPath ?? file.Path);
         if (containerName.Length == 6 &&
@@ -1880,6 +1970,19 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         }
 
         return null;
+    }
+
+    private static bool IsLocalizationSource(string relativePath)
+    {
+        string normalized = NormalizeKey(relativePath);
+        string localeSegment =
+            $"{Path.DirectorySeparatorChar}locale{Path.DirectorySeparatorChar}";
+        return normalized.Contains(
+                   localeSegment,
+                   StringComparison.OrdinalIgnoreCase) ||
+               normalized.StartsWith(
+                   $"locale{Path.DirectorySeparatorChar}",
+                   StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeKey(string path) =>

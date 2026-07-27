@@ -153,6 +153,9 @@ public interface IAssetResolver
 {
     long Revision => 0;
 
+    XuiInputGlyphScheme InputGlyphScheme =>
+        XuiInputGlyphScheme.KeyboardAndMouse;
+
     IReadOnlyList<XuiAssetRoot> Roots { get; }
 
     IReadOnlyList<XuiDiagnostic> Diagnostics { get; }

@@ -167,6 +167,41 @@ public sealed class AssetTests
     }
 
     [TestMethod]
+    public async Task ResolverLoadsLooseModLocalizationSources()
+    {
+        using TestDirectory directory = new();
+        string root = directory.File("PakAssets");
+        string localeDirectory = Path.Combine(root, "Locale", "En");
+        Directory.CreateDirectory(localeDirectory);
+        await File.WriteAllTextAsync(
+            Path.Combine(localeDirectory, "loader_texts_all.scr"),
+            """
+            !String(s, s)
+            // Mod-owned strings are data, not executable scripts.
+            String("DLW_Common_Browse", "Browse workshop")
+            String("DLW_Quoted", "A \"quoted\" value")
+            """);
+        DyingLightAssetResolver resolver = new(
+        [
+            new XuiAssetRoot(root, XuiAssetRootKind.Workspace, false),
+        ],
+            directory.File("cache"),
+            locale: "En");
+
+        await resolver.RebuildAsync();
+
+        Assert.IsNotNull(resolver.Localization);
+        Assert.AreEqual(
+            "Browse workshop",
+            resolver.ResolveText("&DLW_Common_Browse&"));
+        Assert.AreEqual(
+            "A \"quoted\" value",
+            resolver.ResolveText("&DLW_Quoted&"));
+        Assert.IsFalse(resolver.Diagnostics.Any(static diagnostic =>
+            diagnostic.Code == "XUI-LOC004"));
+    }
+
+    [TestMethod]
     public async Task ResolverHonorsRootPrecedenceAndDecodesDdsCrop()
     {
         using TestDirectory directory = new();

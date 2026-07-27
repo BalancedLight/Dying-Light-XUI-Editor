@@ -1893,17 +1893,20 @@ public partial class MainWindow : Window, IDisposable
         await EnsureInstallIndexAsync(showErrors: false).ConfigureAwait(true);
         List<XuiAssetRoot> roots = [];
         string? documentDirectory = Path.GetDirectoryName(_document.Path);
-        bool documentIsInConfiguredRoot =
-            documentDirectory is not null &&
+        string? documentAssetRoot = documentDirectory is null
+            ? null
+            : FindDocumentAssetRoot(documentDirectory);
+        bool documentAssetRootIsConfigured =
+            documentAssetRoot is not null &&
             _settings.AssetRoots.Any(root =>
                 !string.IsNullOrWhiteSpace(root.Path) &&
-                PathIsInside(root.Path, documentDirectory));
-        if (documentDirectory is not null &&
-            Directory.Exists(documentDirectory) &&
-            !documentIsInConfiguredRoot)
+                PathIsInside(root.Path, documentAssetRoot));
+        if (documentAssetRoot is not null &&
+            Directory.Exists(documentAssetRoot) &&
+            !documentAssetRootIsConfigured)
         {
             roots.Add(new XuiAssetRoot(
-                documentDirectory,
+                documentAssetRoot,
                 XuiAssetRootKind.Workspace,
                 false));
         }
@@ -3301,6 +3304,26 @@ public partial class MainWindow : Window, IDisposable
                !relative.StartsWith(
                    ".." + Path.DirectorySeparatorChar,
                    StringComparison.Ordinal);
+    }
+
+    internal static string FindDocumentAssetRoot(string documentDirectory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(documentDirectory);
+        string fallback = Path.GetFullPath(documentDirectory);
+        DirectoryInfo? current = new(fallback);
+        for (int depth = 0; current is not null && depth < 8; depth++)
+        {
+            if (Directory.Exists(Path.Combine(current.FullName, "Locale")) ||
+                Directory.Exists(
+                    Path.Combine(current.FullName, "Data", "Locale")))
+            {
+                return current.FullName;
+            }
+
+            current = current.Parent;
+        }
+
+        return fallback;
     }
 
     private HashSet<string> EditorHiddenKeys()

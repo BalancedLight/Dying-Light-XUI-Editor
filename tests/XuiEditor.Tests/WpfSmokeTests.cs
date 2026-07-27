@@ -25,6 +25,38 @@ namespace XuiEditor.Tests;
 [TestClass]
 public sealed class WpfSmokeTests
 {
+    [TestMethod]
+    public void BitmapFontSpecialGlyphsUseRgbMaskChannel()
+    {
+        Assert.AreEqual(
+            24,
+            XuiViewportControl.SelectFontMaskCoverage(
+                blue: 8,
+                green: 16,
+                red: 24,
+                alpha: 200,
+                variableAlpha: true,
+                specialGlyph: true));
+        Assert.AreEqual(
+            200,
+            XuiViewportControl.SelectFontMaskCoverage(
+                blue: 8,
+                green: 16,
+                red: 24,
+                alpha: 200,
+                variableAlpha: true,
+                specialGlyph: false));
+        Assert.AreEqual(
+            24,
+            XuiViewportControl.SelectFontMaskCoverage(
+                blue: 8,
+                green: 16,
+                red: 24,
+                alpha: byte.MaxValue,
+                variableAlpha: false,
+                specialGlyph: false));
+    }
+
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void MainWorkspaceRendersAtFixedDpiWithoutAudioControls()
@@ -735,6 +767,22 @@ public sealed class WpfSmokeTests
         Assert.AreEqual(0.72, restored.ReferenceOverlayOpacity, 0.001);
         Assert.IsTrue(restored.AssetRoots[0].EffectiveIsReadOnly);
         Assert.AreEqual("Segoe UI", restored.FontMappings["BOXED"]);
+    }
+
+    [TestMethod]
+    public void ExternalModXuiDiscoversSiblingLocaleRoot()
+    {
+        using TestDirectory directory = new();
+        string pakAssets = directory.File("PakAssets");
+        string xui = Path.Combine(pakAssets, "XUI");
+        Directory.CreateDirectory(xui);
+        Directory.CreateDirectory(Path.Combine(pakAssets, "Locale", "En"));
+
+        string discovered = MainWindow.FindDocumentAssetRoot(xui);
+
+        Assert.AreEqual(
+            Path.GetFullPath(pakAssets),
+            discovered);
     }
 
     [STATestMethod]

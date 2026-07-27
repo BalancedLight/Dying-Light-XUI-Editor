@@ -165,6 +165,8 @@ public sealed class DyingLightLayoutEngine
             compiledNode.Properties,
             overrides: null,
             runtimeOverrides: null);
+        VisualGeometryOverride? visualGeometry =
+            visualBindings?.ResolveGeometry(id, properties);
         string effectiveKey = keyPrefix.Length == 0
             ? syntax.Key
             : keyPrefix + syntax.Key;
@@ -220,6 +222,18 @@ public sealed class DyingLightLayoutEngine
         {
             position = arrangedPosition;
         }
+
+        if (visualGeometry is VisualGeometryOverride geometry)
+        {
+            width = geometry.Width ?? width;
+            height = geometry.Height ?? height;
+            position = position with
+            {
+                X = geometry.X ?? position.X,
+                Y = geometry.Y ?? position.Y,
+            };
+        }
+
         XuiVector3 pivot = properties.Vector3("Pivot", default, diagnostics);
         XuiVector3 scale = properties.Vector3(
             "Scale",
@@ -234,24 +248,31 @@ public sealed class DyingLightLayoutEngine
         double opacity = Math.Clamp(properties.Number("Opacity", 1, diagnostics), 0, 1);
         bool shown = properties.Boolean("Show", true, diagnostics);
         bool forceShown = renderContext.IsForceShown(id, syntax.Key);
+        bool forceHidden = renderContext.IsForceHidden(id, syntax.Key);
         if (forceShown)
         {
             shown = true;
             opacity = 1;
         }
-        else if (renderContext.IsForceHidden(id, syntax.Key))
+        else if (forceHidden)
         {
             shown = false;
         }
+        else if (visualBindings is not null)
+        {
+            shown = visualBindings.ResolveVisibility(id, shown);
+        }
 
         int anchorValue = properties.Integer("Anchor", 0, diagnostics);
-        XuiAnchor anchor = (XuiAnchor)(anchorValue & 0x3f);
+        XuiAnchor anchor = visualGeometry?.Anchor ??
+                           (XuiAnchor)(anchorValue & 0x3f);
         XuiVector2 parentSize = parent?.Size ?? new XuiVector2(width, height);
         XuiVector2 authoredParentSize = authoredParentSizeOverride ??
                                         parent?.AuthoredSize ??
                                         parentSize;
 
-        if (parent is not null)
+        if (parent is not null &&
+            visualGeometry?.BypassParentSizeChange != true)
         {
             ApplyParentSizeChange(
                 properties,
@@ -287,17 +308,21 @@ public sealed class DyingLightLayoutEngine
                 StringComparison.Ordinal)
                 ? compiledNode.MaterialProfile
                 : compilation.ResolveMaterial(material, kind);
+        string authoredText = properties.Text(
+            "Text",
+            properties.Text("SourceString"));
         string text = IsTextPresenter(syntax.Name, properties) &&
                       visualBindings is not null
-            ? visualBindings.Text
-            : properties.Text("Text", properties.Text("SourceString"));
+            ? visualBindings.ResolveText(id, properties, authoredText)
+            : authoredText;
         if (renderContext.ResolveLocalization && assetResolver is not null)
         {
             text = assetResolver.ResolveText(text);
         }
 
         string imagePath = IsImagePresenter(syntax.Name, properties) &&
-                           visualBindings is not null
+                           visualBindings is not null &&
+                           IsPrimaryDataAssociation(properties)
             ? visualBindings.ImagePath
             : properties.Text("ImagePath");
         XuiPaintKind paintKind = ClassifyPaint(
@@ -387,6 +412,26 @@ public sealed class DyingLightLayoutEngine
                     height = measurement.Height + (textBorder.Y * 2);
                 }
             }
+        }
+
+        if (kind == XuiRenderKind.Control &&
+            visualTemplate is not null &&
+            assetResolver is not null &&
+            properties.Boolean(
+                "AutoAdjustWidth",
+                false,
+                diagnostics))
+        {
+            ApplyControlAutoWidth(
+                syntax,
+                properties,
+                visualTemplate,
+                compilation,
+                assetResolver,
+                text,
+                ref position,
+                ref width,
+                diagnostics);
         }
 
         IReadOnlyList<XuiSyntaxNode> visualChildren =
@@ -702,10 +747,18 @@ public sealed class DyingLightLayoutEngine
 
         if (visualTemplate is not null)
         {
+            VisualInstanceBindings bindings = CreateVisualBindings(
+                renderNode,
+                properties,
+                visualTemplate,
+                compilation,
+                assetResolver!,
+                diagnostics);
             ExpandVisualTemplate(
                 visualTemplate,
                 childParent,
                 renderNode,
+                bindings,
                 assetResolver!,
                 compilation,
                 renderContext,
@@ -760,6 +813,7 @@ public sealed class DyingLightLayoutEngine
         XuiVisualTemplate visualTemplate,
         XuiRenderNode parent,
         XuiRenderNode instance,
+        VisualInstanceBindings bindings,
         IAssetResolver assetResolver,
         DyingLightLayoutCompilation compilation,
         XuiRenderContext renderContext,
@@ -800,9 +854,6 @@ public sealed class DyingLightLayoutEngine
                 BuildAnimationOverrides(visualTemplate.Timelines, tick);
             string prefix =
                 $"{instance.Key}::$visual[{visualTemplate.Id}]";
-            VisualInstanceBindings bindings = new(
-                instance.Text,
-                instance.ImagePath);
             PropertyBag visualRootProperties = new(
                 visualTemplate.Syntax,
                 compilation.Node(
@@ -1047,7 +1098,10 @@ public sealed class DyingLightLayoutEngine
         bool isWrap = effectiveClass.Contains(
             "UIWrapPanel",
             StringComparison.OrdinalIgnoreCase);
-        if (!isStack && !isWrap)
+        bool isVerticalGroup = effectiveClass.Contains(
+            "UIVerticalGroup",
+            StringComparison.OrdinalIgnoreCase);
+        if (!isStack && !isWrap && !isVerticalGroup)
         {
             return null;
         }
@@ -1105,8 +1159,9 @@ public sealed class DyingLightLayoutEngine
             double childHeight = Math.Max(
                 0,
                 properties.Number("Height", 0, diagnostics));
+            XuiRenderKind childKind = Classify(compiledChild, properties);
             if (assetResolver is not null &&
-                Classify(compiledChild, properties) == XuiRenderKind.Text)
+                childKind == XuiRenderKind.Text)
             {
                 string text = properties.Text(
                     "Text",
@@ -1199,6 +1254,45 @@ public sealed class DyingLightLayoutEngine
                     }
                 }
             }
+            else if (assetResolver is not null &&
+                     childKind == XuiRenderKind.Control &&
+                     properties.Boolean(
+                         "AutoAdjustWidth",
+                         false,
+                         diagnostics))
+            {
+                XuiVisualTemplate? visualTemplate =
+                    compilation.ResolveVisual(
+                        properties.Text("Visual").Trim());
+                if (visualTemplate is not null)
+                {
+                    string text = properties.Text(
+                        "Text",
+                        properties.Text("SourceString"));
+                    if (renderContext.ResolveLocalization)
+                    {
+                        text = assetResolver.ResolveText(text);
+                    }
+
+                    if (TryMeasureControlAutoWidth(
+                            child,
+                            properties,
+                            visualTemplate,
+                            compilation,
+                            assetResolver,
+                            text,
+                            diagnostics,
+                            out ControlAutoWidthMeasurement measurement) &&
+                        (!properties.Boolean(
+                             "OnlyWhenTextIsWider",
+                             false,
+                             diagnostics) ||
+                         measurement.DesiredWidth > childWidth))
+                    {
+                        childWidth = measurement.DesiredWidth;
+                    }
+                }
+            }
 
             panelChildren.Add(new PanelChild(
                 child.Key,
@@ -1212,7 +1306,18 @@ public sealed class DyingLightLayoutEngine
                 properties.Number("MarginRight", 0, diagnostics),
                 properties.Number("MarginBottom", 0, diagnostics),
                 shown,
-                opacity));
+                opacity,
+                (XuiAnchor)(properties.Integer(
+                    "Anchor",
+                    0,
+                    diagnostics) & 0x3f)));
+        }
+
+        if (isVerticalGroup)
+        {
+            return ArrangeVerticalGroup(
+                panelChildren,
+                skipInvisible);
         }
 
         return isStack
@@ -1228,6 +1333,67 @@ public sealed class DyingLightLayoutEngine
                 panelSize,
                 skipInvisible,
                 diagnostics);
+    }
+
+    private static PanelArrangement ArrangeVerticalGroup(
+        IReadOnlyList<PanelChild> children,
+        bool skipInvisible)
+    {
+        // Despite its name, Dying Light's UIVerticalGroup is the horizontal
+        // command strip used along the bottom of menus. Its recovered
+        // ArrangeItems implementation keeps independent cursors for ordinary
+        // and right-anchored children. Right-anchored positions remain
+        // distances from the parent's right edge and are converted later by
+        // ApplyAnchors.
+        const double ItemSpacing = 15;
+        Dictionary<string, XuiVector3> positions =
+            new(StringComparer.Ordinal);
+        double leftCursor = 0;
+        double rightCursor = 0;
+        double contentHeight = 0;
+        int visibleCount = 0;
+        foreach (PanelChild child in children)
+        {
+            bool anchoredRight =
+                child.Anchor.HasFlag(XuiAnchor.Right);
+            double x = anchoredRight
+                ? rightCursor
+                : leftCursor;
+            positions[child.Key] = child.Position with { X = x };
+
+            if (skipInvisible && !child.IsShown)
+            {
+                continue;
+            }
+
+            double scaledWidth = child.Width * child.ScaleX;
+            double advance =
+                scaledWidth + ItemSpacing + child.MarginRight;
+            if (anchoredRight)
+            {
+                rightCursor += advance;
+            }
+            else
+            {
+                leftCursor += advance;
+            }
+
+            visibleCount++;
+            contentHeight = Math.Max(
+                contentHeight,
+                child.Position.Y +
+                child.MarginTop +
+                (child.Height * child.ScaleY) +
+                child.MarginBottom);
+        }
+
+        double contentWidth = Math.Max(
+            0,
+            leftCursor + rightCursor -
+            (visibleCount > 0 ? ItemSpacing : 0));
+        return new PanelArrangement(
+            positions,
+            new XuiVector2(contentWidth, Math.Max(0, contentHeight)));
     }
 
     private static PanelArrangement ArrangeStackPanel(
@@ -1942,6 +2108,353 @@ public sealed class DyingLightLayoutEngine
                combined.Contains("Presenter", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool IsPrimaryDataAssociation(PropertyBag properties)
+    {
+        string raw = properties.Text("DataAssociation").Trim();
+        return raw.Length == 0 ||
+               XuiValueParser.TryInteger(raw, out int association) &&
+               association == 0;
+    }
+
+    private static VisualInstanceBindings CreateVisualBindings(
+        XuiRenderNode instance,
+        PropertyBag properties,
+        XuiVisualTemplate visualTemplate,
+        DyingLightLayoutCompilation compilation,
+        IAssetResolver assetResolver,
+        List<XuiDiagnostic> diagnostics)
+    {
+        bool isButton =
+            instance.ElementName.Contains(
+                "Button",
+                StringComparison.OrdinalIgnoreCase) ||
+            instance.ClassOverride.Contains(
+                "Button",
+                StringComparison.OrdinalIgnoreCase) ||
+            instance.Visual.Contains(
+                "Button",
+                StringComparison.OrdinalIgnoreCase);
+        int pressKey = 22528;
+        string rawPressKey = properties.Text("PressKey").Trim();
+        if (rawPressKey.Length > 0 &&
+            XuiValueParser.TryInteger(rawPressKey, out int parsedPressKey))
+        {
+            pressKey = parsedPressKey;
+        }
+
+        (string keyboard, string gamepad) =
+            ButtonHintForPressKey(pressKey);
+        DialogButtonVisualLayout? dialogButtonLayout = null;
+        if (isButton &&
+            properties.Boolean(
+                "AutoAdjustWidth",
+                false,
+                diagnostics) &&
+            TryMeasureControlAutoWidth(
+                properties.Syntax,
+                properties,
+                visualTemplate,
+                compilation,
+                assetResolver,
+                instance.Text,
+                diagnostics,
+                out ControlAutoWidthMeasurement measurement) &&
+            measurement.IsDialogButton)
+        {
+            double hintWidth = Math.Min(
+                instance.Size.X,
+                measurement.HintBlockWidth);
+            dialogButtonLayout = new DialogButtonVisualLayout(
+                instance.Size.X,
+                Math.Max(0, instance.Size.X - hintWidth),
+                hintWidth);
+        }
+
+        return new VisualInstanceBindings(
+            instance.Text,
+            instance.ImagePath,
+            isButton,
+            assetResolver.InputGlyphScheme,
+            keyboard,
+            gamepad,
+            KeyboardHintUsesSeparateBackground(pressKey),
+            dialogButtonLayout);
+    }
+
+    private static (string Keyboard, string Gamepad)
+        ButtonHintForPressKey(int pressKey) =>
+        pressKey switch
+        {
+            3840 or 22528 or 22592 =>
+                ("&[PC_ENTER]&", "&[A]&"),
+            3841 or 22529 or 22593 =>
+                ("&[PC_ESC]&", "&[B]&"),
+            22530 => ("F", "&[X]&"),
+            22531 => ("C", "&[Y]&"),
+            22532 => ("Q", "&[LB]&"),
+            22533 => ("E", "&[RB]&"),
+            22534 => ("&[PC_BACK]&", "&[Back]&"),
+            22535 => ("&[PC_START]&", "&[Start]&"),
+            _ => ($"Key {pressKey}", string.Empty),
+        };
+
+    private static bool KeyboardHintUsesSeparateBackground(int pressKey) =>
+        pressKey is not (
+            3840 or
+            3841 or
+            22528 or
+            22529 or
+            22592 or
+            22593);
+
+    private static void ApplyControlAutoWidth(
+        XuiSyntaxNode syntax,
+        PropertyBag properties,
+        XuiVisualTemplate visualTemplate,
+        DyingLightLayoutCompilation compilation,
+        IAssetResolver assetResolver,
+        string text,
+        ref XuiVector3 position,
+        ref double width,
+        List<XuiDiagnostic> diagnostics)
+    {
+        if (!TryMeasureControlAutoWidth(
+                syntax,
+                properties,
+                visualTemplate,
+                compilation,
+                assetResolver,
+                text,
+                diagnostics,
+                out ControlAutoWidthMeasurement measurement))
+        {
+            return;
+        }
+
+        double desiredWidth = measurement.DesiredWidth;
+        if (properties.Boolean(
+                "OnlyWhenTextIsWider",
+                false,
+                diagnostics) &&
+            desiredWidth <= width)
+        {
+            return;
+        }
+
+        double difference = desiredWidth - width;
+        bool adjustToLeft = properties.Boolean(
+            "AdjustToLeft",
+            false,
+            diagnostics);
+        bool adjustToRight = properties.Boolean(
+            "AdjustToRight",
+            false,
+            diagnostics);
+        if (adjustToLeft)
+        {
+            position = position with
+            {
+                X = position.X - difference,
+            };
+        }
+        else if (!adjustToRight)
+        {
+            position = position with
+            {
+                X = position.X - (difference * 0.5),
+            };
+        }
+
+        width = desiredWidth;
+    }
+
+    private static bool TryMeasureControlAutoWidth(
+        XuiSyntaxNode syntax,
+        PropertyBag properties,
+        XuiVisualTemplate visualTemplate,
+        DyingLightLayoutCompilation compilation,
+        IAssetResolver assetResolver,
+        string text,
+        List<XuiDiagnostic> diagnostics,
+        out ControlAutoWidthMeasurement measurement)
+    {
+        measurement = default;
+        PropertyBag? primaryPresenter = FindVisualPresenter(
+            visualTemplate,
+            compilation,
+            static (_, presenterProperties) =>
+                IsPrimaryDataAssociation(presenterProperties));
+        if (primaryPresenter is null)
+        {
+            return false;
+        }
+
+        XuiTextMeasurement textMeasurement = MeasurePresenterText(
+            primaryPresenter,
+            assetResolver,
+            text,
+            diagnostics);
+        bool isDialogButton =
+            properties.Text("ClassOverride").Contains(
+                "DialogButton",
+                StringComparison.OrdinalIgnoreCase) ||
+            properties.Text("Visual").Contains(
+                "ButtonDialog",
+                StringComparison.OrdinalIgnoreCase);
+        double desiredWidth;
+        double labelBlockWidth;
+        double hintBlockWidth;
+        if (isDialogButton)
+        {
+            int pressKey = properties.Integer(
+                "PressKey",
+                22528,
+                diagnostics);
+            (string keyboardHint, string gamepadHint) =
+                ButtonHintForPressKey(pressKey);
+            bool keyboard =
+                assetResolver.InputGlyphScheme ==
+                XuiInputGlyphScheme.KeyboardAndMouse;
+            string hintId = keyboard
+                ? "T_HintPC"
+                : "T_HintConsoles";
+            PropertyBag? hintPresenter = FindVisualPresenter(
+                visualTemplate,
+                compilation,
+                (id, _) => id.Equals(
+                    hintId,
+                    StringComparison.OrdinalIgnoreCase));
+            string hintText = keyboard
+                ? assetResolver.ResolveText(keyboardHint)
+                : assetResolver.ResolveText(gamepadHint);
+            double hintWidth = hintPresenter is null ||
+                               hintText.Length == 0
+                ? 0
+                : MeasurePresenterText(
+                    hintPresenter,
+                    assetResolver,
+                    hintText,
+                    diagnostics).Width;
+
+            // UIDialogButton::AutoAdjustSize measures association zero,
+            // adds 20 logical pixels around the label, then appends the
+            // active input hint with an 8 px keyboard or 32 px pad gutter.
+            labelBlockWidth = textMeasurement.Width + 20;
+            hintBlockWidth =
+                hintWidth + (keyboard ? 8 : 32);
+            desiredWidth =
+                labelBlockWidth + hintBlockWidth;
+        }
+        else
+        {
+            double widthAdjust = Math.Max(
+                0,
+                properties.Number(
+                    "WidthAdjust",
+                    0,
+                    diagnostics));
+            labelBlockWidth =
+                textMeasurement.Width +
+                (widthAdjust * 2);
+            hintBlockWidth = 0;
+            desiredWidth = labelBlockWidth;
+        }
+
+        desiredWidth = Math.Max(0, desiredWidth);
+        if (double.IsFinite(desiredWidth))
+        {
+            measurement = new ControlAutoWidthMeasurement(
+                desiredWidth,
+                Math.Max(0, labelBlockWidth),
+                Math.Max(0, hintBlockWidth),
+                isDialogButton);
+            return true;
+        }
+
+        diagnostics.Add(new XuiDiagnostic(
+            "XUI-LAYOUT013",
+            XuiDiagnosticSeverity.Warning,
+            "Button auto-width produced a non-finite value; the authored geometry is retained.",
+            syntax.Span,
+            syntax.Key));
+        measurement = default;
+        return false;
+    }
+
+    private static PropertyBag? FindVisualPresenter(
+        XuiVisualTemplate visualTemplate,
+        DyingLightLayoutCompilation compilation,
+        Func<string, PropertyBag, bool> predicate)
+    {
+        Stack<XuiSyntaxNode> pending = new();
+        IReadOnlyList<XuiSyntaxNode> rootChildren =
+            compilation.Node(
+                visualTemplate.Syntax,
+                visualTemplate.Source).VisualChildren;
+        for (int index = rootChildren.Count - 1; index >= 0; index--)
+        {
+            pending.Push(rootChildren[index]);
+        }
+
+        while (pending.Count > 0)
+        {
+            XuiSyntaxNode syntax = pending.Pop();
+            CompiledXuiNode compiled =
+                compilation.Node(syntax, visualTemplate.Source);
+            PropertyBag presenterProperties = new(
+                syntax,
+                compiled.Properties,
+                overrides: null,
+                runtimeOverrides: null);
+            if (Classify(compiled, presenterProperties) ==
+                    XuiRenderKind.Text &&
+                IsTextPresenter(syntax.Name, presenterProperties) &&
+                predicate(compiled.Id, presenterProperties))
+            {
+                return presenterProperties;
+            }
+
+            for (int index = compiled.VisualChildren.Count - 1;
+                 index >= 0;
+                 index--)
+            {
+                pending.Push(compiled.VisualChildren[index]);
+            }
+        }
+
+        return null;
+    }
+
+    private static XuiTextMeasurement MeasurePresenterText(
+        PropertyBag presenter,
+        IAssetResolver assetResolver,
+        string text,
+        List<XuiDiagnostic> diagnostics)
+    {
+        string font = presenter.Text(
+            "Font",
+            presenter.Text("DefaultFont")).Trim();
+        double pointSize = Math.Max(
+            0,
+            presenter.Number("PointSize", 0, diagnostics));
+        bool uppercase = presenter.Boolean(
+            "Uppercase",
+            false,
+            diagnostics);
+        double spacing = presenter.Number(
+            "CharacterSpacingAdjust",
+            0,
+            diagnostics);
+        return assetResolver.MeasureText(
+            font,
+            text,
+            pointSize,
+            maximumWidth: 0,
+            multiline: false,
+            uppercase: uppercase,
+            characterSpacingAdjust: spacing);
+    }
+
     private sealed record PanelArrangement(
         IReadOnlyDictionary<string, XuiVector3> Positions,
         XuiVector2 ContentSize);
@@ -1958,7 +2471,8 @@ public sealed class DyingLightLayoutEngine
         double MarginRight,
         double MarginBottom,
         bool IsShown,
-        double Opacity);
+        double Opacity,
+        XuiAnchor Anchor);
 
     private sealed record WrapChildPlacement(
         string Key,
@@ -1969,9 +2483,200 @@ public sealed class DyingLightLayoutEngine
         double MarginRight,
         double MarginBottom);
 
+    private readonly record struct ControlAutoWidthMeasurement(
+        double DesiredWidth,
+        double LabelBlockWidth,
+        double HintBlockWidth,
+        bool IsDialogButton);
+
+    private sealed record DialogButtonVisualLayout(
+        double TotalWidth,
+        double LabelWidth,
+        double HintWidth);
+
+    private readonly record struct VisualGeometryOverride(
+        double? X,
+        double? Y,
+        double? Width,
+        double? Height,
+        XuiAnchor? Anchor,
+        bool BypassParentSizeChange);
+
     private sealed record VisualInstanceBindings(
         string Text,
-        string ImagePath);
+        string ImagePath,
+        bool IsButton,
+        XuiInputGlyphScheme InputGlyphScheme,
+        string KeyboardHint,
+        string GamepadHint,
+        bool KeyboardHintHasSeparateBackground,
+        DialogButtonVisualLayout? DialogButtonLayout)
+    {
+        public string ResolveText(
+            string id,
+            PropertyBag properties,
+            string authoredText)
+        {
+            if (IsPrimaryDataAssociation(properties))
+            {
+                return Text;
+            }
+
+            if (!IsButton ||
+                !XuiValueParser.TryInteger(
+                    properties.Text("DataAssociation"),
+                    out int association) ||
+                association != 1)
+            {
+                return authoredText;
+            }
+
+            if (id.Equals(
+                    "T_HintPC",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return KeyboardHint;
+            }
+
+            if (id.Equals(
+                    "T_HintConsoles",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return GamepadHint;
+            }
+
+            return authoredText;
+        }
+
+        public bool ResolveVisibility(
+            string id,
+            bool authoredVisibility)
+        {
+            if (!IsButton)
+            {
+                return authoredVisibility;
+            }
+
+            bool keyboard =
+                InputGlyphScheme ==
+                XuiInputGlyphScheme.KeyboardAndMouse;
+            if (id.Equals(
+                    "T_HintPC",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return keyboard;
+            }
+
+            if (id.Equals(
+                    "I_IconBg",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                // UIButtonWithHints::GetHint marks Enter/Esc as self-framed
+                // keyboard glyphs. UpdateHint consequently hides I_IconBg
+                // for those keys while retaining it behind ordinary labels.
+                return keyboard &&
+                       KeyboardHintHasSeparateBackground;
+            }
+
+            if (id.Equals(
+                    "T_HintConsoles",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return !keyboard;
+            }
+
+            return authoredVisibility;
+        }
+
+        public VisualGeometryOverride? ResolveGeometry(
+            string id,
+            PropertyBag properties)
+        {
+            if (DialogButtonLayout is not
+                DialogButtonVisualLayout layout)
+            {
+                return null;
+            }
+
+            XuiAnchor verticalAnchor =
+                VerticalAnchor(properties);
+            if (id.Equals(
+                    "bg",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return new VisualGeometryOverride(
+                    0,
+                    null,
+                    layout.TotalWidth,
+                    null,
+                    XuiAnchor.Left | verticalAnchor,
+                    true);
+            }
+
+            if (id.Equals(
+                    "TextPrezenter",
+                    StringComparison.OrdinalIgnoreCase) ||
+                id.Equals(
+                    "TextPresenter",
+                    StringComparison.OrdinalIgnoreCase) ||
+                id.Equals(
+                    "I_BgText",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return new VisualGeometryOverride(
+                    layout.HintWidth,
+                    null,
+                    layout.LabelWidth,
+                    null,
+                    XuiAnchor.Left | verticalAnchor,
+                    true);
+            }
+
+            if (id.Equals(
+                    "T_HintPC",
+                    StringComparison.OrdinalIgnoreCase) ||
+                id.Equals(
+                    "T_HintConsoles",
+                    StringComparison.OrdinalIgnoreCase) ||
+                id.Equals(
+                    "HintPrezenter",
+                    StringComparison.OrdinalIgnoreCase) ||
+                id.Equals(
+                    "I_IconBg",
+                    StringComparison.OrdinalIgnoreCase) ||
+                id.Equals(
+                    "I_BgHint",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return new VisualGeometryOverride(
+                    0,
+                    null,
+                    layout.HintWidth,
+                    null,
+                    XuiAnchor.Left | verticalAnchor,
+                    true);
+            }
+
+            return null;
+        }
+
+        private static XuiAnchor VerticalAnchor(
+            PropertyBag properties)
+        {
+            string raw = properties.Text("Anchor").Trim();
+            if (!XuiValueParser.TryInteger(
+                    raw,
+                    out int anchor))
+            {
+                return XuiAnchor.None;
+            }
+
+            return (XuiAnchor)(anchor & (
+                (int)XuiAnchor.Top |
+                (int)XuiAnchor.Bottom |
+                (int)XuiAnchor.CenterY));
+        }
+    }
 
     private sealed record ForcedMaterialSet(
         string ImageMaterial,

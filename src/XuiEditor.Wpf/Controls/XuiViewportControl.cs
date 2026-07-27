@@ -1612,7 +1612,10 @@ public sealed class XuiViewportControl : FrameworkElement
                         (placement.Glyph.VerticalOffset * placement.Scale),
                         source.Width * placement.Scale,
                         source.Height * placement.Scale);
-                    ImageBrush mask = new(font.MaskBitmap)
+                    ImageBrush mask = new(
+                        placement.Glyph.IsSpecial
+                            ? font.SpecialMaskBitmap
+                            : font.RegularMaskBitmap)
                     {
                         Stretch = Stretch.Fill,
                         Viewbox = ToRect(source),
@@ -1866,10 +1869,16 @@ public sealed class XuiViewportControl : FrameworkElement
                 return;
             }
 
-            BitmapSource mask = CreateFontMaskBitmap(
+            BitmapSource regularMask = CreateFontMaskBitmap(
                 font.AtlasWidth,
                 font.AtlasHeight,
-                font.AtlasBgraPixels);
+                font.AtlasBgraPixels,
+                specialGlyphs: false);
+            BitmapSource specialMask = CreateFontMaskBitmap(
+                font.AtlasWidth,
+                font.AtlasHeight,
+                font.AtlasBgraPixels,
+                specialGlyphs: true);
             await Dispatcher.InvokeAsync(() =>
             {
                 if (!IsCurrentResolver(
@@ -1880,7 +1889,10 @@ public sealed class XuiViewportControl : FrameworkElement
                     return;
                 }
 
-                _bitmapFonts[fontId] = new LoadedBitmapFont(mask, font);
+                _bitmapFonts[fontId] = new LoadedBitmapFont(
+                    regularMask,
+                    specialMask,
+                    font);
                 RedrawResourceUsers(_fontUsers, fontId);
             });
         }
@@ -1989,7 +2001,8 @@ public sealed class XuiViewportControl : FrameworkElement
     private static BitmapSource CreateFontMaskBitmap(
         int width,
         int height,
-        byte[] pixels)
+        byte[] pixels,
+        bool specialGlyphs)
     {
         bool variableAlpha = false;
         for (int offset = 3; offset < pixels.Length; offset += 4)
@@ -2004,11 +2017,13 @@ public sealed class XuiViewportControl : FrameworkElement
         byte[] mask = GC.AllocateUninitializedArray<byte>(pixels.Length);
         for (int offset = 0; offset <= pixels.Length - 4; offset += 4)
         {
-            byte coverage = variableAlpha
-                ? pixels[offset + 3]
-                : Math.Max(
-                    pixels[offset],
-                    Math.Max(pixels[offset + 1], pixels[offset + 2]));
+            byte coverage = SelectFontMaskCoverage(
+                pixels[offset],
+                pixels[offset + 1],
+                pixels[offset + 2],
+                pixels[offset + 3],
+                variableAlpha,
+                specialGlyphs);
             mask[offset] = byte.MaxValue;
             mask[offset + 1] = byte.MaxValue;
             mask[offset + 2] = byte.MaxValue;
@@ -2016,6 +2031,26 @@ public sealed class XuiViewportControl : FrameworkElement
         }
 
         return CreateBitmap(width, height, mask);
+    }
+
+    internal static byte SelectFontMaskCoverage(
+        byte blue,
+        byte green,
+        byte red,
+        byte alpha,
+        bool variableAlpha,
+        bool specialGlyph)
+    {
+        // Chrome Engine bitmap fonts use the alpha channel for ordinary
+        // characters, but their private-use input glyphs are authored in
+        // RGB. In particular, the alpha plane of PC_ENTER/PC_ESC is only a
+        // solid rounded keycap; the arrow and lettering exist in RGB.
+        if (specialGlyph || !variableAlpha)
+        {
+            return Math.Max(blue, Math.Max(green, red));
+        }
+
+        return alpha;
     }
 
     private BitmapSource TintedBitmap(
@@ -2710,7 +2745,8 @@ public sealed class XuiViewportControl : FrameworkElement
         ResolvedTileTexturePart Resolved);
 
     private sealed record LoadedBitmapFont(
-        BitmapSource MaskBitmap,
+        BitmapSource RegularMaskBitmap,
+        BitmapSource SpecialMaskBitmap,
         ResolvedBitmapFont Resolved);
 
     private sealed record BitmapGlyphPlacement(

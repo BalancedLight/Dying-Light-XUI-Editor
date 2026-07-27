@@ -68,6 +68,8 @@ public sealed class InstallAssetTests
             await resolver.ResolveTextureAsync("aggro_skull");
         ResolvedBitmapFont? font =
             await resolver.ResolveBitmapFontAsync("boxed_m_21");
+        ResolvedBitmapFont? keyboardFont =
+            await resolver.ResolveBitmapFontAsync("boxed_r_13");
 
         Assert.IsNotNull(texture);
         Assert.AreEqual(20, texture.Width);
@@ -85,11 +87,20 @@ public sealed class InstallAssetTests
         Assert.AreEqual(
             "Instant Escape",
             resolver.ResolveText("&Hud_FastBreak&"));
+        Assert.AreEqual(
+            "\uE008",
+            resolver.ResolveText("&[PC_ENTER]&"));
+        Assert.AreEqual(
+            "\uE009",
+            resolver.ResolveText("&[PC_ESC]&"));
         Assert.IsNotNull(font);
         Assert.AreEqual(2048, font.AtlasWidth);
         Assert.AreEqual(4096, font.AtlasHeight);
         Assert.IsGreaterThan(400, font.Metrics.Glyphs.Count);
         Assert.IsFalse(font.Diagnostics.Any());
+        Assert.IsNotNull(keyboardFont);
+        Assert.IsTrue(keyboardFont.Metrics.Glyphs.ContainsKey(0xE008));
+        Assert.IsTrue(keyboardFont.Metrics.Glyphs.ContainsKey(0xE009));
         XuiTextMeasurement measurement = resolver.MeasureText(
             "boxed_m_21",
             "HUNTING GOON",

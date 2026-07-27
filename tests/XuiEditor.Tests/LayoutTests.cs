@@ -727,6 +727,204 @@ public sealed class LayoutTests
     }
 
     [TestMethod]
+    public async Task ButtonVisualKeepsLabelAndInputAssociationsSeparate()
+    {
+        using TestDirectory directory = new();
+        string root = directory.File("assets");
+        Directory.CreateDirectory(root);
+        await File.WriteAllTextAsync(
+            Path.Combine(root, "commonskin.xui"),
+            """
+            <XuiCanvas>
+              <Properties><Width>1280</Width><Height>720</Height></Properties>
+              <XuiVisual>
+                <Properties><Id>ButtonDialogV</Id><Width>200</Width><Height>34</Height></Properties>
+                <IUIAARectangle>
+                  <Properties><Id>bg</Id><Width>200</Width><Height>34</Height><Anchor>15</Anchor>
+                  <KeepWidthOnParentSizeChange>true</KeepWidthOnParentSizeChange>
+                  <KeepPosXOnParentSizeChange>true</KeepPosXOnParentSizeChange>
+                  <ImagePath>white</ImagePath></Properties>
+                </IUIAARectangle>
+                <MyTextPresenter>
+                  <Properties><Id>TextPrezenter</Id><Width>163</Width><Height>34</Height><Position>37,0,0</Position>
+                  <Anchor>14</Anchor><KeepWidthOnParentSizeChange>true</KeepWidthOnParentSizeChange>
+                  <KeepHeightOnParentSizeChange>true</KeepHeightOnParentSizeChange><KeepPosX>true</KeepPosX>
+                  <PointSize>16</PointSize><Text>design label</Text><Uppercase>true</Uppercase></Properties>
+                </MyTextPresenter>
+                <MyTextPresenter>
+                  <Properties><Id>T_HintConsoles</Id><Width>32</Width><Height>25</Height><Anchor>32</Anchor>
+                  <Show>false</Show>
+                  <PointSize>16</PointSize><DataAssociation>1</DataAssociation><Text>&amp;[A]&amp;</Text></Properties>
+                </MyTextPresenter>
+                <MyImage>
+                  <Properties><Id>I_IconBg</Id><Width>32</Width><Height>28</Height><ImagePath>button_frame_bg</ImagePath></Properties>
+                </MyImage>
+                <MyTextPresenter>
+                  <Properties><Id>T_HintPC</Id><Width>10</Width><Height>21</Height>
+                  <Anchor>32</Anchor><KeepWidthOnParentSizeChange>true</KeepWidthOnParentSizeChange>
+                  <KeepPosX>true</KeepPosX><PointSize>16</PointSize>
+                  <DataAssociation>1</DataAssociation><Text>F</Text></Properties>
+                </MyTextPresenter>
+              </XuiVisual>
+            </XuiCanvas>
+            """);
+        DyingLightAssetResolver keyboardResolver = new(
+        [
+            new XuiAssetRoot(root, XuiAssetRootKind.Workspace, false),
+        ],
+            directory.File("keyboard-cache"));
+        DyingLightAssetResolver xboxResolver = new(
+        [
+            new XuiAssetRoot(root, XuiAssetRootKind.Workspace, false),
+        ],
+            directory.File("xbox-cache"),
+            inputGlyphScheme: XuiInputGlyphScheme.Xbox);
+        await keyboardResolver.RebuildAsync();
+        await xboxResolver.RebuildAsync();
+        XuiDocument document = Document(
+            """
+            <AdvButton><Properties><Id>Browse</Id><Width>40</Width><Height>34</Height>
+            <Position>145,0,0</Position><ClassOverride>UIDialogButton</ClassOverride>
+            <Visual>ButtonDialogV</Visual><Text>BROWSE WORKSHOP</Text><PressKey>22531</PressKey>
+            <AutoAdjustWidth>true</AutoAdjustWidth><AdjustToRight>true</AdjustToRight>
+            </Properties></AdvButton>
+            """);
+
+        XuiRenderFrame keyboardFrame = DyingLightLayoutEngine.Evaluate(
+            document,
+            XuiViewport.Default,
+            0,
+            keyboardResolver);
+        XuiRenderNode keyboardButton = keyboardFrame.Nodes.Single(
+            static node => node.Id == "Browse");
+        XuiRenderNode keyboardLabel = keyboardFrame.Nodes.Single(
+            static node => node.Id == "TextPrezenter");
+        XuiRenderNode keyboardHint = keyboardFrame.Nodes.Single(
+            static node => node.Id == "T_HintPC");
+        XuiRenderNode hiddenPadHint = keyboardFrame.Nodes.Single(
+            static node => node.Id == "T_HintConsoles");
+        XuiRenderNode iconBackground = keyboardFrame.Nodes.Single(
+            static node => node.Id == "I_IconBg");
+        XuiRenderNode keyboardBackground = keyboardFrame.Nodes.Single(
+            static node => node.Id == "bg");
+
+        Assert.AreEqual("BROWSE WORKSHOP", keyboardLabel.Text);
+        Assert.AreEqual("C", keyboardHint.Text);
+        Assert.IsTrue(keyboardHint.IsShown);
+        Assert.IsFalse(hiddenPadHint.IsShown);
+        Assert.IsTrue(iconBackground.IsShown);
+        Assert.AreEqual(
+            1,
+            keyboardFrame.Nodes.Count(static node =>
+                node.IsVisualTemplatePart &&
+                node.Text == "BROWSE WORKSHOP"));
+        Assert.IsGreaterThan(40, keyboardButton.Size.X);
+        Assert.AreEqual(145, keyboardButton.Position.X, 0.001);
+        Assert.AreEqual(
+            keyboardButton.Size.X,
+            keyboardBackground.Size.X,
+            0.001);
+        Assert.AreEqual(0, keyboardBackground.Position.X, 0.001);
+        Assert.AreEqual(0, keyboardHint.Position.X, 0.001);
+        Assert.AreEqual(
+            keyboardHint.Size.X,
+            keyboardLabel.Position.X,
+            0.001);
+        Assert.AreEqual(
+            keyboardButton.Size.X,
+            keyboardHint.Size.X + keyboardLabel.Size.X,
+            0.001);
+        Assert.AreEqual(
+            keyboardHint.Size.X,
+            iconBackground.Size.X,
+            0.001);
+
+        XuiRenderFrame xboxFrame = DyingLightLayoutEngine.Evaluate(
+            document,
+            XuiViewport.Default,
+            0,
+            xboxResolver);
+        XuiRenderNode xboxHint = xboxFrame.Nodes.Single(
+            static node => node.Id == "T_HintConsoles");
+        XuiRenderNode hiddenKeyboardHint = xboxFrame.Nodes.Single(
+            static node => node.Id == "T_HintPC");
+        XuiRenderNode hiddenKeyboardBackground = xboxFrame.Nodes.Single(
+            static node => node.Id == "I_IconBg");
+
+        Assert.AreEqual("&[Y]&", xboxHint.Text);
+        Assert.IsTrue(xboxHint.IsShown);
+        Assert.IsFalse(hiddenKeyboardHint.IsShown);
+        Assert.IsFalse(hiddenKeyboardBackground.IsShown);
+
+        XuiDocument specialKeyDocument = Document(
+            """
+            <AdvButton><Properties><Id>BackSpecial</Id><Width>40</Width><Height>34</Height>
+            <ClassOverride>UIDialogButton</ClassOverride><Visual>ButtonDialogV</Visual>
+            <Text>BACK</Text><PressKey>22529</PressKey><AutoAdjustWidth>true</AutoAdjustWidth>
+            <AdjustToRight>true</AdjustToRight></Properties></AdvButton>
+            """);
+        XuiRenderFrame specialKeyFrame =
+            DyingLightLayoutEngine.Evaluate(
+                specialKeyDocument,
+                XuiViewport.Default,
+                0,
+                keyboardResolver);
+        XuiRenderNode specialKeyHint = specialKeyFrame.Nodes.Single(
+            static node => node.Id == "T_HintPC");
+        XuiRenderNode specialKeyBackground = specialKeyFrame.Nodes.Single(
+            static node => node.Id == "I_IconBg");
+
+        Assert.AreEqual("&[PC_ESC]&", specialKeyHint.Text);
+        Assert.IsTrue(specialKeyHint.IsShown);
+        Assert.IsFalse(
+            specialKeyBackground.IsShown,
+            "Enter/Esc glyphs include their own key frame and must not be covered by I_IconBg.");
+
+        XuiDocument commandStripDocument = Document(
+            """
+            <AdvGroup><Properties><Id>Commands</Id><Width>500</Width><Height>38</Height>
+            <ClassOverride>UIVerticalGroup</ClassOverride></Properties>
+            <AdvButton><Properties><Id>Play</Id><Width>40</Width><Height>34</Height>
+            <ClassOverride>UIDialogButton</ClassOverride><Visual>ButtonDialogV</Visual>
+            <Text>PLAY</Text><AutoAdjustWidth>true</AutoAdjustWidth><AdjustToRight>true</AdjustToRight>
+            </Properties></AdvButton>
+            <AdvButton><Properties><Id>BrowseSecond</Id><Width>40</Width><Height>34</Height>
+            <Position>145,0,0</Position><ClassOverride>UIDialogButton</ClassOverride>
+            <Visual>ButtonDialogV</Visual><Text>BROWSE WORKSHOP</Text><PressKey>22531</PressKey>
+            <AutoAdjustWidth>true</AutoAdjustWidth><AdjustToRight>true</AdjustToRight>
+            </Properties></AdvButton>
+            <AdvButton><Properties><Id>Back</Id><Width>40</Width><Height>34</Height>
+            <Position>460,0,0</Position><Anchor>4</Anchor>
+            <ClassOverride>UIDialogButton</ClassOverride><Visual>ButtonDialogV</Visual>
+            <Text>BACK</Text><PressKey>22529</PressKey><AutoAdjustWidth>true</AutoAdjustWidth>
+            <AdjustToRight>true</AdjustToRight></Properties></AdvButton>
+            </AdvGroup>
+            """);
+        XuiRenderFrame commandStripFrame =
+            DyingLightLayoutEngine.Evaluate(
+                commandStripDocument,
+                new XuiViewport(100, 100),
+                0,
+                keyboardResolver);
+        XuiRenderNode play = commandStripFrame.Nodes.Single(
+            static node => node.Id == "Play");
+        XuiRenderNode browseSecond = commandStripFrame.Nodes.Single(
+            static node => node.Id == "BrowseSecond");
+        XuiRenderNode back = commandStripFrame.Nodes.Single(
+            static node => node.Id == "Back");
+
+        Assert.AreEqual(0, play.Position.X, 0.001);
+        Assert.AreEqual(
+            play.Size.X + 15,
+            browseSecond.Position.X,
+            0.001);
+        Assert.AreEqual(
+            500 - back.Size.X,
+            back.Position.X,
+            0.001);
+    }
+
+    [TestMethod]
     public async Task VisualTemplateChildrenScaleToTheInstanceSize()
     {
         using TestDirectory directory = new();
