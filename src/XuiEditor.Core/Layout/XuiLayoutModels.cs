@@ -104,6 +104,8 @@ public sealed record XuiRenderNode(
 
     public XuiVector2 TextBorder { get; init; }
 
+    public double CharacterSpacingAdjust { get; init; }
+
     public bool Outline { get; init; }
 
     public double OutlineSize { get; init; } = 1;

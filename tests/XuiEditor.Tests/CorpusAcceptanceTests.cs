@@ -60,6 +60,7 @@ public sealed class CorpusAcceptanceTests
 
         XuiDocument document = await XuiDocument.OpenAsync(path);
         TimeSpan parseTime = stopwatch.Elapsed;
+        XuiTimelineSet timelines = XuiTimelineParser.Parse(document);
         XuiRenderFrame frame = DyingLightLayoutEngine.Evaluate(
             document,
             XuiViewport.Default,
@@ -67,6 +68,8 @@ public sealed class CorpusAcceptanceTests
         TimeSpan total = stopwatch.Elapsed;
 
         Assert.IsGreaterThan(1_000, frame.Nodes.Count);
+        Assert.IsFalse(timelines.Diagnostics.Any(static diagnostic =>
+            diagnostic.Code == "XUI-TL005"));
         Assert.IsLessThan(TimeSpan.FromSeconds(8), parseTime);
         Assert.IsLessThan(TimeSpan.FromSeconds(15), total);
     }

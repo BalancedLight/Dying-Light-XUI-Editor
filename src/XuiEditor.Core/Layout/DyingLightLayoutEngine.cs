@@ -17,7 +17,8 @@ public sealed class DyingLightLayoutEngine
         XuiDocument document,
         XuiViewport viewport,
         int tick,
-        IAssetResolver? assetResolver = null)
+        IAssetResolver? assetResolver = null,
+        XuiRenderContext? renderContext = null)
     {
         ArgumentNullException.ThrowIfNull(document);
         if (viewport.Width <= 0 ||
@@ -36,7 +37,14 @@ public sealed class DyingLightLayoutEngine
             timelineSet,
             tick);
 
-        PropertyBag rootProperties = new(document.Root, document.Text, null);
+        XuiRenderContext context = renderContext ?? new XuiRenderContext();
+        PropertyBag rootProperties = new(
+            document.Root,
+            document.Text,
+            overrides: null,
+            runtimeOverrides: context.EffectiveScenario.PropertiesFor(
+                XuiModelReader.GetId(document.Root, document.Text) ?? string.Empty,
+                document.Root.Key));
         double designWidth = rootProperties.Number("Width", 1280, diagnostics);
         double designHeight = rootProperties.Number("Height", 720, diagnostics);
         if (designWidth <= 0 || designHeight <= 0)
@@ -70,6 +78,7 @@ public sealed class DyingLightLayoutEngine
             renderNodes,
             ids,
             assetResolver,
+            context,
             tick,
             keyPrefix: string.Empty,
             selectionKey: null,
@@ -79,6 +88,7 @@ public sealed class DyingLightLayoutEngine
             timelineRecursionBarrier: null,
             resolution,
             authoredParentSizeOverride: null,
+            arrangedPositionOverride: null,
             ref declarationOrder);
 
         return new XuiRenderFrame(
@@ -98,6 +108,7 @@ public sealed class DyingLightLayoutEngine
         List<XuiRenderNode> result,
         HashSet<string> ids,
         IAssetResolver? assetResolver,
+        XuiRenderContext renderContext,
         int tick,
         string keyPrefix,
         string? selectionKey,
@@ -107,6 +118,7 @@ public sealed class DyingLightLayoutEngine
         string? timelineRecursionBarrier,
         ResolutionContext resolution,
         XuiVector2? authoredParentSizeOverride,
+        XuiVector3? arrangedPositionOverride,
         ref int declarationOrder)
     {
         if (result.Count >= MaximumRenderNodes)
@@ -121,11 +133,18 @@ public sealed class DyingLightLayoutEngine
                 id,
                 syntax.Key,
                 timelineRecursionBarrier);
-        PropertyBag properties = new(syntax, source, overrides);
+        IReadOnlyDictionary<string, string>? runtimeOverrides =
+            renderContext.EffectiveScenario.PropertiesFor(id, syntax.Key);
+        PropertyBag properties = new(
+            syntax,
+            source,
+            overrides,
+            runtimeOverrides);
         PropertyBag authoredProperties = new(
             syntax,
             source,
-            overrides: null);
+            overrides: null,
+            runtimeOverrides: null);
         string effectiveKey = keyPrefix.Length == 0
             ? syntax.Key
             : keyPrefix + syntax.Key;
@@ -138,7 +157,8 @@ public sealed class DyingLightLayoutEngine
             : new PropertyBag(
                 visualTemplate.Syntax,
                 visualTemplate.Source,
-                overrides: null);
+                overrides: null,
+                runtimeOverrides: null);
 
         string qualifiedId = keyPrefix + '\u001f' + id;
         if (id.Length > 0 && !ids.Add(qualifiedId))
@@ -174,6 +194,10 @@ public sealed class DyingLightLayoutEngine
             authoredHeight,
             diagnostics);
         XuiVector3 position = properties.Vector3("Position", default, diagnostics);
+        if (arrangedPositionOverride is XuiVector3 arrangedPosition)
+        {
+            position = arrangedPosition;
+        }
         XuiVector3 pivot = properties.Vector3("Pivot", default, diagnostics);
         XuiVector3 scale = properties.Vector3(
             "Scale",
@@ -187,6 +211,17 @@ public sealed class DyingLightLayoutEngine
         double rotationDegrees = properties.RotationDegrees(diagnostics);
         double opacity = Math.Clamp(properties.Number("Opacity", 1, diagnostics), 0, 1);
         bool shown = properties.Boolean("Show", true, diagnostics);
+        bool forceShown = renderContext.IsForceShown(id, syntax.Key);
+        if (forceShown)
+        {
+            shown = true;
+            opacity = 1;
+        }
+        else if (renderContext.IsForceHidden(id, syntax.Key))
+        {
+            shown = false;
+        }
+
         int anchorValue = properties.Integer("Anchor", 0, diagnostics);
         XuiAnchor anchor = (XuiAnchor)(anchorValue & 0x3f);
         XuiVector2 parentSize = parent?.Size ?? new XuiVector2(width, height);
@@ -215,6 +250,161 @@ public sealed class DyingLightLayoutEngine
             ref height,
             ref scale,
             diagnostics);
+
+        XuiRenderKind kind = Classify(syntax.Name, properties);
+        string text = IsTextPresenter(syntax.Name, properties) &&
+                      visualBindings is not null
+            ? visualBindings.Text
+            : properties.Text("Text", properties.Text("SourceString"));
+        if (renderContext.ResolveLocalization && assetResolver is not null)
+        {
+            text = assetResolver.ResolveText(text);
+        }
+
+        string imagePath = IsImagePresenter(syntax.Name, properties) &&
+                           visualBindings is not null
+            ? visualBindings.ImagePath
+            : properties.Text("ImagePath");
+        string fontId = properties.Text(
+            "Font",
+            properties.Text("DefaultFont")).Trim();
+        double pointSize = kind == XuiRenderKind.Text
+            ? Math.Max(0, properties.Number("PointSize", 0, diagnostics))
+            : 0;
+        bool uppercase = kind == XuiRenderKind.Text &&
+                         properties.Boolean(
+                             "Uppercase",
+                             false,
+                             diagnostics);
+        bool multiLine = kind == XuiRenderKind.Text &&
+                         (properties.Boolean(
+                              "MultiLine",
+                              false,
+                              diagnostics) ||
+                          text.Contains('\n'));
+        XuiVector2 textBorder = kind == XuiRenderKind.Text
+            ? new XuiVector2(
+                Math.Max(
+                    0,
+                    properties.Number(
+                        "ContentHorizontalBorder",
+                        0,
+                        diagnostics)),
+                Math.Max(
+                    0,
+                    properties.Number(
+                        "ContentVerticalBorder",
+                        0,
+                        diagnostics)))
+            : default;
+        double characterSpacingAdjust = kind == XuiRenderKind.Text
+            ? properties.Number(
+                "CharacterSpacingAdjust",
+                0,
+                diagnostics)
+            : 0;
+        if (kind == XuiRenderKind.Text && assetResolver is not null)
+        {
+            bool autoSizeToText = properties.Boolean(
+                "AutoSizeToText",
+                false,
+                diagnostics);
+            bool autoWidth =
+                autoSizeToText ||
+                properties.Boolean(
+                    "AutoAdjustWidth",
+                    false,
+                    diagnostics);
+            bool autoHeight =
+                autoSizeToText ||
+                properties.Boolean(
+                    "AutoAdjustHeight",
+                    false,
+                    diagnostics) ||
+                properties.Boolean(
+                    "MultilineAutoSizeHeight",
+                    false,
+                    diagnostics);
+            if (autoWidth || autoHeight)
+            {
+                double maximumTextWidth = multiLine && !autoWidth
+                    ? Math.Max(1, width - (textBorder.X * 2))
+                    : 0;
+                XuiTextMeasurement measurement = assetResolver.MeasureText(
+                    fontId,
+                    text,
+                    pointSize,
+                    maximumTextWidth,
+                    multiLine,
+                    uppercase,
+                    characterSpacingAdjust);
+                if (autoWidth)
+                {
+                    width = measurement.Width + (textBorder.X * 2);
+                }
+
+                if (autoHeight)
+                {
+                    height = measurement.Height + (textBorder.Y * 2);
+                }
+            }
+        }
+
+        XuiSyntaxNode[] visualChildren =
+            XuiModelReader.VisualChildren(syntax).ToArray();
+        XuiVector2? parentToTextSize = MeasureParentToTextChildren(
+            visualChildren,
+            source,
+            animation,
+            assetResolver,
+            renderContext,
+            properties.Boolean(
+                "DisableTimelineRecursion",
+                false,
+                diagnostics)
+                ? syntax.Key
+                : timelineRecursionBarrier,
+            diagnostics);
+        if (parentToTextSize is XuiVector2 measuredParentSize)
+        {
+            width = measuredParentSize.X;
+            height = measuredParentSize.Y;
+        }
+
+        PanelArrangement? childArrangement = ArrangePanelChildren(
+            syntax.Name,
+            properties,
+            visualChildren,
+            source,
+            animation,
+            renderContext,
+            assetResolver,
+            childTimelineBarrier: properties.Boolean(
+                "DisableTimelineRecursion",
+                false,
+                diagnostics)
+                ? syntax.Key
+                : timelineRecursionBarrier,
+            panelSize: new XuiVector2(width, height),
+            diagnostics: diagnostics);
+        if (childArrangement is not null)
+        {
+            if (properties.Boolean(
+                    "AutoSizeToContentX",
+                    false,
+                    diagnostics))
+            {
+                width = childArrangement.ContentSize.X;
+            }
+
+            if (properties.Boolean(
+                    "AutoSizeToContentY",
+                    false,
+                    diagnostics))
+            {
+                height = childArrangement.ContentSize.Y;
+            }
+        }
 
         ApplyAnchors(
             anchor,
@@ -248,7 +438,6 @@ public sealed class DyingLightLayoutEngine
         bool clipChildren = properties.Boolean("ClipChildren", false, diagnostics);
         bool useMask = properties.Boolean("UseMask", false, diagnostics);
 
-        XuiRenderKind kind = Classify(syntax.Name, properties);
         bool approximation = kind == XuiRenderKind.Unknown ||
                              properties.Text("Material").Length > 0 ||
                              (visualId.Length > 0 && visualTemplate is null) ||
@@ -294,17 +483,6 @@ public sealed class DyingLightLayoutEngine
                 syntax.Key));
         }
 
-        string text = IsTextPresenter(syntax.Name, properties) &&
-                      visualBindings is not null
-            ? visualBindings.Text
-            : properties.Text("Text", properties.Text("SourceString"));
-        string imagePath = IsImagePresenter(syntax.Name, properties) &&
-                           visualBindings is not null
-            ? visualBindings.ImagePath
-            : properties.Text("ImagePath");
-        string fontId = properties.Text(
-            "Font",
-            properties.Text("DefaultFont")).Trim();
         if (kind == XuiRenderKind.Text &&
             fontId.Length > 0 &&
             assetResolver is not null)
@@ -336,20 +514,6 @@ public sealed class DyingLightLayoutEngine
         int textStyle = kind == XuiRenderKind.Text
             ? properties.Integer("TextStyle", 0, diagnostics)
             : 0;
-        double pointSize = kind == XuiRenderKind.Text
-            ? Math.Max(0, properties.Number("PointSize", 0, diagnostics))
-            : 0;
-        bool uppercase = kind == XuiRenderKind.Text &&
-                         properties.Boolean(
-                             "Uppercase",
-                             false,
-                             diagnostics);
-        bool multiLine = kind == XuiRenderKind.Text &&
-                         (properties.Boolean(
-                              "MultiLine",
-                              false,
-                              diagnostics) ||
-                          text.Contains('\n'));
         XuiTextHorizontalAlignment horizontalTextAlignment =
             kind == XuiRenderKind.Text
                 ? ParseHorizontalTextAlignment(
@@ -397,21 +561,6 @@ public sealed class DyingLightLayoutEngine
                     diagnostics),
                 diagnostics)
             : XuiColor.Transparent;
-        XuiVector2 textBorder = kind == XuiRenderKind.Text
-            ? new XuiVector2(
-                Math.Max(
-                    0,
-                    properties.Number(
-                        "ContentHorizontalBorder",
-                        0,
-                        diagnostics)),
-                Math.Max(
-                    0,
-                    properties.Number(
-                        "ContentVerticalBorder",
-                        0,
-                        diagnostics)))
-            : default;
         if (imagePath.Length > 0 &&
             kind is XuiRenderKind.Image or XuiRenderKind.Rectangle &&
             assetResolver is not null &&
@@ -439,8 +588,11 @@ public sealed class DyingLightLayoutEngine
             pivot,
             scale,
             rotationDegrees,
-            opacity * (parent?.Opacity ?? 1),
-            shown && (parent?.IsShown ?? true),
+            forceShown
+                ? 1
+                : opacity * (parent?.Opacity ?? 1),
+            forceShown ||
+            (shown && (parent?.IsShown ?? true)),
             localTransform,
             worldTransform,
             localBounds,
@@ -468,6 +620,7 @@ public sealed class DyingLightLayoutEngine
             HorizontalTextAlignment = horizontalTextAlignment,
             VerticalTextAlignment = verticalTextAlignment,
             TextBorder = textBorder,
+            CharacterSpacingAdjust = characterSpacingAdjust,
             Outline = outline,
             OutlineSize = outlineSize,
             OutlineColor = outlineColor,
@@ -494,6 +647,7 @@ public sealed class DyingLightLayoutEngine
                 childParent,
                 renderNode,
                 assetResolver!,
+                renderContext,
                 tick,
                 resolution,
                 diagnostics,
@@ -509,8 +663,10 @@ public sealed class DyingLightLayoutEngine
             diagnostics)
             ? syntax.Key
             : timelineRecursionBarrier;
-        foreach (XuiSyntaxNode child in XuiModelReader.VisualChildren(syntax))
+        foreach (XuiSyntaxNode child in visualChildren)
         {
+            XuiVector3? arrangedChildPosition =
+                childArrangement?.Positions.GetValueOrDefault(child.Key);
             EvaluateNode(
                 child,
                 childParent,
@@ -520,6 +676,7 @@ public sealed class DyingLightLayoutEngine
                 result,
                 ids,
                 assetResolver,
+                renderContext,
                 tick,
                 keyPrefix,
                 selectionKey,
@@ -528,7 +685,9 @@ public sealed class DyingLightLayoutEngine
                 visualStack,
                 childTimelineBarrier,
                 resolution,
-                authoredParentSizeOverride: null,
+                authoredParentSizeOverride:
+                    childArrangement is null ? null : childParent.Size,
+                arrangedPositionOverride: arrangedChildPosition,
                 ref declarationOrder);
         }
     }
@@ -538,6 +697,7 @@ public sealed class DyingLightLayoutEngine
         XuiRenderNode parent,
         XuiRenderNode instance,
         IAssetResolver assetResolver,
+        XuiRenderContext renderContext,
         int tick,
         ResolutionContext resolution,
         List<XuiDiagnostic> diagnostics,
@@ -580,7 +740,8 @@ public sealed class DyingLightLayoutEngine
             PropertyBag visualRootProperties = new(
                 visualTemplate.Syntax,
                 visualTemplate.Source,
-                overrides: null);
+                overrides: null,
+                runtimeOverrides: null);
             XuiVector2 visualRootSize = new(
                 visualRootProperties.Number(
                     "Width",
@@ -590,8 +751,20 @@ public sealed class DyingLightLayoutEngine
                     "Height",
                     instance.AuthoredSize.Y,
                     diagnostics));
-            foreach (XuiSyntaxNode child in
-                     XuiModelReader.VisualChildren(visualTemplate.Syntax))
+            XuiSyntaxNode[] visualChildren =
+                XuiModelReader.VisualChildren(visualTemplate.Syntax).ToArray();
+            PanelArrangement? arrangement = ArrangePanelChildren(
+                visualTemplate.Syntax.Name,
+                visualRootProperties,
+                visualChildren,
+                visualTemplate.Source,
+                animation,
+                renderContext,
+                assetResolver,
+                childTimelineBarrier: null,
+                panelSize: visualRootSize,
+                diagnostics: diagnostics);
+            foreach (XuiSyntaxNode child in visualChildren)
             {
                 EvaluateNode(
                     child,
@@ -602,6 +775,7 @@ public sealed class DyingLightLayoutEngine
                     result,
                     ids,
                     assetResolver,
+                    renderContext,
                     tick,
                     prefix,
                     instance.SelectionKey,
@@ -611,6 +785,8 @@ public sealed class DyingLightLayoutEngine
                     timelineRecursionBarrier: null,
                     resolution,
                     authoredParentSizeOverride: visualRootSize,
+                    arrangedPositionOverride:
+                        arrangement?.Positions.GetValueOrDefault(child.Key),
                     ref declarationOrder);
             }
         }
@@ -651,6 +827,516 @@ public sealed class DyingLightLayoutEngine
         }
 
         return new AnimationOverrides(scoped);
+    }
+
+    private static XuiVector2? MeasureParentToTextChildren(
+        IReadOnlyList<XuiSyntaxNode> children,
+        string source,
+        AnimationOverrides animation,
+        IAssetResolver? assetResolver,
+        XuiRenderContext renderContext,
+        string? childTimelineBarrier,
+        List<XuiDiagnostic> diagnostics)
+    {
+        if (assetResolver is null)
+        {
+            return null;
+        }
+
+        bool found = false;
+        double width = 0;
+        double height = 0;
+        foreach (XuiSyntaxNode child in children)
+        {
+            string id = XuiModelReader.GetId(child, source) ?? string.Empty;
+            PropertyBag properties = new(
+                child,
+                source,
+                animation.ForNode(id, child.Key, childTimelineBarrier),
+                renderContext.EffectiveScenario.PropertiesFor(id, child.Key));
+            if (!properties.Boolean(
+                    "AutoSizeParentToText",
+                    false,
+                    diagnostics) ||
+                Classify(child.Name, properties) != XuiRenderKind.Text)
+            {
+                continue;
+            }
+
+            found = true;
+            string text = properties.Text(
+                "Text",
+                properties.Text("SourceString"));
+            if (renderContext.ResolveLocalization)
+            {
+                text = assetResolver.ResolveText(text);
+            }
+
+            string fontId = properties.Text(
+                "Font",
+                properties.Text("DefaultFont")).Trim();
+            double pointSize = Math.Max(
+                0,
+                properties.Number("PointSize", 0, diagnostics));
+            bool uppercase = properties.Boolean(
+                "Uppercase",
+                false,
+                diagnostics);
+            bool multiline =
+                properties.Boolean("MultiLine", false, diagnostics) ||
+                text.Contains('\n');
+            double horizontalBorder = Math.Max(
+                0,
+                properties.Number(
+                    "ContentHorizontalBorder",
+                    0,
+                    diagnostics));
+            double verticalBorder = Math.Max(
+                0,
+                properties.Number(
+                    "ContentVerticalBorder",
+                    0,
+                    diagnostics));
+            bool autoWidth =
+                properties.Boolean(
+                    "AutoSizeToText",
+                    false,
+                    diagnostics) ||
+                properties.Boolean(
+                    "AutoAdjustWidth",
+                    false,
+                    diagnostics);
+            double childWidth = Math.Max(
+                0,
+                properties.Number("Width", 0, diagnostics));
+            double maximumTextWidth = multiline && !autoWidth
+                ? Math.Max(1, childWidth - (horizontalBorder * 2))
+                : 0;
+            XuiTextMeasurement measurement = assetResolver.MeasureText(
+                fontId,
+                text,
+                pointSize,
+                maximumTextWidth,
+                multiline,
+                uppercase,
+                properties.Number(
+                    "CharacterSpacingAdjust",
+                    0,
+                    diagnostics));
+            XuiVector3 position = properties.Vector3(
+                "Position",
+                default,
+                diagnostics);
+            XuiVector3 scale = properties.Vector3(
+                "Scale",
+                new XuiVector3(1, 1, 1),
+                diagnostics);
+            width = Math.Max(
+                width,
+                position.X +
+                ((measurement.Width + (horizontalBorder * 2)) *
+                 Math.Abs(scale.X)));
+            height = Math.Max(
+                height,
+                position.Y +
+                ((measurement.Height + (verticalBorder * 2)) *
+                 Math.Abs(scale.Y)));
+        }
+
+        return found
+            ? new XuiVector2(Math.Max(0, width), Math.Max(0, height))
+            : null;
+    }
+
+    private static PanelArrangement? ArrangePanelChildren(
+        string elementName,
+        PropertyBag parentProperties,
+        IReadOnlyList<XuiSyntaxNode> children,
+        string source,
+        AnimationOverrides animation,
+        XuiRenderContext renderContext,
+        IAssetResolver? assetResolver,
+        string? childTimelineBarrier,
+        XuiVector2 panelSize,
+        List<XuiDiagnostic> diagnostics)
+    {
+        string classOverride = parentProperties.Text("ClassOverride").Trim();
+        string effectiveClass = classOverride.Length > 0
+            ? classOverride
+            : elementName;
+        bool isStack = effectiveClass.Contains(
+            "UIStackPanel",
+            StringComparison.OrdinalIgnoreCase);
+        bool isWrap = effectiveClass.Contains(
+            "UIWrapPanel",
+            StringComparison.OrdinalIgnoreCase);
+        if (!isStack && !isWrap)
+        {
+            return null;
+        }
+
+        bool skipInvisible = parentProperties.Boolean(
+            "SkipInvisible",
+            true,
+            diagnostics);
+        List<PanelChild> panelChildren = [];
+        foreach (XuiSyntaxNode child in children)
+        {
+            string id = XuiModelReader.GetId(child, source) ?? string.Empty;
+            PropertyBag properties = new(
+                child,
+                source,
+                animation.ForNode(id, child.Key, childTimelineBarrier),
+                renderContext.EffectiveScenario.PropertiesFor(id, child.Key));
+            bool shown = properties.Boolean("Show", true, diagnostics);
+            bool forceShown = renderContext.IsForceShown(id, child.Key);
+            if (forceShown)
+            {
+                shown = true;
+            }
+            else if (renderContext.IsForceHidden(id, child.Key))
+            {
+                shown = false;
+            }
+
+            double opacity = Math.Clamp(
+                properties.Number("Opacity", 1, diagnostics),
+                0,
+                1);
+            if (forceShown)
+            {
+                opacity = 1;
+            }
+            XuiVector3 position = properties.Vector3(
+                "Position",
+                default,
+                diagnostics);
+            XuiVector3 scale = properties.Vector3(
+                "Scale",
+                new XuiVector3(1, 1, 1),
+                diagnostics);
+            if (scale.X == 0 && scale.Y == 0)
+            {
+                scale = new XuiVector3(1, 1, scale.Z);
+            }
+
+            double childWidth = Math.Max(
+                0,
+                properties.Number("Width", 0, diagnostics));
+            double childHeight = Math.Max(
+                0,
+                properties.Number("Height", 0, diagnostics));
+            if (assetResolver is not null &&
+                Classify(child.Name, properties) == XuiRenderKind.Text)
+            {
+                string text = properties.Text(
+                    "Text",
+                    properties.Text("SourceString"));
+                if (renderContext.ResolveLocalization)
+                {
+                    text = assetResolver.ResolveText(text);
+                }
+
+                bool uppercase = properties.Boolean(
+                    "Uppercase",
+                    false,
+                    diagnostics);
+                bool multiline =
+                    properties.Boolean(
+                        "MultiLine",
+                        false,
+                        diagnostics) ||
+                    text.Contains('\n');
+                bool autoSizeToText = properties.Boolean(
+                    "AutoSizeToText",
+                    false,
+                    diagnostics);
+                bool autoWidth =
+                    autoSizeToText ||
+                    properties.Boolean(
+                        "AutoAdjustWidth",
+                        false,
+                        diagnostics);
+                bool autoHeight =
+                    autoSizeToText ||
+                    properties.Boolean(
+                        "AutoAdjustHeight",
+                        false,
+                        diagnostics) ||
+                    properties.Boolean(
+                        "MultilineAutoSizeHeight",
+                        false,
+                        diagnostics);
+                if (autoWidth || autoHeight)
+                {
+                    double horizontalBorder = Math.Max(
+                        0,
+                        properties.Number(
+                            "ContentHorizontalBorder",
+                            0,
+                            diagnostics));
+                    double verticalBorder = Math.Max(
+                        0,
+                        properties.Number(
+                            "ContentVerticalBorder",
+                            0,
+                            diagnostics));
+                    XuiTextMeasurement measurement =
+                        assetResolver.MeasureText(
+                            properties.Text(
+                                "Font",
+                                properties.Text("DefaultFont")).Trim(),
+                            text,
+                            Math.Max(
+                                0,
+                                properties.Number(
+                                    "PointSize",
+                                    0,
+                                    diagnostics)),
+                            multiline && !autoWidth
+                                ? Math.Max(
+                                    1,
+                                    childWidth -
+                                    (horizontalBorder * 2))
+                                : 0,
+                            multiline,
+                            uppercase,
+                            properties.Number(
+                                "CharacterSpacingAdjust",
+                                0,
+                                diagnostics));
+                    if (autoWidth)
+                    {
+                        childWidth =
+                            measurement.Width +
+                            (horizontalBorder * 2);
+                    }
+
+                    if (autoHeight)
+                    {
+                        childHeight =
+                            measurement.Height +
+                            (verticalBorder * 2);
+                    }
+                }
+            }
+
+            panelChildren.Add(new PanelChild(
+                child.Key,
+                position,
+                childWidth,
+                childHeight,
+                Math.Abs(scale.X),
+                Math.Abs(scale.Y),
+                properties.Number("MarginLeft", 0, diagnostics),
+                properties.Number("MarginTop", 0, diagnostics),
+                properties.Number("MarginRight", 0, diagnostics),
+                properties.Number("MarginBottom", 0, diagnostics),
+                shown,
+                opacity));
+        }
+
+        return isStack
+            ? ArrangeStackPanel(
+                parentProperties,
+                panelChildren,
+                panelSize,
+                skipInvisible,
+                diagnostics)
+            : ArrangeWrapPanel(
+                parentProperties,
+                panelChildren,
+                panelSize,
+                skipInvisible,
+                diagnostics);
+    }
+
+    private static PanelArrangement ArrangeStackPanel(
+        PropertyBag properties,
+        IReadOnlyList<PanelChild> children,
+        XuiVector2 panelSize,
+        bool skipInvisible,
+        List<XuiDiagnostic> diagnostics)
+    {
+        bool useOpacity = properties.Boolean(
+            "UseOpacityForArrangeItems",
+            properties.Boolean("UseOpacity", true, diagnostics),
+            diagnostics);
+        bool useLeftMargins = properties.Boolean(
+            "UseLeftMargins",
+            false,
+            diagnostics);
+        bool wrap = properties.Boolean("Wrap", false, diagnostics);
+        bool inverseOrder = properties.Boolean(
+            "InverseOrder",
+            false,
+            diagnostics);
+        IEnumerable<PanelChild> ordered = inverseOrder
+            ? children
+            : children.Reverse();
+        Dictionary<string, XuiVector3> positions =
+            new(StringComparer.Ordinal);
+        double cursorX = 0;
+        double cursorY = 0;
+        double columnWidth = 0;
+        double contentWidth = 0;
+        double contentHeight = 0;
+        foreach (PanelChild child in ordered)
+        {
+            if ((skipInvisible && !child.IsShown) ||
+                (useOpacity && child.Opacity < 0.01))
+            {
+                continue;
+            }
+
+            double scaledWidth = child.Width * child.ScaleX;
+            double scaledHeight = child.Height * child.ScaleY;
+            double requiredHeight =
+                child.MarginTop + scaledHeight + child.MarginBottom;
+            if (wrap &&
+                cursorY > 0 &&
+                panelSize.Y > 0 &&
+                cursorY + requiredHeight > panelSize.Y)
+            {
+                cursorX += columnWidth;
+                cursorY = 0;
+                columnWidth = 0;
+            }
+
+            double x = wrap
+                ? cursorX + (useLeftMargins ? child.MarginLeft : 0)
+                : useLeftMargins
+                    ? child.MarginLeft
+                    : child.Position.X;
+            double y = cursorY + child.MarginTop;
+            positions[child.Key] =
+                new XuiVector3(x, y, child.Position.Z);
+            cursorY = y + scaledHeight + child.MarginBottom;
+            columnWidth = Math.Max(
+                columnWidth,
+                child.MarginLeft + scaledWidth + child.MarginRight);
+            contentWidth = Math.Max(
+                contentWidth,
+                x + scaledWidth + child.MarginRight);
+            contentHeight = Math.Max(contentHeight, cursorY);
+        }
+
+        contentWidth = Math.Max(contentWidth, cursorX + columnWidth);
+        return new PanelArrangement(
+            positions,
+            new XuiVector2(
+                Math.Max(0, contentWidth),
+                Math.Max(0, contentHeight)));
+    }
+
+    private static PanelArrangement ArrangeWrapPanel(
+        PropertyBag properties,
+        IReadOnlyList<PanelChild> children,
+        XuiVector2 panelSize,
+        bool skipInvisible,
+        List<XuiDiagnostic> diagnostics)
+    {
+        bool alignToRight = properties.Boolean(
+            "AlignToRight",
+            false,
+            diagnostics);
+        bool wrap = properties.Boolean("Wrap", true, diagnostics);
+        bool invertOrder = properties.Boolean(
+            "InvertOrder",
+            false,
+            diagnostics);
+        IEnumerable<PanelChild> ordered = invertOrder
+            ? children.Reverse()
+            : children;
+        List<WrapChildPlacement> placements = [];
+        double cursorX = 0;
+        double cursorY = 0;
+        double rowHeight = 0;
+        int row = 0;
+        foreach (PanelChild child in ordered)
+        {
+            if (skipInvisible && !child.IsShown)
+            {
+                continue;
+            }
+
+            double scaledWidth = child.Width * child.ScaleX;
+            double scaledHeight = child.Height * child.ScaleY;
+            double requiredWidth =
+                child.MarginLeft + scaledWidth + child.MarginRight;
+            if (wrap &&
+                cursorX > 0 &&
+                panelSize.X > 0 &&
+                cursorX + requiredWidth > panelSize.X)
+            {
+                cursorY += rowHeight;
+                cursorX = 0;
+                rowHeight = 0;
+                row++;
+            }
+
+            double x = cursorX + child.MarginLeft;
+            double y = cursorY + child.MarginTop;
+            placements.Add(new WrapChildPlacement(
+                child.Key,
+                new XuiVector3(x, y, child.Position.Z),
+                row,
+                scaledWidth,
+                scaledHeight,
+                child.MarginRight,
+                child.MarginBottom));
+            cursorX = x + scaledWidth + child.MarginRight;
+            rowHeight = Math.Max(
+                rowHeight,
+                child.MarginTop + scaledHeight + child.MarginBottom);
+        }
+
+        Dictionary<string, XuiVector3> positions =
+            new(StringComparer.Ordinal);
+        if (alignToRight && panelSize.X > 0)
+        {
+            foreach (IGrouping<int, WrapChildPlacement> rowGroup in
+                     placements.GroupBy(static placement => placement.Row))
+            {
+                double rowWidth = rowGroup.Max(static placement =>
+                    placement.Position.X +
+                    placement.Width +
+                    placement.MarginRight);
+                double shift = Math.Max(0, panelSize.X - rowWidth);
+                foreach (WrapChildPlacement placement in rowGroup)
+                {
+                    positions[placement.Key] = placement.Position with
+                    {
+                        X = placement.Position.X + shift,
+                    };
+                }
+            }
+        }
+        else
+        {
+            foreach (WrapChildPlacement placement in placements)
+            {
+                positions[placement.Key] = placement.Position;
+            }
+        }
+
+        double contentWidth = placements.Count == 0
+            ? 0
+            : placements.Max(static placement =>
+                placement.Position.X +
+                placement.Width +
+                placement.MarginRight);
+        double contentHeight = placements.Count == 0
+            ? 0
+            : placements.Max(static placement =>
+                placement.Position.Y +
+                placement.Height +
+                placement.MarginBottom);
+        return new PanelArrangement(
+            positions,
+            new XuiVector2(
+                Math.Max(0, contentWidth),
+                Math.Max(0, contentHeight)));
     }
 
     private static void ApplyParentSizeChange(
@@ -1166,6 +1852,33 @@ public sealed class DyingLightLayoutEngine
                combined.Contains("Presenter", StringComparison.OrdinalIgnoreCase);
     }
 
+    private sealed record PanelArrangement(
+        IReadOnlyDictionary<string, XuiVector3> Positions,
+        XuiVector2 ContentSize);
+
+    private sealed record PanelChild(
+        string Key,
+        XuiVector3 Position,
+        double Width,
+        double Height,
+        double ScaleX,
+        double ScaleY,
+        double MarginLeft,
+        double MarginTop,
+        double MarginRight,
+        double MarginBottom,
+        bool IsShown,
+        double Opacity);
+
+    private sealed record WrapChildPlacement(
+        string Key,
+        XuiVector3 Position,
+        int Row,
+        double Width,
+        double Height,
+        double MarginRight,
+        double MarginBottom);
+
     private sealed record VisualInstanceBindings(
         string Text,
         string ImagePath);
@@ -1274,15 +1987,18 @@ public sealed class DyingLightLayoutEngine
     {
         private readonly Dictionary<string, string> _values;
         private readonly IReadOnlyDictionary<string, XuiAnimatedValue>? _overrides;
+        private readonly IReadOnlyDictionary<string, string>? _runtimeOverrides;
         private readonly XuiSyntaxNode _syntax;
 
         public PropertyBag(
             XuiSyntaxNode syntax,
             string source,
-            IReadOnlyDictionary<string, XuiAnimatedValue>? overrides)
+            IReadOnlyDictionary<string, XuiAnimatedValue>? overrides,
+            IReadOnlyDictionary<string, string>? runtimeOverrides)
         {
             _syntax = syntax;
             _overrides = overrides;
+            _runtimeOverrides = runtimeOverrides;
             _values = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (XuiPropertyEntry property in XuiModelReader.GetProperties(
                          syntax,
@@ -1300,6 +2016,12 @@ public sealed class DyingLightLayoutEngine
                 _overrides.TryGetValue(name, out XuiAnimatedValue? animated))
             {
                 return animated.Text;
+            }
+
+            if (_runtimeOverrides is not null &&
+                _runtimeOverrides.TryGetValue(name, out string? runtime))
+            {
+                return runtime;
             }
 
             return _values.GetValueOrDefault(name, fallback);

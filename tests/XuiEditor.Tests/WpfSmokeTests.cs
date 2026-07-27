@@ -6,6 +6,7 @@ using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using XuiEditor.Core.Assets;
 using XuiEditor.Core.Documents;
+using XuiEditor.Core.Layout;
 using XuiEditor.Wpf;
 using XuiEditor.Wpf.Models;
 using XuiEditor.Wpf.Services;
@@ -133,6 +134,12 @@ public sealed class WpfSmokeTests
             TimelineHeight = 288,
             ShowGrid = false,
             SnapEnabled = false,
+            DyingLightInstallPath =
+                @"E:\SteamLibrary\steamapps\common\Dying Light",
+            Locale = "Pl",
+            InputGlyphScheme = XuiInputGlyphScheme.Xbox,
+            PreviewScenarioId = "hud-combat",
+            ReferenceOverlayOpacity = 0.72,
             AssetRoots =
             [
                 new AssetRootSetting
@@ -153,8 +160,43 @@ public sealed class WpfSmokeTests
         Assert.AreEqual(288, restored.TimelineHeight);
         Assert.IsFalse(restored.ShowGrid);
         Assert.IsFalse(restored.SnapEnabled);
+        Assert.AreEqual(
+            @"E:\SteamLibrary\steamapps\common\Dying Light",
+            restored.DyingLightInstallPath);
+        Assert.AreEqual("Pl", restored.Locale);
+        Assert.AreEqual(
+            XuiInputGlyphScheme.Xbox,
+            restored.InputGlyphScheme);
+        Assert.AreEqual("hud-combat", restored.PreviewScenarioId);
+        Assert.AreEqual(0.72, restored.ReferenceOverlayOpacity, 0.001);
         Assert.IsTrue(restored.AssetRoots[0].EffectiveIsReadOnly);
         Assert.AreEqual("Segoe UI", restored.FontMappings["BOXED"]);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void GameplayScenarioKeepsExplicitlyHiddenObjectivePanelsHidden()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        using MainWindow window = new();
+
+        window.SetPreviewScenarioForTesting("gameplay");
+        XuiRenderContext context = window.PreviewRenderContextForTesting;
+        IReadOnlyDictionary<string, string>? hidden =
+            context.EffectiveScenario.PropertiesFor(
+                "HudStorageObjective",
+                "/unused");
+
+        Assert.IsNotNull(hidden);
+        Assert.AreEqual("false", hidden["Show"]);
+        Assert.IsFalse(context.EffectiveScenario.ForceShownTargets.Contains(
+            "HudStorageObjective"));
+        Assert.IsTrue(context.EffectiveScenario.ForceShownTargets.Contains(
+            "G_Bar"));
+        Assert.AreEqual(
+            "Gameplay HUD",
+            context.EffectiveScenario.ToString());
     }
 
     [TestMethod]

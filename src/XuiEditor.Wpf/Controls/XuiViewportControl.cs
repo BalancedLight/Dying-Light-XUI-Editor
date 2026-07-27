@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.Text;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -107,7 +108,13 @@ public sealed class XuiViewportControl : FrameworkElement
     private readonly DrawingVisual _overlay = new();
     private readonly Dictionary<string, LoadedTexture> _textureBitmaps =
         new(StringComparer.Ordinal);
+    private readonly Dictionary<string, BitmapSource> _tintedBitmaps =
+        new(StringComparer.Ordinal);
     private readonly HashSet<string> _requestedTextures =
+        new(StringComparer.Ordinal);
+    private readonly Dictionary<string, LoadedBitmapFont> _bitmapFonts =
+        new(StringComparer.Ordinal);
+    private readonly HashSet<string> _requestedBitmapFonts =
         new(StringComparer.Ordinal);
     private readonly HashSet<string> _selectedKeys =
         new(StringComparer.Ordinal);
@@ -115,6 +122,8 @@ public sealed class XuiViewportControl : FrameworkElement
         new(StringComparer.Ordinal);
     private XuiRenderFrame? _frame;
     private IAssetResolver? _assetResolver;
+    private BitmapSource? _referenceImage;
+    private double _referenceImageOpacity = 0.5;
     private double _zoom = 1;
     private Vector _pan;
     private bool _panning;
@@ -158,6 +167,16 @@ public sealed class XuiViewportControl : FrameworkElement
 
     public double GridSize { get; set; } = 8;
 
+    public double ReferenceImageOpacity
+    {
+        get => _referenceImageOpacity;
+        set
+        {
+            _referenceImageOpacity = Math.Clamp(value, 0, 1);
+            Redraw();
+        }
+    }
+
     public double Zoom => _zoom;
 
     internal bool IsSelectedForTesting(string nodeKey) =>
@@ -171,7 +190,36 @@ public sealed class XuiViewportControl : FrameworkElement
     {
         _assetResolver = assetResolver;
         _textureBitmaps.Clear();
+        _tintedBitmaps.Clear();
         _requestedTextures.Clear();
+        _bitmapFonts.Clear();
+        _requestedBitmapFonts.Clear();
+        Redraw();
+    }
+
+    public void LoadReferenceImage(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        string fullPath = Path.GetFullPath(path);
+        using FileStream stream = new(
+            fullPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete);
+        BitmapImage bitmap = new();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+        bitmap.StreamSource = stream;
+        bitmap.EndInit();
+        bitmap.Freeze();
+        _referenceImage = bitmap;
+        Redraw();
+    }
+
+    public void ClearReferenceImage()
+    {
+        _referenceImage = null;
         Redraw();
     }
 
@@ -454,6 +502,21 @@ public sealed class XuiViewportControl : FrameworkElement
             new SolidColorBrush(Color.FromRgb(25, 27, 30)),
             new Pen(new SolidColorBrush(Color.FromRgb(74, 78, 84)), 1),
             canvas);
+        if (_referenceImage is not null &&
+            _referenceImageOpacity > 0)
+        {
+            ImageBrush referenceBrush = new(_referenceImage)
+            {
+                Stretch = Stretch.Uniform,
+                AlignmentX = AlignmentX.Center,
+                AlignmentY = AlignmentY.Center,
+            };
+            referenceBrush.Freeze();
+            drawing.PushOpacity(_referenceImageOpacity);
+            drawing.DrawRectangle(referenceBrush, null, canvas);
+            drawing.Pop();
+        }
+
         if (ShowSafeArea)
         {
             double insetX = frame.DesignSize.X * 0.05;
@@ -530,18 +593,7 @@ public sealed class XuiViewportControl : FrameworkElement
                 if (node.ImagePath.Length > 0 &&
                     _textureBitmaps.TryGetValue(node.ImagePath, out LoadedTexture? texture))
                 {
-                    DrawTexture(drawing, texture, bounds);
-                    if (node.Color != XuiColor.White)
-                    {
-                        drawing.DrawRectangle(
-                            new SolidColorBrush(Color.FromArgb(
-                                (byte)Math.Min((int)node.Color.A, 90),
-                                node.Color.R,
-                                node.Color.G,
-                                node.Color.B)),
-                            null,
-                            bounds);
-                    }
+                    DrawTexture(drawing, texture, bounds, node.Color);
                 }
                 else
                 {
@@ -559,18 +611,11 @@ public sealed class XuiViewportControl : FrameworkElement
                              node.ImagePath,
                              out LoadedTexture? rectangleTexture))
                 {
-                    DrawTexture(drawing, rectangleTexture, bounds);
-                    if (node.Color != XuiColor.White)
-                    {
-                        drawing.DrawRectangle(
-                            new SolidColorBrush(Color.FromArgb(
-                                (byte)Math.Min((int)node.Color.A, 90),
-                                node.Color.R,
-                                node.Color.G,
-                                node.Color.B)),
-                            null,
-                            bounds);
-                    }
+                    DrawTexture(
+                        drawing,
+                        rectangleTexture,
+                        bounds,
+                        node.Color);
                 }
                 else
                 {
@@ -612,33 +657,39 @@ public sealed class XuiViewportControl : FrameworkElement
         }
     }
 
-    private static void DrawTexture(
+    private void DrawTexture(
         DrawingContext drawing,
         LoadedTexture texture,
-        Rect destination)
+        Rect destination,
+        XuiColor tint)
     {
         XuiTextureRegion definition = texture.Resolved.Definition;
         if (definition.Primitive == XuiTexturePrimitive.TileSet &&
             texture.TileParts.Count > 0)
         {
-            DrawTileSet(drawing, texture, destination);
+            DrawTileSet(drawing, texture, destination, tint);
             return;
         }
 
+        BitmapSource bitmap = TintedBitmap(
+            texture.Bitmap,
+            texture.Resolved.BgraPixels,
+            texture.Resolved.ContentHash,
+            tint);
         if (definition.Primitive != XuiTexturePrimitive.RectangleWithCorner ||
             definition.CornerSize.X <= 0 ||
             definition.CornerSize.Y <= 0)
         {
-            drawing.DrawImage(texture.Bitmap, destination);
+            drawing.DrawImage(bitmap, destination);
             return;
         }
 
         double sourceCornerX = Math.Min(
             definition.CornerSize.X,
-            texture.Bitmap.PixelWidth * 0.5);
+            bitmap.PixelWidth * 0.5);
         double sourceCornerY = Math.Min(
             definition.CornerSize.Y,
-            texture.Bitmap.PixelHeight * 0.5);
+            bitmap.PixelHeight * 0.5);
         double destinationCornerX = Math.Min(
             sourceCornerX,
             destination.Width * 0.5);
@@ -649,15 +700,15 @@ public sealed class XuiViewportControl : FrameworkElement
         [
             0,
             sourceCornerX,
-            texture.Bitmap.PixelWidth - sourceCornerX,
-            texture.Bitmap.PixelWidth,
+            bitmap.PixelWidth - sourceCornerX,
+            bitmap.PixelWidth,
         ];
         double[] sourceY =
         [
             0,
             sourceCornerY,
-            texture.Bitmap.PixelHeight - sourceCornerY,
-            texture.Bitmap.PixelHeight,
+            bitmap.PixelHeight - sourceCornerY,
+            bitmap.PixelHeight,
         ];
         double[] destinationX =
         [
@@ -696,7 +747,7 @@ public sealed class XuiViewportControl : FrameworkElement
                     continue;
                 }
 
-                ImageBrush brush = new(texture.Bitmap)
+                ImageBrush brush = new(bitmap)
                 {
                     Stretch = Stretch.Fill,
                     Viewbox = source,
@@ -708,10 +759,11 @@ public sealed class XuiViewportControl : FrameworkElement
         }
     }
 
-    private static void DrawTileSet(
+    private void DrawTileSet(
         DrawingContext drawing,
         LoadedTexture texture,
-        Rect destination)
+        Rect destination,
+        XuiColor tint)
     {
         double left = TileColumnWidth(texture, 0);
         double right = TileColumnWidth(texture, 2);
@@ -761,13 +813,18 @@ public sealed class XuiViewportControl : FrameworkElement
                 XuiTileRole.CornerTopRight or
                 XuiTileRole.CornerBottomLeft or
                 XuiTileRole.CornerBottomRight;
+            BitmapSource bitmap = TintedBitmap(
+                part.Bitmap,
+                part.Resolved.BgraPixels,
+                part.Resolved.ContentHash,
+                tint);
             if (corner)
             {
-                drawing.DrawImage(part.Bitmap, target);
+                drawing.DrawImage(bitmap, target);
                 continue;
             }
 
-            ImageBrush brush = new(part.Bitmap)
+            ImageBrush brush = new(bitmap)
             {
                 AlignmentX = AlignmentX.Left,
                 AlignmentY = AlignmentY.Top,
@@ -776,14 +833,14 @@ public sealed class XuiViewportControl : FrameworkElement
                 Viewbox = new Rect(
                     0,
                     0,
-                    part.Bitmap.PixelWidth,
-                    part.Bitmap.PixelHeight),
+                    bitmap.PixelWidth,
+                    bitmap.PixelHeight),
                 ViewboxUnits = BrushMappingMode.Absolute,
                 Viewport = new Rect(
                     target.Left,
                     target.Top,
-                    part.Bitmap.PixelWidth,
-                    part.Bitmap.PixelHeight),
+                    bitmap.PixelWidth,
+                    bitmap.PixelHeight),
                 ViewportUnits = BrushMappingMode.Absolute,
             };
             brush.Freeze();
@@ -839,6 +896,19 @@ public sealed class XuiViewportControl : FrameworkElement
         if (string.IsNullOrEmpty(node.Text))
         {
             return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(node.Font))
+        {
+            if (_bitmapFonts.TryGetValue(
+                    node.Font,
+                    out LoadedBitmapFont? bitmapFont))
+            {
+                DrawBitmapText(drawing, node, bounds, bitmapFont);
+                return;
+            }
+
+            RequestBitmapFont(node.Font);
         }
 
         ResolvedFont? font = _assetResolver?.ResolveFont(
@@ -925,6 +995,255 @@ public sealed class XuiViewportControl : FrameworkElement
             : null;
         outlinePen?.Freeze();
         drawing.DrawGeometry(ToBrush(node.Color), outlinePen, geometry);
+    }
+
+    private static void DrawBitmapText(
+        DrawingContext drawing,
+        XuiRenderNode node,
+        Rect bounds,
+        LoadedBitmapFont font)
+    {
+        string content = node.Uppercase
+            ? node.Text.ToUpper(CultureInfo.CurrentUICulture)
+            : node.Text;
+        Rect textBounds = new(
+            bounds.Left + node.TextBorder.X,
+            bounds.Top + node.TextBorder.Y,
+            Math.Max(1, bounds.Width - (node.TextBorder.X * 2)),
+            Math.Max(1, bounds.Height - (node.TextBorder.Y * 2)));
+        double requestedSize = node.PointSize > 0
+            ? node.PointSize
+            : font.Resolved.Size;
+        double baseScale = Math.Clamp(
+            requestedSize / Math.Max(1, font.Resolved.FontHeight),
+            0.01,
+            64);
+        List<BitmapTextLine> lines = LayoutBitmapText(
+            content,
+            font.Resolved,
+            baseScale,
+            textBounds.Width,
+            node.MultiLine,
+            node.CharacterSpacingAdjust);
+        if (lines.Count == 0)
+        {
+            return;
+        }
+
+        double lineHeight = font.Resolved.FontHeight * baseScale;
+        int visibleLineCount = Math.Max(
+            1,
+            Math.Min(
+                lines.Count,
+                (int)Math.Floor(textBounds.Height / Math.Max(1, lineHeight))));
+        if (!node.MultiLine)
+        {
+            visibleLineCount = 1;
+        }
+
+        IReadOnlyList<BitmapTextLine> visibleLines =
+            lines.Take(visibleLineCount).ToArray();
+        double blockHeight = Math.Min(
+            textBounds.Height,
+            visibleLines.Count * lineHeight);
+        double y = node.VerticalTextAlignment switch
+        {
+            XuiTextVerticalAlignment.Middle =>
+                textBounds.Top + ((textBounds.Height - blockHeight) * 0.5),
+            XuiTextVerticalAlignment.Bottom =>
+                textBounds.Bottom - blockHeight,
+            _ => textBounds.Top,
+        };
+
+        drawing.PushClip(new RectangleGeometry(textBounds));
+        if (node.Shadow)
+        {
+            DrawBitmapTextPass(
+                drawing,
+                node,
+                font,
+                visibleLines,
+                textBounds,
+                y,
+                lineHeight,
+                node.ShadowOffset,
+                node.ShadowOffset,
+                node.ShadowColor);
+        }
+
+        if (node.Outline)
+        {
+            double radius = Math.Max(0.5, node.OutlineSize);
+            foreach ((double x, double yOffset) in new[]
+                     {
+                         (-radius, -radius),
+                         (0, -radius),
+                         (radius, -radius),
+                         (-radius, 0),
+                         (radius, 0),
+                         (-radius, radius),
+                         (0, radius),
+                         (radius, radius),
+                     })
+            {
+                DrawBitmapTextPass(
+                    drawing,
+                    node,
+                    font,
+                    visibleLines,
+                    textBounds,
+                    y,
+                    lineHeight,
+                    x,
+                    yOffset,
+                    node.OutlineColor);
+            }
+        }
+
+        DrawBitmapTextPass(
+            drawing,
+            node,
+            font,
+            visibleLines,
+            textBounds,
+            y,
+            lineHeight,
+            0,
+            0,
+            node.Color);
+        drawing.Pop();
+    }
+
+    private static List<BitmapTextLine> LayoutBitmapText(
+        string content,
+        ResolvedBitmapFont font,
+        double baseScale,
+        double maximumWidth,
+        bool multiline,
+        double characterSpacingAdjust)
+    {
+        List<BitmapTextLine> lines = [];
+        List<BitmapGlyphPlacement> placements = [];
+        double width = 0;
+        void CommitLine()
+        {
+            lines.Add(new BitmapTextLine(placements.ToArray(), width));
+            placements = [];
+            width = 0;
+        }
+
+        foreach (Rune rune in content.EnumerateRunes())
+        {
+            if (rune.Value == '\r')
+            {
+                continue;
+            }
+
+            if (rune.Value == '\n')
+            {
+                if (!multiline)
+                {
+                    break;
+                }
+
+                CommitLine();
+                continue;
+            }
+
+            XuiBitmapGlyph? glyph =
+                font.Metrics.Glyphs.GetValueOrDefault(rune.Value) ??
+                font.Metrics.Glyphs.GetValueOrDefault('?');
+            if (glyph is null)
+            {
+                continue;
+            }
+
+            double glyphScale = baseScale *
+                                (glyph.IsSpecial
+                                    ? font.SpecialSignsScale
+                                    : 1);
+            double advance = Math.Max(
+                0,
+                (glyph.Advance +
+                 font.CharacterSpacing +
+                 characterSpacingAdjust) *
+                glyphScale);
+            if (multiline &&
+                placements.Count > 0 &&
+                width + advance > maximumWidth)
+            {
+                CommitLine();
+            }
+
+            placements.Add(new BitmapGlyphPlacement(
+                glyph,
+                glyphScale,
+                advance));
+            width += advance;
+        }
+
+        if (placements.Count > 0 || lines.Count == 0)
+        {
+            CommitLine();
+        }
+
+        return lines;
+    }
+
+    private static void DrawBitmapTextPass(
+        DrawingContext drawing,
+        XuiRenderNode node,
+        LoadedBitmapFont font,
+        IReadOnlyList<BitmapTextLine> lines,
+        Rect textBounds,
+        double top,
+        double lineHeight,
+        double offsetX,
+        double offsetY,
+        XuiColor color)
+    {
+        Brush colorBrush = ToBrush(color);
+        for (int lineIndex = 0; lineIndex < lines.Count; lineIndex++)
+        {
+            BitmapTextLine line = lines[lineIndex];
+            double x = node.HorizontalTextAlignment switch
+            {
+                XuiTextHorizontalAlignment.Center =>
+                    textBounds.Left + ((textBounds.Width - line.Width) * 0.5),
+                XuiTextHorizontalAlignment.Right =>
+                    textBounds.Right - line.Width,
+                _ => textBounds.Left,
+            };
+            double y = top + (lineIndex * lineHeight);
+            foreach (BitmapGlyphPlacement placement in line.Glyphs)
+            {
+                XuiRect source = placement.Glyph.SourceRectangle;
+                if (source.Width > 0 && source.Height > 0)
+                {
+                    Rect destination = new(
+                        x + offsetX,
+                        y + offsetY +
+                        (placement.Glyph.VerticalOffset * placement.Scale),
+                        source.Width * placement.Scale,
+                        source.Height * placement.Scale);
+                    ImageBrush mask = new(font.MaskBitmap)
+                    {
+                        Stretch = Stretch.Fill,
+                        Viewbox = ToRect(source),
+                        ViewboxUnits = BrushMappingMode.Absolute,
+                    };
+                    mask.Freeze();
+                    drawing.PushOpacityMask(mask);
+                    drawing.DrawRectangle(
+                        colorBrush,
+                        null,
+                        destination);
+                    drawing.Pop();
+                }
+
+                x += placement.Advance;
+            }
+        }
     }
 
     private static FontFamily CreateFontFamily(ResolvedFont? font)
@@ -1084,6 +1403,50 @@ public sealed class XuiViewportControl : FrameworkElement
         _ = LoadTextureAsync(imagePath);
     }
 
+    private void RequestBitmapFont(string fontId)
+    {
+        if (string.IsNullOrWhiteSpace(fontId) ||
+            _assetResolver is null ||
+            !_requestedBitmapFonts.Add(fontId))
+        {
+            return;
+        }
+
+        _ = LoadBitmapFontAsync(fontId);
+    }
+
+    private async Task LoadBitmapFontAsync(string fontId)
+    {
+        try
+        {
+            ResolvedBitmapFont? font = await _assetResolver!
+                .ResolveBitmapFontAsync(fontId)
+                .ConfigureAwait(false);
+            if (font is null)
+            {
+                return;
+            }
+
+            BitmapSource mask = CreateFontMaskBitmap(
+                font.AtlasWidth,
+                font.AtlasHeight,
+                font.AtlasBgraPixels);
+            await Dispatcher.InvokeAsync(() =>
+            {
+                _bitmapFonts[fontId] = new LoadedBitmapFont(mask, font);
+                Redraw();
+            });
+        }
+        catch (IOException)
+        {
+            // The resolver keeps missing/corrupt font details in diagnostics.
+        }
+        catch (InvalidDataException)
+        {
+            // Invalid font data falls back to the configured system font.
+        }
+    }
+
     private async Task LoadTextureAsync(string imagePath)
     {
         try
@@ -1150,6 +1513,77 @@ public sealed class XuiViewportControl : FrameworkElement
         bitmap.Freeze();
         return bitmap;
     }
+
+    private static BitmapSource CreateFontMaskBitmap(
+        int width,
+        int height,
+        byte[] pixels)
+    {
+        bool variableAlpha = false;
+        for (int offset = 3; offset < pixels.Length; offset += 4)
+        {
+            if (pixels[offset] != byte.MaxValue)
+            {
+                variableAlpha = true;
+                break;
+            }
+        }
+
+        byte[] mask = GC.AllocateUninitializedArray<byte>(pixels.Length);
+        for (int offset = 0; offset <= pixels.Length - 4; offset += 4)
+        {
+            byte coverage = variableAlpha
+                ? pixels[offset + 3]
+                : Math.Max(
+                    pixels[offset],
+                    Math.Max(pixels[offset + 1], pixels[offset + 2]));
+            mask[offset] = byte.MaxValue;
+            mask[offset + 1] = byte.MaxValue;
+            mask[offset + 2] = byte.MaxValue;
+            mask[offset + 3] = coverage;
+        }
+
+        return CreateBitmap(width, height, mask);
+    }
+
+    private BitmapSource TintedBitmap(
+        BitmapSource original,
+        byte[] pixels,
+        string contentHash,
+        XuiColor tint)
+    {
+        if (tint == XuiColor.White)
+        {
+            return original;
+        }
+
+        string key = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{contentHash}:{tint.A:X2}{tint.R:X2}{tint.G:X2}{tint.B:X2}");
+        if (_tintedBitmaps.TryGetValue(key, out BitmapSource? cached))
+        {
+            return cached;
+        }
+
+        byte[] modulated = GC.AllocateUninitializedArray<byte>(pixels.Length);
+        for (int offset = 0; offset <= pixels.Length - 4; offset += 4)
+        {
+            modulated[offset] = Multiply(pixels[offset], tint.B);
+            modulated[offset + 1] = Multiply(pixels[offset + 1], tint.G);
+            modulated[offset + 2] = Multiply(pixels[offset + 2], tint.R);
+            modulated[offset + 3] = Multiply(pixels[offset + 3], tint.A);
+        }
+
+        BitmapSource result = CreateBitmap(
+            original.PixelWidth,
+            original.PixelHeight,
+            modulated);
+        _tintedBitmaps[key] = result;
+        return result;
+    }
+
+    private static byte Multiply(byte left, byte right) =>
+        (byte)((left * right + 127) / 255);
 
     private Matrix CreateCamera()
     {
@@ -1614,4 +2048,17 @@ public sealed class XuiViewportControl : FrameworkElement
     private sealed record LoadedTilePart(
         BitmapSource Bitmap,
         ResolvedTileTexturePart Resolved);
+
+    private sealed record LoadedBitmapFont(
+        BitmapSource MaskBitmap,
+        ResolvedBitmapFont Resolved);
+
+    private sealed record BitmapGlyphPlacement(
+        XuiBitmapGlyph Glyph,
+        double Scale,
+        double Advance);
+
+    private sealed record BitmapTextLine(
+        IReadOnlyList<BitmapGlyphPlacement> Glyphs,
+        double Width);
 }

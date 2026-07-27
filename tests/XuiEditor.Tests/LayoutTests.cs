@@ -307,6 +307,83 @@ public sealed class LayoutTests
     }
 
     [TestMethod]
+    public void StackPanelUsesEngineReverseOrderMarginsAndContentHeight()
+    {
+        XuiDocument document = Document(
+            "<AdvGroup><Properties><Id>Stack</Id><Width>100</Width><Height>100</Height>" +
+            "<ClassOverride>UIStackPanel</ClassOverride>" +
+            "<AutoSizeToContentY>true</AutoSizeToContentY></Properties>" +
+            "<MyImage><Properties><Id>A</Id><Width>20</Width><Height>10</Height>" +
+            "<MarginBottom>2</MarginBottom></Properties></MyImage>" +
+            "<MyImage><Properties><Id>B</Id><Width>20</Width><Height>20</Height>" +
+            "<MarginTop>3</MarginTop></Properties></MyImage></AdvGroup>");
+
+        XuiRenderFrame frame = Frame(document);
+        XuiRenderNode stack = frame.Nodes.Single(static node =>
+            node.Id == "Stack");
+        XuiRenderNode first = frame.Nodes.Single(static node => node.Id == "A");
+        XuiRenderNode second = frame.Nodes.Single(static node => node.Id == "B");
+
+        Assert.AreEqual(35, stack.Size.Y, 0.001);
+        Assert.AreEqual(23, first.Position.Y, 0.001);
+        Assert.AreEqual(3, second.Position.Y, 0.001);
+        Assert.AreEqual(10, first.Size.Y, 0.001);
+        Assert.AreEqual(20, second.Size.Y, 0.001);
+    }
+
+    [TestMethod]
+    public void WrapPanelUsesDeclarationOrderMarginsAndWrapsRows()
+    {
+        XuiDocument document = Document(
+            "<UIWrapPanel><Properties><Id>Wrap</Id><Width>50</Width><Height>100</Height>" +
+            "<AutoSizeToContentY>true</AutoSizeToContentY></Properties>" +
+            "<MyImage><Properties><Id>A</Id><Width>30</Width><Height>10</Height>" +
+            "<MarginRight>5</MarginRight></Properties></MyImage>" +
+            "<MyImage><Properties><Id>B</Id><Width>25</Width><Height>8</Height>" +
+            "<MarginLeft>2</MarginLeft><MarginTop>1</MarginTop>" +
+            "<MarginBottom>1</MarginBottom></Properties></MyImage></UIWrapPanel>");
+
+        XuiRenderFrame frame = Frame(document);
+        XuiRenderNode wrap = frame.Nodes.Single(static node =>
+            node.Id == "Wrap");
+        XuiRenderNode first = frame.Nodes.Single(static node => node.Id == "A");
+        XuiRenderNode second = frame.Nodes.Single(static node => node.Id == "B");
+
+        Assert.AreEqual(0, first.Position.X, 0.001);
+        Assert.AreEqual(0, first.Position.Y, 0.001);
+        Assert.AreEqual(2, second.Position.X, 0.001);
+        Assert.AreEqual(11, second.Position.Y, 0.001);
+        Assert.AreEqual(20, wrap.Size.Y, 0.001);
+    }
+
+    [TestMethod]
+    public void RuntimeScenarioCanRevealAndPopulateHudPlaceholders()
+    {
+        XuiDocument document = Document(
+            "<AdvGroup><Properties><Id>HiddenParent</Id><Opacity>0</Opacity>" +
+            "<Show>false</Show></Properties><MyText><Properties><Id>T_Timer</Id>" +
+            "<Width>100</Width><Height>20</Height><Opacity>0</Opacity>" +
+            "<Show>false</Show><Text>00:00</Text></Properties></MyText></AdvGroup>");
+        XuiPreviewScenario scenario = new(
+            "timer",
+            "Timer",
+            string.Empty,
+            [new XuiPreviewProperty("T_Timer", "Text", "00:23.6")],
+            new HashSet<string>(["T_Timer"], StringComparer.Ordinal));
+
+        XuiRenderNode timer = DyingLightLayoutEngine.Evaluate(
+                document,
+                new XuiViewport(100, 100),
+                0,
+                renderContext: new XuiRenderContext(scenario))
+            .Nodes.Single(static node => node.Id == "T_Timer");
+
+        Assert.IsTrue(timer.IsShown);
+        Assert.AreEqual(1, timer.Opacity, 0.001);
+        Assert.AreEqual("00:23.6", timer.Text);
+    }
+
+    [TestMethod]
     public void UnknownControlIsTransparentApproximationNotPreviewText()
     {
         XuiDocument document = Document(

@@ -76,6 +76,7 @@ public sealed class TimelineEvaluator
             XuiTimelineValueKind.Number or
             XuiTimelineValueKind.Vector2 or
             XuiTimelineValueKind.Vector3 or
+            XuiTimelineValueKind.Vector4 or
             XuiTimelineValueKind.Quaternion or
             XuiTimelineValueKind.Color;
 
@@ -101,6 +102,13 @@ public sealed class TimelineEvaluator
                 Vector3 = Values.XuiVector3.Lerp(
                     left.Vector3,
                     right.Vector3,
+                    amount),
+            },
+            XuiTimelineValueKind.Vector4 => left with
+            {
+                Vector4 = Values.XuiVector4.Lerp(
+                    left.Vector4,
+                    right.Vector4,
                     amount),
             },
             XuiTimelineValueKind.Quaternion => left with

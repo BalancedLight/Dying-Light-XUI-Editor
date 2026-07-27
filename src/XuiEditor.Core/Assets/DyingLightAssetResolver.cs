@@ -17,25 +17,47 @@ public sealed class DyingLightAssetResolver : IAssetResolver
 {
     private const int CacheHeaderSize = 8;
     private const long MaximumDecodedPixels = 67_108_864;
+    private const long DefaultMaximumCacheBytes = 2L * 1024 * 1024 * 1024;
     private readonly object _gate = new();
+    private readonly object _cacheGate = new();
     private readonly string _cacheDirectory;
+    private readonly long _maximumCacheBytes;
     private readonly Dictionary<string, string> _fontMappings;
+    private readonly IReadOnlyList<IXuiAssetSource> _sources;
+    private readonly string _locale;
+    private readonly XuiInputGlyphScheme _inputGlyphScheme;
     private readonly ConcurrentDictionary<string, Lazy<Task<DecodedImage>>> _decodedImages =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Lazy<Task<byte[]>>> _assetContents =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Lazy<Task<ResolvedBitmapFont?>>>
+        _resolvedBitmapFonts = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, XuiResolvedFile> _files = new(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyList<XuiResolvedFile> _fileList = [];
     private Dictionary<string, XuiResolvedFile> _ddsFiles = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, XuiTextureRegion> _textureRegions = new(StringComparer.Ordinal);
     private Dictionary<string, XuiFontDefinition> _fonts = new(StringComparer.Ordinal);
     private Dictionary<string, XuiFontStyle> _fontStyles = new(StringComparer.Ordinal);
+    private Dictionary<string, XuiBitmapFontMetrics> _bitmapFontMetrics =
+        new(StringComparer.OrdinalIgnoreCase);
+    private double _fontGlobalScale = 1;
     private Dictionary<string, XuiVisualTemplate> _visuals = new(StringComparer.Ordinal);
+    private ILocalizationCatalog? _localization;
+    private InputGlyphCatalog _inputGlyphs = new();
     private IReadOnlyList<XuiDiagnostic> _diagnostics = [];
 
     public DyingLightAssetResolver(
         IEnumerable<XuiAssetRoot> roots,
         string? cacheDirectory = null,
-        IReadOnlyDictionary<string, string>? fontMappings = null)
+        IReadOnlyDictionary<string, string>? fontMappings = null,
+        IEnumerable<IXuiAssetSource>? sources = null,
+        string? locale = null,
+        XuiInputGlyphScheme inputGlyphScheme =
+            XuiInputGlyphScheme.KeyboardAndMouse,
+        long maximumCacheBytes = DefaultMaximumCacheBytes)
     {
         ArgumentNullException.ThrowIfNull(roots);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumCacheBytes);
         Roots = roots
             .Select(static root => root with { })
             .DistinctBy(static root => root.FullPath, StringComparer.OrdinalIgnoreCase)
@@ -46,14 +68,49 @@ public sealed class DyingLightAssetResolver : IAssetResolver
                 "DyingLightXuiEditor",
                 "Cache",
                 "Textures");
+        _maximumCacheBytes = maximumCacheBytes;
         _fontMappings = fontMappings is null
             ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             : new Dictionary<string, string>(
                 fontMappings,
                 StringComparer.OrdinalIgnoreCase);
+        _sources = (sources ?? [])
+            .DistinctBy(static source => source.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        _locale = DyingLightInstallProfile.NormalizeLocale(
+            locale ??
+            _sources
+                .OfType<IDyingLightInstallIndex>()
+                .Select(static source => source.Profile.NormalizedLocale)
+                .FirstOrDefault());
+        _inputGlyphScheme = inputGlyphScheme;
     }
 
     public IReadOnlyList<XuiAssetRoot> Roots { get; }
+
+    public IReadOnlyList<IXuiAssetSource> Sources => _sources;
+
+    public IReadOnlyList<XuiResolvedFile> Files
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _fileList;
+            }
+        }
+    }
+
+    public ILocalizationCatalog? Localization
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _localization;
+            }
+        }
+    }
 
     public IReadOnlyList<XuiDiagnostic> Diagnostics
     {
@@ -68,21 +125,33 @@ public sealed class DyingLightAssetResolver : IAssetResolver
 
     public async Task RebuildAsync(CancellationToken cancellationToken = default)
     {
+        foreach (IXuiAssetSource source in _sources)
+        {
+            await source.RebuildAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         AssetIndexSnapshot snapshot = await Task.Run(
             () => BuildSnapshot(cancellationToken),
             cancellationToken).ConfigureAwait(false);
         lock (_gate)
         {
             _files = snapshot.Files;
+            _fileList = snapshot.FileList;
             _ddsFiles = snapshot.DdsFiles;
             _textureRegions = snapshot.TextureRegions;
             _fonts = snapshot.Fonts;
             _fontStyles = snapshot.FontStyles;
+            _bitmapFontMetrics = snapshot.BitmapFontMetrics;
+            _fontGlobalScale = snapshot.FontGlobalScale;
             _visuals = snapshot.Visuals;
+            _localization = snapshot.Localization;
+            _inputGlyphs = snapshot.InputGlyphs;
             _diagnostics = snapshot.Diagnostics;
         }
 
         _decodedImages.Clear();
+        _assetContents.Clear();
+        _resolvedBitmapFonts.Clear();
     }
 
     public XuiResolvedFile? ResolveFile(string pathOrName)
@@ -152,8 +221,8 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         XuiTextureRegion region = requested;
         List<XuiDiagnostic> diagnostics = [];
 
-        string? ddsPath = FindTextureFile(region);
-        if (ddsPath is null)
+        XuiResolvedFile? ddsFile = FindTextureFile(region);
+        if (ddsFile is null)
         {
             diagnostics.Add(new XuiDiagnostic(
                 "XUI-ASSET005",
@@ -181,15 +250,17 @@ public sealed class DyingLightAssetResolver : IAssetResolver
                 diagnostics);
         }
 
-        string sourceHash = await ComputeSha256Async(
-            ddsPath,
+        string sourceKey = AssetContentKey(ddsFile);
+        byte[] ddsBytes = await ReadAssetBytesAsync(
+            ddsFile,
             cancellationToken).ConfigureAwait(false);
+        string sourceHash = Convert.ToHexString(SHA256.HashData(ddsBytes));
         string cacheHash = ComputeCacheHash(sourceHash, region);
         ResolvedTexture? cached = await ReadCacheAsync(
             cacheHash,
             imagePath,
             requested,
-            ddsPath,
+            ddsFile.DisplayPath,
             false,
             diagnostics,
             cancellationToken).ConfigureAwait(false);
@@ -199,9 +270,12 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         }
 
         Lazy<Task<DecodedImage>> lazy = _decodedImages.GetOrAdd(
-            ddsPath,
-            path => new Lazy<Task<DecodedImage>>(
-                () => DecodeDdsAsync(path, CancellationToken.None),
+            sourceKey,
+            _ => new Lazy<Task<DecodedImage>>(
+                () => DecodeDdsAsync(
+                    ddsBytes,
+                    ddsFile.DisplayPath,
+                    CancellationToken.None),
                 LazyThreadSafetyMode.ExecutionAndPublication));
         DecodedImage decoded;
         try
@@ -214,11 +288,11 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             NotSupportedException or
             FormatException)
         {
-            _decodedImages.TryRemove(ddsPath, out _);
+            _decodedImages.TryRemove(sourceKey, out _);
             diagnostics.Add(new XuiDiagnostic(
                 "XUI-ASSET012",
                 XuiDiagnosticSeverity.Warning,
-                $"DDS '{ddsPath}' could not be decoded for image '{imagePath}': {exception.Message}"));
+                $"DDS '{ddsFile.DisplayPath}' could not be decoded for image '{imagePath}': {exception.Message}"));
             int placeholderWidth = Math.Clamp(
                 Math.Max(1, (int)region.SourceRectangle.Width),
                 1,
@@ -235,14 +309,14 @@ public sealed class DyingLightAssetResolver : IAssetResolver
                     placeholderWidth,
                     placeholderHeight),
                 requested,
-                ddsPath,
+                ddsFile.DisplayPath,
                 sourceHash,
                 true,
                 diagnostics);
         }
         catch
         {
-            _decodedImages.TryRemove(ddsPath, out _);
+            _decodedImages.TryRemove(sourceKey, out _);
             throw;
         }
 
@@ -265,7 +339,7 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             height,
             cropped,
             requested,
-            ddsPath,
+            ddsFile.DisplayPath,
             cacheHash,
             false,
             diagnostics);
@@ -415,16 +489,15 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         IReadOnlyDictionary<string, string>? userMappings = null)
     {
         string requested = fontId?.Trim() ?? string.Empty;
-        XuiFontStyle? style;
-        XuiFontDefinition? definition;
+        FontResolution resolution;
+        bool hasBitmapFont;
         lock (_gate)
         {
-            style = _fontStyles.GetValueOrDefault(requested);
-            definition = style is null
-                ? _fonts.GetValueOrDefault(requested)
-                : _fonts.GetValueOrDefault(style.EngineFontId);
+            resolution = ResolveFontResolution(requested);
+            hasBitmapFont = HasBitmapFont(resolution);
         }
 
+        XuiFontDefinition? definition = resolution.Definition;
         string engineFamily = definition?.Family ?? requested;
         string? mapped = null;
         _ = _fontMappings.TryGetValue(requested, out mapped);
@@ -485,10 +558,10 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             }
         }
 
-        bool approximate = string.IsNullOrWhiteSpace(mapped);
+        bool approximate = string.IsNullOrWhiteSpace(mapped) && !hasBitmapFont;
         double baseSize = requestedSize > 0
             ? requestedSize
-            : (definition?.BaseSize ?? 16) * (style?.Scale ?? 1);
+            : (definition?.BaseSize ?? 16) * resolution.Scale;
         if (approximate)
         {
             diagnostics.Add(new XuiDiagnostic(
@@ -506,16 +579,516 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             diagnostics);
     }
 
+    public XuiTextMeasurement MeasureText(
+        string fontId,
+        string text,
+        double requestedSize,
+        double maximumWidth,
+        bool multiline,
+        bool uppercase,
+        double characterSpacingAdjust = 0)
+    {
+        string requested = fontId?.Trim() ?? string.Empty;
+        string content = uppercase
+            ? (text ?? string.Empty).ToUpperInvariant()
+            : text ?? string.Empty;
+        FontResolution resolution;
+        XuiBitmapFontMetrics? metrics;
+        double globalScale;
+        lock (_gate)
+        {
+            resolution = ResolveFontResolution(requested);
+            metrics = FindBitmapMetrics(resolution.Definition);
+            globalScale = _fontGlobalScale;
+        }
+
+        if (resolution.Definition is not null && metrics is not null)
+        {
+            double scale = requestedSize > 0
+                ? requestedSize / Math.Max(1, metrics.FontHeight)
+                : resolution.Scale *
+                  globalScale *
+                  resolution.Definition.HeightScale;
+            return MeasureRunes(
+                content,
+                metrics,
+                Math.Max(0.01, scale),
+                resolution.CharacterSpacing + characterSpacingAdjust,
+                resolution.SpecialSignsScale,
+                maximumWidth,
+                multiline);
+        }
+
+        ResolvedFont fallback = ResolveFont(requested, requestedSize);
+        double size = Math.Max(1, fallback.Size);
+        double estimatedAdvance = Math.Max(
+            0,
+            (size * 0.55) + characterSpacingAdjust);
+        return MeasureEstimated(
+            content,
+            estimatedAdvance,
+            size,
+            maximumWidth,
+            multiline);
+    }
+
+    public string ResolveText(string keyOrLiteral)
+    {
+        if (string.IsNullOrEmpty(keyOrLiteral))
+        {
+            return keyOrLiteral;
+        }
+
+        lock (_gate)
+        {
+            if (_localization?.TryResolve(
+                    keyOrLiteral,
+                    out string direct) == true)
+            {
+                return direct;
+            }
+
+            return ResolveTextMarkup(keyOrLiteral);
+        }
+    }
+
+    private string ResolveTextMarkup(string text)
+    {
+        int first = text.IndexOf('&');
+        if (first < 0)
+        {
+            return text;
+        }
+
+        StringBuilder result = new(text.Length);
+        int cursor = 0;
+        while (first >= 0)
+        {
+            int close = text.IndexOf('&', first + 1);
+            if (close < 0)
+            {
+                break;
+            }
+
+            _ = result.Append(text, cursor, first - cursor);
+            string token = text[(first + 1)..close];
+            if (_localization?.TryResolve(token, out string localized) == true)
+            {
+                _ = result.Append(localized);
+            }
+            else if (_inputGlyphs.TryResolve(token, out string glyph))
+            {
+                _ = result.Append(glyph);
+            }
+            else
+            {
+                _ = result.Append('&').Append(token).Append('&');
+            }
+
+            cursor = close + 1;
+            first = text.IndexOf('&', cursor);
+        }
+
+        _ = result.Append(text, cursor, text.Length - cursor);
+        return result.ToString();
+    }
+
+    private static XuiTextMeasurement MeasureRunes(
+        string content,
+        XuiBitmapFontMetrics metrics,
+        double scale,
+        double characterSpacing,
+        double specialSignsScale,
+        double maximumWidth,
+        bool multiline)
+    {
+        double widthLimit = maximumWidth > 0
+            ? maximumWidth
+            : double.PositiveInfinity;
+        double currentWidth = 0;
+        double measuredWidth = 0;
+        int lines = 1;
+        foreach (Rune rune in content.EnumerateRunes())
+        {
+            if (rune.Value == '\r')
+            {
+                continue;
+            }
+
+            if (rune.Value == '\n')
+            {
+                if (!multiline)
+                {
+                    break;
+                }
+
+                measuredWidth = Math.Max(measuredWidth, currentWidth);
+                currentWidth = 0;
+                lines++;
+                continue;
+            }
+
+            XuiBitmapGlyph? glyph =
+                metrics.Glyphs.GetValueOrDefault(rune.Value) ??
+                metrics.Glyphs.GetValueOrDefault('?');
+            if (glyph is null)
+            {
+                continue;
+            }
+
+            double glyphScale = scale *
+                                (glyph.IsSpecial
+                                    ? specialSignsScale
+                                    : 1);
+            double advance = Math.Max(
+                0,
+                (glyph.Advance + characterSpacing) * glyphScale);
+            if (multiline &&
+                currentWidth > 0 &&
+                currentWidth + advance > widthLimit)
+            {
+                measuredWidth = Math.Max(measuredWidth, currentWidth);
+                currentWidth = 0;
+                lines++;
+            }
+
+            currentWidth += advance;
+        }
+
+        measuredWidth = Math.Max(measuredWidth, currentWidth);
+        return new XuiTextMeasurement(
+            measuredWidth,
+            metrics.FontHeight * scale * lines,
+            lines,
+            IsExact: true);
+    }
+
+    private static XuiTextMeasurement MeasureEstimated(
+        string content,
+        double advance,
+        double lineHeight,
+        double maximumWidth,
+        bool multiline)
+    {
+        double widthLimit = maximumWidth > 0
+            ? maximumWidth
+            : double.PositiveInfinity;
+        double currentWidth = 0;
+        double measuredWidth = 0;
+        int lines = 1;
+        foreach (Rune rune in content.EnumerateRunes())
+        {
+            if (rune.Value == '\r')
+            {
+                continue;
+            }
+
+            if (rune.Value == '\n')
+            {
+                if (!multiline)
+                {
+                    break;
+                }
+
+                measuredWidth = Math.Max(measuredWidth, currentWidth);
+                currentWidth = 0;
+                lines++;
+                continue;
+            }
+
+            if (multiline &&
+                currentWidth > 0 &&
+                currentWidth + advance > widthLimit)
+            {
+                measuredWidth = Math.Max(measuredWidth, currentWidth);
+                currentWidth = 0;
+                lines++;
+            }
+
+            currentWidth += advance;
+        }
+
+        measuredWidth = Math.Max(measuredWidth, currentWidth);
+        return new XuiTextMeasurement(
+            measuredWidth,
+            lineHeight * lines,
+            lines,
+            IsExact: false);
+    }
+
+    public ValueTask<ResolvedBitmapFont?> ResolveBitmapFontAsync(
+        string fontId,
+        CancellationToken cancellationToken = default)
+    {
+        string requested = fontId?.Trim() ?? string.Empty;
+        if (requested.Length == 0)
+        {
+            return ValueTask.FromResult<ResolvedBitmapFont?>(null);
+        }
+
+        Lazy<Task<ResolvedBitmapFont?>> lazy = _resolvedBitmapFonts.GetOrAdd(
+            requested,
+            key => new Lazy<Task<ResolvedBitmapFont?>>(
+                () => ResolveBitmapFontCoreAsync(key, CancellationToken.None),
+                LazyThreadSafetyMode.ExecutionAndPublication));
+        return new ValueTask<ResolvedBitmapFont?>(
+            lazy.Value.WaitAsync(cancellationToken));
+    }
+
+    private async Task<ResolvedBitmapFont?> ResolveBitmapFontCoreAsync(
+        string requested,
+        CancellationToken cancellationToken)
+    {
+        FontResolution resolution;
+        XuiBitmapFontMetrics? metrics;
+        XuiResolvedFile? atlasFile;
+        double globalScale;
+        lock (_gate)
+        {
+            resolution = ResolveFontResolution(requested);
+            metrics = FindBitmapMetrics(resolution.Definition);
+            atlasFile = FindFontAtlas(resolution.Definition);
+            globalScale = _fontGlobalScale;
+        }
+
+        if (resolution.Definition is null ||
+            metrics is null ||
+            atlasFile is null)
+        {
+            return null;
+        }
+
+        byte[] bytes = await ReadAssetBytesAsync(
+            atlasFile,
+            cancellationToken).ConfigureAwait(false);
+        string contentHash = Convert.ToHexString(SHA256.HashData(bytes));
+        DecodedImage decoded;
+        try
+        {
+            decoded = await DecodeDdsAsync(
+                bytes,
+                atlasFile.DisplayPath,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (
+            exception is InvalidDataException or
+            IOException or
+            NotSupportedException or
+            FormatException)
+        {
+            return new ResolvedBitmapFont(
+                requested,
+                resolution.Definition.EngineId,
+                1,
+                metrics.FontHeight,
+                resolution.CharacterSpacing,
+                resolution.SpecialSignsScale,
+                metrics,
+                1,
+                1,
+                [0, 0, 0, 0],
+                atlasFile.DisplayPath,
+                contentHash,
+                [
+                    new XuiDiagnostic(
+                        "XUI-FONT005",
+                        XuiDiagnosticSeverity.Warning,
+                        $"Bitmap font atlas '{atlasFile.DisplayPath}' could not be decoded: {exception.Message}"),
+                ]);
+        }
+
+        double size = Math.Max(
+            1,
+            metrics.FontHeight *
+            resolution.Scale *
+            globalScale *
+            resolution.Definition.HeightScale);
+        return new ResolvedBitmapFont(
+            requested,
+            resolution.Definition.EngineId,
+            size,
+            metrics.FontHeight,
+            resolution.CharacterSpacing,
+            resolution.SpecialSignsScale,
+            metrics,
+            decoded.Width,
+            decoded.Height,
+            decoded.Bgra,
+            atlasFile.DisplayPath,
+            contentHash,
+            []);
+    }
+
+    private FontResolution ResolveFontResolution(string requested)
+    {
+        XuiFontDefinition? direct = _fonts.GetValueOrDefault(requested);
+        if (direct is not null)
+        {
+            return new FontResolution(direct, 1, 0, 1);
+        }
+
+        string current = requested;
+        double scale = 1;
+        double characterSpacing = 0;
+        double specialSignsScale = 1;
+        HashSet<string> visited = new(StringComparer.Ordinal);
+        for (int depth = 0; depth < 11 && visited.Add(current); depth++)
+        {
+            XuiFontStyle? style = _fontStyles.GetValueOrDefault(current);
+            if (style is null)
+            {
+                return new FontResolution(
+                    _fonts.GetValueOrDefault(current),
+                    scale,
+                    characterSpacing,
+                    specialSignsScale);
+            }
+
+            scale *= style.Scale;
+            characterSpacing += style.CharacterSpacing;
+            specialSignsScale *= style.SpecialSignsScale;
+            current = style.EngineFontId;
+            if (!style.IsAlias)
+            {
+                return new FontResolution(
+                    _fonts.GetValueOrDefault(current),
+                    scale,
+                    characterSpacing,
+                    specialSignsScale);
+            }
+        }
+
+        return new FontResolution(
+            null,
+            scale,
+            characterSpacing,
+            specialSignsScale);
+    }
+
+    private bool HasBitmapFont(FontResolution resolution) =>
+        FindBitmapMetrics(resolution.Definition) is not null &&
+        FindFontAtlas(resolution.Definition) is not null;
+
+    private XuiBitmapFontMetrics? FindBitmapMetrics(
+        XuiFontDefinition? definition)
+    {
+        if (definition is null)
+        {
+            return null;
+        }
+
+        string id = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{definition.Family}_{definition.BaseSize:0}");
+        return _bitmapFontMetrics.GetValueOrDefault(id);
+    }
+
+    private XuiResolvedFile? FindFontAtlas(XuiFontDefinition? definition)
+    {
+        if (string.IsNullOrWhiteSpace(definition?.TextureAlias))
+        {
+            return null;
+        }
+
+        return _ddsFiles.GetValueOrDefault(
+            Path.GetFileName(definition.TextureAlias));
+    }
+
     private AssetIndexSnapshot BuildSnapshot(CancellationToken cancellationToken)
     {
         Dictionary<string, XuiResolvedFile> files = new(StringComparer.OrdinalIgnoreCase);
+        List<XuiResolvedFile> fileList = [];
         Dictionary<string, XuiResolvedFile> ddsFiles = new(StringComparer.OrdinalIgnoreCase);
         Dictionary<string, XuiTextureRegion> regions = new(StringComparer.Ordinal);
         Dictionary<string, XuiFontDefinition> fonts = new(StringComparer.Ordinal);
         Dictionary<string, XuiFontStyle> fontStyles = new(StringComparer.Ordinal);
+        Dictionary<string, XuiBitmapFontMetrics> bitmapFonts =
+            new(StringComparer.OrdinalIgnoreCase);
         Dictionary<string, XuiVisualTemplate> visuals = new(StringComparer.Ordinal);
         List<XuiDiagnostic> diagnostics = [];
         List<(string Path, string Text)> fontSources = [];
+        List<(string Locale, XuiResolvedFile File)> localizationSources = [];
+        List<XuiResolvedFile> inputGlyphSources = [];
+
+        void IndexFile(XuiResolvedFile resolved)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            string extension = Path.GetExtension(resolved.RelativePath);
+            if (!IsIndexedExtension(extension))
+            {
+                return;
+            }
+
+            string relative = NormalizeKey(resolved.RelativePath);
+            files.TryAdd(relative, resolved);
+            files.TryAdd(Path.GetFileName(relative), resolved);
+            fileList.Add(resolved);
+            if (extension.Equals(".dds", StringComparison.OrdinalIgnoreCase))
+            {
+                ddsFiles.TryAdd(Path.GetFileName(relative), resolved);
+                return;
+            }
+
+            string fileName = Path.GetFileName(relative);
+            if (extension.Equals(".xui", StringComparison.OrdinalIgnoreCase))
+            {
+                IndexVisualLibrary(
+                    resolved,
+                    visuals,
+                    diagnostics,
+                    cancellationToken);
+            }
+
+            if (extension.Equals(".def", StringComparison.OrdinalIgnoreCase) ||
+                (extension.Equals(".scr", StringComparison.OrdinalIgnoreCase) &&
+                 relative.Contains(
+                     $"{Path.DirectorySeparatorChar}texturedefs{Path.DirectorySeparatorChar}",
+                     StringComparison.OrdinalIgnoreCase)))
+            {
+                string text = ReadText(resolved, diagnostics, cancellationToken);
+                TextureDefinitionParseResult parsed =
+                    TextureDefinitionParser.Parse(text, resolved.DisplayPath);
+                diagnostics.AddRange(parsed.Diagnostics);
+                foreach (XuiTextureRegion region in parsed.Regions)
+                {
+                    regions.TryAdd(region.Name, region);
+                }
+            }
+
+            if (fileName.Equals("basicfonts.scr", StringComparison.OrdinalIgnoreCase) ||
+                fileName.Contains("fontstyles", StringComparison.OrdinalIgnoreCase))
+            {
+                fontSources.Add((
+                    resolved.DisplayPath,
+                    ReadText(resolved, diagnostics, cancellationToken)));
+            }
+
+            if (extension.Equals(".fm", StringComparison.OrdinalIgnoreCase))
+            {
+                BitmapFontParseResult parsed = BitmapFontParser.Parse(
+                    ReadText(resolved, diagnostics, cancellationToken),
+                    resolved.DisplayPath);
+                diagnostics.AddRange(parsed.Diagnostics);
+                if (parsed.Metrics is not null)
+                {
+                    bitmapFonts.TryAdd(parsed.Metrics.Id, parsed.Metrics);
+                }
+            }
+
+            if (fileName.Equals(
+                    "common_texts_all.bin",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                localizationSources.Add((
+                    InferLocale(resolved) ?? _locale,
+                    resolved));
+            }
+
+            if (IsSelectedInputGlyphCatalog(fileName))
+            {
+                inputGlyphSources.Add(resolved);
+            }
+        }
 
         foreach (XuiAssetRoot root in Roots)
         {
@@ -539,46 +1112,33 @@ public sealed class DyingLightAssetResolver : IAssetResolver
 
                 string relative = NormalizeKey(Path.GetRelativePath(root.FullPath, file));
                 XuiResolvedFile resolved = new(file, root, relative);
-                files.TryAdd(relative, resolved);
-                files.TryAdd(Path.GetFileName(relative), resolved);
-                if (extension.Equals(".dds", StringComparison.OrdinalIgnoreCase))
-                {
-                    ddsFiles.TryAdd(Path.GetFileName(relative), resolved);
-                    continue;
-                }
+                IndexFile(resolved);
+            }
+        }
 
-                string fileName = Path.GetFileName(file);
-                if (extension.Equals(".xui", StringComparison.OrdinalIgnoreCase))
-                {
-                    IndexVisualLibrary(
-                        file,
-                        root,
-                        visuals,
-                        diagnostics,
-                        cancellationToken);
-                }
-
-                if (extension.Equals(".def", StringComparison.OrdinalIgnoreCase) ||
-                    (extension.Equals(".scr", StringComparison.OrdinalIgnoreCase) &&
-                     file.Contains(
-                         $"{Path.DirectorySeparatorChar}texturedefs{Path.DirectorySeparatorChar}",
-                         StringComparison.OrdinalIgnoreCase)))
-                {
-                    string text = ReadText(file, diagnostics);
-                    TextureDefinitionParseResult parsed =
-                        TextureDefinitionParser.Parse(text, file);
-                    diagnostics.AddRange(parsed.Diagnostics);
-                    foreach (XuiTextureRegion region in parsed.Regions)
-                    {
-                        regions.TryAdd(region.Name, region);
-                    }
-                }
-
-                if (fileName.Equals("basicfonts.scr", StringComparison.OrdinalIgnoreCase) ||
-                    fileName.Contains("fontstyles", StringComparison.OrdinalIgnoreCase))
-                {
-                    fontSources.Add((file, ReadText(file, diagnostics)));
-                }
+        foreach (IXuiAssetSource source in _sources)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            diagnostics.AddRange(source.Diagnostics);
+            string rootPath = source is IDyingLightInstallIndex install
+                ? install.Profile.FullPath
+                : Path.GetDirectoryName(
+                      source.Entries.Count == 0
+                          ? null
+                          : source.Entries[0].Origin.ContainerPath) ??
+                  Environment.CurrentDirectory;
+            XuiAssetRoot root = new(
+                rootPath,
+                XuiAssetRootKind.DyingLightInstall,
+                true);
+            foreach (XuiAssetEntry entry in source.Entries)
+            {
+                XuiResolvedFile resolved = new(
+                    entry.Origin.DisplayPath,
+                    root,
+                    entry.VirtualPath,
+                    entry);
+                IndexFile(resolved);
             }
         }
 
@@ -595,19 +1155,31 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             fontStyles.TryAdd(style.Id, style);
         }
 
+        ILocalizationCatalog? localization = BuildLocalization(
+            localizationSources,
+            diagnostics,
+            cancellationToken);
+        InputGlyphCatalog inputGlyphs = BuildInputGlyphs(
+            inputGlyphSources,
+            diagnostics,
+            cancellationToken);
         return new AssetIndexSnapshot(
             files,
+            fileList,
             ddsFiles,
             regions,
             fonts,
             fontStyles,
+            bitmapFonts,
+            parsedFonts.GlobalScale,
             visuals,
+            localization,
+            inputGlyphs,
             diagnostics);
     }
 
     private static void IndexVisualLibrary(
-        string path,
-        XuiAssetRoot root,
+        XuiResolvedFile file,
         Dictionary<string, XuiVisualTemplate> visuals,
         List<XuiDiagnostic> diagnostics,
         CancellationToken cancellationToken)
@@ -615,14 +1187,17 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         byte[] bytes;
         try
         {
-            bytes = File.ReadAllBytes(path);
+            bytes = file.ReadAllBytesAsync(cancellationToken)
+                .AsTask()
+                .GetAwaiter()
+                .GetResult();
         }
         catch (IOException exception)
         {
             diagnostics.Add(new XuiDiagnostic(
                 "XUI-ASSET008",
                 XuiDiagnosticSeverity.Warning,
-                $"Could not read '{path}': {exception.Message}"));
+                $"Could not read '{file.DisplayPath}': {exception.Message}"));
             return;
         }
         catch (UnauthorizedAccessException exception)
@@ -630,7 +1205,7 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             diagnostics.Add(new XuiDiagnostic(
                 "XUI-ASSET008",
                 XuiDiagnosticSeverity.Warning,
-                $"Could not read '{path}': {exception.Message}"));
+                $"Could not read '{file.DisplayPath}': {exception.Message}"));
             return;
         }
 
@@ -660,7 +1235,7 @@ public sealed class DyingLightAssetResolver : IAssetResolver
                 diagnostics.Add(new XuiDiagnostic(
                     "XUI-ASSET009",
                     XuiDiagnosticSeverity.Warning,
-                    $"An XuiVisual in '{path}' has no Id and cannot be resolved.",
+                    $"An XuiVisual in '{file.DisplayPath}' has no Id and cannot be resolved.",
                     syntax.Span,
                     syntax.Key));
                 continue;
@@ -670,37 +1245,44 @@ public sealed class DyingLightAssetResolver : IAssetResolver
                 id,
                 syntax,
                 tree.Source,
-                path,
-                root,
+                file.DisplayPath,
+                file.Root,
                 XuiTimelineParser.Parse(syntax, tree.Source));
             if (!visuals.TryAdd(id, template) &&
                 string.Equals(
                     visuals[id].SourcePath,
-                    path,
+                    file.DisplayPath,
                     StringComparison.OrdinalIgnoreCase))
             {
                 diagnostics.Add(new XuiDiagnostic(
                     "XUI-ASSET010",
                     XuiDiagnosticSeverity.Warning,
-                    $"Visual library '{path}' declares duplicate template Id '{id}'. The first declaration wins.",
+                    $"Visual library '{file.DisplayPath}' declares duplicate template Id '{id}'. The first declaration wins.",
                     syntax.Span,
                     syntax.Key));
             }
         }
     }
 
-    private string? FindTextureFile(XuiTextureRegion region)
+    private XuiResolvedFile? FindTextureFile(XuiTextureRegion region)
     {
         string definitionDirectory = Path.GetDirectoryName(region.DefinitionPath) ?? string.Empty;
         string adjacent = Path.Combine(definitionDirectory, region.TextureFile);
         if (File.Exists(adjacent))
         {
-            return adjacent;
+            XuiAssetRoot root = new(
+                definitionDirectory,
+                XuiAssetRootKind.ExtractedDyingLight,
+                true);
+            return new XuiResolvedFile(
+                adjacent,
+                root,
+                Path.GetFileName(adjacent));
         }
 
         lock (_gate)
         {
-            return _ddsFiles.GetValueOrDefault(Path.GetFileName(region.TextureFile))?.Path;
+            return _ddsFiles.GetValueOrDefault(Path.GetFileName(region.TextureFile));
         }
     }
 
@@ -801,16 +1383,11 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         };
 
     private static async Task<DecodedImage> DecodeDdsAsync(
-        string path,
+        byte[] bytes,
+        string displayPath,
         CancellationToken cancellationToken)
     {
-        await using FileStream stream = new(
-            path,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.Read,
-            128 * 1024,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        using MemoryStream stream = new(bytes, writable: false);
         BcDecoder decoder = new();
         Memory2D<ColorRgba32> image = await decoder
             .Decode2DAsync(stream, cancellationToken)
@@ -819,7 +1396,7 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         if (pixelCount <= 0 || pixelCount > MaximumDecodedPixels)
         {
             throw new InvalidDataException(
-                $"DDS '{path}' has an unsafe decoded size of {image.Width}×{image.Height}.");
+                $"DDS '{displayPath}' has an unsafe decoded size of {image.Width}×{image.Height}.");
         }
 
         byte[] bgra = GC.AllocateUninitializedArray<byte>(
@@ -920,6 +1497,17 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             return null;
         }
 
+        try
+        {
+            File.SetLastAccessTimeUtc(path, DateTime.UtcNow);
+        }
+        catch (Exception exception) when (
+            exception is IOException or
+            UnauthorizedAccessException)
+        {
+            // Cache recency is best-effort and never affects rendering.
+        }
+
         return new ResolvedTexture(
             name,
             width,
@@ -968,6 +1556,8 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             {
                 // Another resolver completed the same content-addressed cache entry.
             }
+
+            TrimCache();
         }
         finally
         {
@@ -978,22 +1568,79 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         }
     }
 
-    private static async Task<string> ComputeSha256Async(
-        string path,
+    private void TrimCache()
+    {
+        lock (_cacheGate)
+        {
+            try
+            {
+                DirectoryInfo directory = new(_cacheDirectory);
+                if (!directory.Exists)
+                {
+                    return;
+                }
+
+                FileInfo[] files = directory
+                    .EnumerateFiles("*.bgra", SearchOption.TopDirectoryOnly)
+                    .ToArray();
+                long total = files.Sum(static file => file.Length);
+                foreach (FileInfo file in files
+                             .OrderBy(static file => file.LastAccessTimeUtc)
+                             .ThenBy(static file => file.LastWriteTimeUtc))
+                {
+                    if (total <= _maximumCacheBytes)
+                    {
+                        break;
+                    }
+
+                    long length = file.Length;
+                    try
+                    {
+                        file.Delete();
+                        total -= length;
+                    }
+                    catch (Exception exception) when (
+                        exception is IOException or
+                        UnauthorizedAccessException)
+                    {
+                        // A busy cache entry can remain until the next trim.
+                    }
+                }
+            }
+            catch (Exception exception) when (
+                exception is IOException or
+                UnauthorizedAccessException)
+            {
+                // Cache maintenance is best-effort.
+            }
+        }
+    }
+
+    private async Task<byte[]> ReadAssetBytesAsync(
+        XuiResolvedFile file,
         CancellationToken cancellationToken)
     {
-        await using FileStream stream = new(
-            path,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.Read,
-            128 * 1024,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
-        byte[] hash = await SHA256.HashDataAsync(
-            stream,
-            cancellationToken).ConfigureAwait(false);
-        return Convert.ToHexString(hash);
+        string key = AssetContentKey(file);
+        Lazy<Task<byte[]>> lazy = _assetContents.GetOrAdd(
+            key,
+            _ => new Lazy<Task<byte[]>>(
+                () => file.ReadAllBytesAsync(CancellationToken.None).AsTask(),
+                LazyThreadSafetyMode.ExecutionAndPublication));
+        try
+        {
+            return await lazy.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            _assetContents.TryRemove(key, out _);
+            throw;
+        }
     }
+
+    private static string AssetContentKey(XuiResolvedFile file) =>
+        file.Entry is null
+            ? Path.GetFullPath(file.Path)
+            : file.Entry.Origin.DisplayPath;
 
     private static string ComputeCacheHash(
         string sourceHash,
@@ -1063,27 +1710,172 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         extension.Equals(".xui", StringComparison.OrdinalIgnoreCase) ||
         extension.Equals(".def", StringComparison.OrdinalIgnoreCase) ||
         extension.Equals(".scr", StringComparison.OrdinalIgnoreCase) ||
+        extension.Equals(".fm", StringComparison.OrdinalIgnoreCase) ||
+        extension.Equals(".bin", StringComparison.OrdinalIgnoreCase) ||
         extension.Equals(".dds", StringComparison.OrdinalIgnoreCase) ||
         extension.Equals(".mat", StringComparison.OrdinalIgnoreCase) ||
         extension.Equals(".ttf", StringComparison.OrdinalIgnoreCase) ||
         extension.Equals(".otf", StringComparison.OrdinalIgnoreCase);
 
     private static string ReadText(
-        string path,
-        List<XuiDiagnostic> diagnostics)
+        XuiResolvedFile file,
+        List<XuiDiagnostic> diagnostics,
+        CancellationToken cancellationToken)
     {
         try
         {
-            return File.ReadAllText(path);
+            byte[] bytes = file.ReadAllBytesAsync(cancellationToken)
+                .AsTask()
+                .GetAwaiter()
+                .GetResult();
+            using MemoryStream stream = new(bytes, writable: false);
+            using StreamReader reader = new(
+                stream,
+                Encoding.UTF8,
+                detectEncodingFromByteOrderMarks: true);
+            return reader.ReadToEnd();
         }
-        catch (IOException exception)
+        catch (Exception exception) when (
+            exception is IOException or
+            InvalidDataException or
+            UnauthorizedAccessException or
+            NotSupportedException)
         {
             diagnostics.Add(new XuiDiagnostic(
                 "XUI-ASSET008",
                 XuiDiagnosticSeverity.Warning,
-                $"Could not read '{path}': {exception.Message}"));
+                $"Could not read '{file.DisplayPath}': {exception.Message}"));
             return string.Empty;
         }
+    }
+
+    private LocalizationCatalog? BuildLocalization(
+        IReadOnlyList<(string Locale, XuiResolvedFile File)> sources,
+        List<XuiDiagnostic> diagnostics,
+        CancellationToken cancellationToken)
+    {
+        Dictionary<string, LocalizationCatalog> catalogs =
+            new(StringComparer.OrdinalIgnoreCase);
+        foreach ((string locale, XuiResolvedFile file) in sources)
+        {
+            if (catalogs.ContainsKey(locale))
+            {
+                continue;
+            }
+
+            try
+            {
+                byte[] bytes = file.ReadAllBytesAsync(cancellationToken)
+                    .AsTask()
+                    .GetAwaiter()
+                    .GetResult();
+                LocalizationCatalog parsed = LocalizationCatalogParser.Parse(
+                    bytes,
+                    locale,
+                    sourcePath: file.DisplayPath);
+                catalogs.Add(locale, parsed);
+                diagnostics.AddRange(parsed.Diagnostics);
+            }
+            catch (Exception exception) when (
+                exception is IOException or
+                InvalidDataException or
+                UnauthorizedAccessException)
+            {
+                diagnostics.Add(new XuiDiagnostic(
+                    "XUI-LOC001",
+                    XuiDiagnosticSeverity.Warning,
+                    $"Could not read localization catalog '{file.DisplayPath}': {exception.Message}"));
+            }
+        }
+
+        catalogs.TryGetValue("En", out LocalizationCatalog? english);
+        if (!catalogs.TryGetValue(_locale, out LocalizationCatalog? selected))
+        {
+            return english;
+        }
+
+        return english is null ||
+               ReferenceEquals(selected, english)
+            ? selected
+            : new LocalizationCatalog(
+                selected.Locale,
+                selected.Entries,
+                selected.Diagnostics,
+                english);
+    }
+
+    private static InputGlyphCatalog BuildInputGlyphs(
+        IReadOnlyList<XuiResolvedFile> sources,
+        List<XuiDiagnostic> diagnostics,
+        CancellationToken cancellationToken)
+    {
+        List<(string Source, ReadOnlyMemory<byte> Bytes)> contents = [];
+        foreach (XuiResolvedFile file in sources
+                     .OrderBy(static file =>
+                         Path.GetFileName(file.RelativePath).Contains(
+                             "common",
+                             StringComparison.OrdinalIgnoreCase)
+                             ? 0
+                             : 1))
+        {
+            try
+            {
+                byte[] bytes = file.ReadAllBytesAsync(cancellationToken)
+                    .AsTask()
+                    .GetAwaiter()
+                    .GetResult();
+                contents.Add((file.DisplayPath, bytes));
+            }
+            catch (Exception exception) when (
+                exception is IOException or
+                InvalidDataException or
+                UnauthorizedAccessException)
+            {
+                diagnostics.Add(new XuiDiagnostic(
+                    "XUI-GLYPH001",
+                    XuiDiagnosticSeverity.Warning,
+                    $"Could not read input glyph catalog '{file.DisplayPath}': {exception.Message}"));
+            }
+        }
+
+        InputGlyphCatalog catalog = InputGlyphCatalog.Parse(contents);
+        diagnostics.AddRange(catalog.Diagnostics);
+        return catalog;
+    }
+
+    private bool IsSelectedInputGlyphCatalog(string fileName)
+    {
+        if (fileName.Equals(
+                "icons_common.bin",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        string selected = _inputGlyphScheme switch
+        {
+            XuiInputGlyphScheme.Xbox => "icons_xbo.bin",
+            XuiInputGlyphScheme.DualShock4 => "icons_ds4.bin",
+            _ => "icons_keyboardandmouse.bin",
+        };
+        return fileName.Equals(selected, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? InferLocale(XuiResolvedFile file)
+    {
+        string containerName = Path.GetFileNameWithoutExtension(
+            file.Entry?.Origin.ContainerPath ?? file.Path);
+        if (containerName.Length == 6 &&
+            containerName.StartsWith("Data", StringComparison.OrdinalIgnoreCase))
+        {
+            string locale = containerName[4..];
+            if (locale.All(char.IsLetter))
+            {
+                return DyingLightInstallProfile.NormalizeLocale(locale);
+            }
+        }
+
+        return null;
     }
 
     private static string NormalizeKey(string path) =>
@@ -1125,12 +1917,23 @@ public sealed class DyingLightAssetResolver : IAssetResolver
 
     private sealed record DecodedImage(int Width, int Height, byte[] Bgra);
 
+    private sealed record FontResolution(
+        XuiFontDefinition? Definition,
+        double Scale,
+        double CharacterSpacing,
+        double SpecialSignsScale);
+
     private sealed record AssetIndexSnapshot(
         Dictionary<string, XuiResolvedFile> Files,
+        IReadOnlyList<XuiResolvedFile> FileList,
         Dictionary<string, XuiResolvedFile> DdsFiles,
         Dictionary<string, XuiTextureRegion> TextureRegions,
         Dictionary<string, XuiFontDefinition> Fonts,
         Dictionary<string, XuiFontStyle> FontStyles,
+        Dictionary<string, XuiBitmapFontMetrics> BitmapFontMetrics,
+        double FontGlobalScale,
         Dictionary<string, XuiVisualTemplate> Visuals,
+        ILocalizationCatalog? Localization,
+        InputGlyphCatalog InputGlyphs,
         IReadOnlyList<XuiDiagnostic> Diagnostics);
 }

@@ -1,56 +1,47 @@
 # Runtime comparison
 
-## Controlled run — 2026-07-27
+## Reference comparison — 2026-07-27
 
-The published editor opened the extracted stock
-`data\menu\scr\menumain_pc.xui` read-only. It reported:
+The published editor opened stock files directly from the selected Dying Light
+installation and its PAK/RP6 containers. A desktop smoke test opened
+`data\menu\hud\hud.xui` read-only and reported:
 
-- 212 XUI nodes
-- 5 timelines
-- 2 roots
-- 0 asset diagnostics after indexing the configured extracted roots
+- 4,061 XUI nodes
+- 1,896 timelines
+- 24,735 indexed assets after applying the configured roots
+- 20,091 selected-language and English-fallback strings
 
-At tick 0 the editor showed the authored pre-transition state. Playback reached
-tick 10 (`0.167 s`) and resolved the menu visual library, DDS/atlas imagery,
-main list skin, news/promotion image, opacity, and keyframed visibility. The
-fixed-height hierarchy expanded without overlap, and a selection was visible
-simultaneously in the hierarchy, canvas, breadcrumb, typed inspector, and
-timeline.
+The gameplay preview scenario resolved the real `hud_dw` atlas, displayed its
+20×20 `aggro_skull` region, applied sample health/medkit/quest values, and left
+the source bytes untouched. The fixed-height hierarchy, dark dialogs, stock
+browser, persisted install profile, preview switching, diagnostics pane, and
+clean shutdown were also exercised.
 
-The authorized Dying Light Player run used:
-
-```text
-DyingLightPlayer.exe -nologos -debugconf=debugconf.scr
-```
-
-It was launched in vanilla mode and captured at the live 2560×1440 main menu.
-No installed or extracted game asset was changed.
+No automated Dying Light or Player run was performed as part of this
+validation. The in-game HUD and menu screenshots supplied by the user are the
+visual reference set. No installed or extracted game asset was changed.
 
 ## Observed comparison
 
-| Area | Editor | Player |
+| Area | Editor | Reference screenshots |
 | --- | --- | --- |
-| Logical scene | Authored 1280×720 canvas | 1280×720 XUI presented at 2560×1440 |
-| Main list | Correct relative ordering, spacing, skin roles, and keyframed visibility after playback | Same list and state, with engine localization and selection |
-| Texture resources | Stock menu DDS/atlas content resolved | Same stock visual family |
-| Localization | Raw tokens such as `&MMAIN_PLAY&` without a configured locale catalog | Resolved English strings |
-| Font | Mapped or explicit approximate fallback | Proprietary engine font/style |
-| Final placement | Flat authored XUI coordinates | Main menu passes through 3D menu placement and camera projection |
-| Dynamic data | Static declared structures only | Runtime news, profile, online state, and other game-owned data |
+| Logical scene | Authored 1280×720 canvas | 1280×720 XUI presented at the captured display resolution |
+| HUD resources | Installed DDS/atlas regions, including `hud_dw`, resolve directly | Matching stock HUD icon families |
+| Localization | Installed selected locale with English fallback | Runtime-resolved game strings |
+| Font | Exact bitmap metrics/atlas where available, explicit fallback otherwise | Proprietary engine font/style |
+| Final placement | Flat authored XUI coordinates | Some menus pass through 3D placement and camera projection |
+| Dynamic data | Explicit editor-only preview scenarios | Live quest, inventory, online, and player-owned values |
 
-The largest visible difference was the main menu's final screen-space
-projection. In the editor the flat list began near authored x≈247; the live
-capture began near authored x≈287 and had camera/perspective-dependent scale
-and vertical placement. This is not a 2D anchor error: the stock main menu has
-`UseScreenTransform=false` content and is placed by the game's 3D menu camera.
-The editor deliberately does not claim to emulate that proprietary scene.
+The current build selects a Dying Light installation and resolves its locale
+catalogs, exact bitmap-font metrics/atlases, input glyphs, visual libraries,
+and RP6 menu textures including `hud_dw`.
 
-The Player window did not accept further injected keyboard/mouse control after
-the capture, so a second live Options-screen capture was not forced. The
-application and test corpus still validate
+The largest known menu difference is final screen-space projection. Stock
+`UseScreenTransform=false` content is placed by the game's 3D menu camera; the
+editor deliberately shows the authored flat layout and does not claim to
+emulate that proprietary scene. The application and test corpus validate
 `menuoptionscontrolskeyboard.xui`, `menuskin.xui`, HUD files, and the stock
-0/1/11/12/22-tick animation offline. Player and editor were closed after the
-run.
+0/1/11/12/22-tick animation offline.
 
 ## Interpretation
 

@@ -10,6 +10,7 @@ public enum XuiAssetRootKind
     Workspace,
     LooseMod,
     ExtractedDyingLight,
+    DyingLightInstall,
 }
 
 public sealed record XuiAssetRoot(
@@ -18,7 +19,9 @@ public sealed record XuiAssetRoot(
     bool IsReadOnly)
 {
     public bool EffectiveIsReadOnly =>
-        IsReadOnly || Kind == XuiAssetRootKind.ExtractedDyingLight;
+        IsReadOnly ||
+        Kind is XuiAssetRootKind.ExtractedDyingLight or
+            XuiAssetRootKind.DyingLightInstall;
 
     public string FullPath { get; } =
         System.IO.Path.TrimEndingDirectorySeparator(
@@ -102,7 +105,10 @@ public sealed record XuiFontStyle(
     double Scale,
     double Outline,
     double CharacterSpacing,
-    double SpecialSignsScale);
+    double SpecialSignsScale)
+{
+    public bool IsAlias { get; init; }
+}
 
 public sealed record ResolvedFont(
     string RequestedId,
@@ -112,10 +118,28 @@ public sealed record ResolvedFont(
     string? FontFile,
     IReadOnlyList<XuiDiagnostic> Diagnostics);
 
+public sealed record XuiTextMeasurement(
+    double Width,
+    double Height,
+    int LineCount,
+    bool IsExact);
+
 public sealed record XuiResolvedFile(
     string Path,
     XuiAssetRoot Root,
-    string RelativePath);
+    string RelativePath,
+    XuiAssetEntry? Entry = null)
+{
+    public bool IsVirtual => Entry is not null;
+
+    public string DisplayPath => Entry?.Origin.DisplayPath ?? Path;
+
+    public async ValueTask<byte[]> ReadAllBytesAsync(
+        CancellationToken cancellationToken = default) =>
+        Entry is null
+            ? await File.ReadAllBytesAsync(Path, cancellationToken).ConfigureAwait(false)
+            : await Entry.ReadAllBytesAsync(cancellationToken).ConfigureAwait(false);
+}
 
 public sealed record XuiVisualTemplate(
     string Id,
@@ -135,6 +159,8 @@ public interface IAssetResolver
 
     XuiResolvedFile? ResolveFile(string pathOrName);
 
+    IReadOnlyList<XuiResolvedFile> Files { get; }
+
     XuiTextureRegion? ResolveTextureDefinition(string imagePath);
 
     XuiVisualTemplate? ResolveVisual(string visualId);
@@ -147,4 +173,21 @@ public interface IAssetResolver
         string fontId,
         double requestedSize,
         IReadOnlyDictionary<string, string>? userMappings = null);
+
+    XuiTextMeasurement MeasureText(
+        string fontId,
+        string text,
+        double requestedSize,
+        double maximumWidth,
+        bool multiline,
+        bool uppercase,
+        double characterSpacingAdjust = 0);
+
+    string ResolveText(string keyOrLiteral);
+
+    ILocalizationCatalog? Localization { get; }
+
+    ValueTask<ResolvedBitmapFont?> ResolveBitmapFontAsync(
+        string fontId,
+        CancellationToken cancellationToken = default);
 }

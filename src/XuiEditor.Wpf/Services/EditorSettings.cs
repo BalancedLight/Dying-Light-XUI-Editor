@@ -29,6 +29,18 @@ public sealed class EditorSettings
 
     public string? WorkspaceRoot { get; set; }
 
+    public string? DyingLightInstallPath { get; set; }
+
+    public string Locale { get; set; } = "En";
+
+    [JsonConverter(typeof(JsonStringEnumConverter<XuiInputGlyphScheme>))]
+    public XuiInputGlyphScheme InputGlyphScheme { get; set; } =
+        XuiInputGlyphScheme.KeyboardAndMouse;
+
+    public string PreviewScenarioId { get; set; } = "authored";
+
+    public double ReferenceOverlayOpacity { get; set; } = 0.5;
+
     public List<AssetRootSetting> AssetRoots { get; set; } = [];
 
     public List<string> RecentFiles { get; set; } = [];
@@ -48,7 +60,9 @@ public sealed class AssetRootSetting
 
     [JsonIgnore]
     public bool EffectiveIsReadOnly =>
-        IsReadOnly || Kind == XuiAssetRootKind.ExtractedDyingLight;
+        IsReadOnly ||
+        Kind is XuiAssetRootKind.ExtractedDyingLight or
+            XuiAssetRootKind.DyingLightInstall;
 
     public XuiAssetRoot ToAssetRoot() =>
         new(Path, Kind, EffectiveIsReadOnly);
@@ -136,7 +150,10 @@ public static class EditorSettingsStore
 
     private static EditorSettings CreateDefaults()
     {
-        EditorSettings settings = new();
+        EditorSettings settings = new()
+        {
+            DyingLightInstallPath = FindDyingLightInstall(),
+        };
         string extraction =
             @"D:\Backups\Assets\Dying Light Extraction\Dying Light Files";
         string textures =
@@ -168,14 +185,65 @@ public static class EditorSettingsStore
     {
         settings.AssetRoots ??= [];
         settings.RecentFiles ??= [];
+        settings.Locale = DyingLightInstallProfile.NormalizeLocale(
+            settings.Locale);
+        settings.PreviewScenarioId =
+            string.IsNullOrWhiteSpace(settings.PreviewScenarioId)
+                ? "authored"
+                : settings.PreviewScenarioId.Trim();
+        settings.ReferenceOverlayOpacity = Math.Clamp(
+            settings.ReferenceOverlayOpacity,
+            0,
+            1);
         settings.FontMappings ??=
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (AssetRootSetting root in settings.AssetRoots)
         {
-            if (root.Kind == XuiAssetRootKind.ExtractedDyingLight)
+            if (root.Kind is XuiAssetRootKind.ExtractedDyingLight or
+                XuiAssetRootKind.DyingLightInstall)
             {
                 root.IsReadOnly = true;
             }
         }
+    }
+
+    private static string? FindDyingLightInstall()
+    {
+        List<string> candidates = [];
+        string? explicitPath =
+            Environment.GetEnvironmentVariable("DYING_LIGHT_INSTALL");
+        if (!string.IsNullOrWhiteSpace(explicitPath))
+        {
+            candidates.Add(explicitPath);
+        }
+
+        string programFilesX86 =
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+        if (!string.IsNullOrWhiteSpace(programFilesX86))
+        {
+            candidates.Add(Path.Combine(
+                programFilesX86,
+                "Steam",
+                "steamapps",
+                "common",
+                "Dying Light"));
+        }
+
+        foreach (DriveInfo drive in DriveInfo.GetDrives()
+                     .Where(static drive =>
+                         drive.IsReady &&
+                         drive.DriveType is DriveType.Fixed or DriveType.Removable))
+        {
+            candidates.Add(Path.Combine(
+                drive.RootDirectory.FullName,
+                "SteamLibrary",
+                "steamapps",
+                "common",
+                "Dying Light"));
+        }
+
+        return candidates
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(DyingLightInstallIndex.LooksLikeInstall);
     }
 }

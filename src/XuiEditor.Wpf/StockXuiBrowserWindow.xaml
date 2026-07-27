@@ -1,0 +1,79 @@
+<Window x:Class="XuiEditor.Wpf.StockXuiBrowserWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Open Stock Dying Light XUI"
+        Width="940"
+        Height="680"
+        MinWidth="700"
+        MinHeight="460"
+        Background="{StaticResource WindowBrush}"
+        Foreground="{StaticResource TextBrush}"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="Stock XUI browser"
+                   FontSize="18"
+                   FontWeight="SemiBold" />
+        <DockPanel Grid.Row="1" Margin="0,8,0,8">
+            <TextBlock x:Name="CountText"
+                       DockPanel.Dock="Right"
+                       Margin="12,0,2,0"
+                       VerticalAlignment="Center"
+                       Foreground="{StaticResource MutedTextBrush}" />
+            <TextBox x:Name="SearchText"
+                     ToolTip="Search by file name, virtual path, or source archive"
+                     TextChanged="SearchText_TextChanged" />
+        </DockPanel>
+
+        <DataGrid x:Name="FilesGrid"
+                  Grid.Row="2"
+                  ItemsSource="{Binding Files}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  IsReadOnly="True"
+                  SelectionMode="Single"
+                  HeadersVisibility="Column"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling"
+                  MouseDoubleClick="FilesGrid_MouseDoubleClick">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="File"
+                                    Binding="{Binding FileName}"
+                                    Width="250" />
+                <DataGridTextColumn Header="Virtual path"
+                                    Binding="{Binding VirtualPath}"
+                                    Width="*" />
+                <DataGridTextColumn Header="Source"
+                                    Binding="{Binding SourceName}"
+                                    Width="150" />
+                <DataGridTextColumn Header="Size"
+                                    Binding="{Binding FormattedSize}"
+                                    Width="90" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <DockPanel Grid.Row="3" Margin="0,10,0,0">
+            <TextBlock DockPanel.Dock="Left"
+                       Text="Stock documents open read-only. Use Save As to create a mod copy."
+                       Foreground="{StaticResource MutedTextBrush}"
+                       VerticalAlignment="Center" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Cancel"
+                        IsCancel="True"
+                        MinWidth="90" />
+                <Button Content="Open read-only"
+                        IsDefault="True"
+                        MinWidth="120"
+                        Click="Open_Click" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

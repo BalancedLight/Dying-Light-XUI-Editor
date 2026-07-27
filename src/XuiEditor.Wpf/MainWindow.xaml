@@ -8,6 +8,8 @@
         Height="930"
         MinWidth="1050"
         MinHeight="680"
+        Background="{StaticResource WindowBrush}"
+        Foreground="{StaticResource TextBrush}"
         WindowStartupLocation="CenterScreen"
         Closing="Window_Closing"
         Loaded="Window_Loaded"
@@ -112,6 +114,8 @@
             <MenuItem Header="_File">
                 <MenuItem Header="_Open…" InputGestureText="Ctrl+O"
                           Click="Open_Click" />
+                <MenuItem Header="Open _Stock XUI…"
+                          Click="OpenStock_Click" />
                 <MenuItem x:Name="RecentFilesMenu" Header="Open _Recent" />
                 <Separator />
                 <MenuItem Header="_Save" InputGestureText="Ctrl+S"
@@ -119,7 +123,8 @@
                 <MenuItem Header="Save _As…" InputGestureText="Ctrl+Shift+S"
                           Click="SaveAs_Click" />
                 <Separator />
-                <MenuItem Header="Asset _Roots…" Click="AssetRoots_Click" />
+                <MenuItem Header="Dying Light _Data…"
+                          Click="AssetRoots_Click" />
                 <Separator />
                 <MenuItem Header="E_xit" Click="Exit_Click" />
             </MenuItem>
@@ -161,6 +166,11 @@
                           Click="ZoomIn_Click" />
                 <MenuItem Header="Zoom _Out" InputGestureText="-"
                           Click="ZoomOut_Click" />
+                <Separator />
+                <MenuItem Header="Load _Reference Image…"
+                          Click="LoadReferenceImage_Click" />
+                <MenuItem Header="Clear Reference Image"
+                          Click="ClearReferenceImage_Click" />
             </MenuItem>
             <MenuItem Header="_Animation">
                 <MenuItem Header="_Play / Pause" InputGestureText="Space"
@@ -189,6 +199,9 @@
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
                     <Button Content="Open" ToolTip="Open XUI (Ctrl+O)"
                             Click="Open_Click" />
+                    <Button Content="Stock"
+                            ToolTip="Browse read-only stock XUIs from the selected game install"
+                            Click="OpenStock_Click" />
                     <Button Content="Save" ToolTip="Save (Ctrl+S)"
                             Click="Save_Click" />
                     <Separator Margin="5,3" />
@@ -681,6 +694,101 @@
                                                     TickChanged="TimelineEditor_TickChanged"
                                                     SelectedKeyFrameChanged="TimelineEditor_SelectedKeyFrameChanged"
                                                     KeyFrameMoveRequested="TimelineEditor_KeyFrameMoveRequested" />
+                </Grid>
+            </TabItem>
+            <TabItem Header="Preview Data">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0"
+                            Background="{StaticResource PanelRaisedBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="0,0,0,1"
+                            Padding="7,5">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right"
+                                        Orientation="Horizontal">
+                                <Button Content="Force-show selection"
+                                        Click="ForceShowSelected_Click"
+                                        ToolTip="Reveal selected runtime-hidden controls without editing the XUI" />
+                                <Button Content="Clear force-show"
+                                        Click="ClearForceShown_Click" />
+                                <Separator Margin="6,3" />
+                                <Button Content="Reference…"
+                                        Click="LoadReferenceImage_Click" />
+                                <Button Content="Clear"
+                                        Click="ClearReferenceImage_Click" />
+                                <TextBlock Text="Opacity"
+                                           Margin="7,0,4,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource MutedTextBrush}" />
+                                <Slider x:Name="ReferenceOpacitySlider"
+                                        Width="90"
+                                        Minimum="0"
+                                        Maximum="1"
+                                        ValueChanged="ReferenceOpacitySlider_ValueChanged" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Scenario"
+                                           Margin="0,0,6,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource MutedTextBrush}" />
+                                <ComboBox x:Name="PreviewScenarioCombo"
+                                          Width="190"
+                                          DisplayMemberPath="DisplayName"
+                                          AutomationProperties.Name="Preview scenario"
+                                          AutomationProperties.AutomationId="PreviewScenarioCombo"
+                                          ToolTip="Choose representative runtime values for controls whose data is normally supplied by the game"
+                                          SelectionChanged="PreviewScenario_SelectionChanged" />
+                                <TextBlock x:Name="PreviewScenarioDescription"
+                                           Margin="10,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <DataGrid x:Name="PreviewPropertiesGrid"
+                                  Grid.Column="0"
+                                  ItemsSource="{Binding PreviewProperties}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="True"
+                                  HeadersVisibility="Column"
+                                  CellEditEnding="PreviewPropertiesGrid_CellEditEnding">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Target ID or node key"
+                                                    Binding="{Binding Target}"
+                                                    Width="220" />
+                                <DataGridComboBoxColumn Header="Property"
+                                                        SelectedItemBinding="{Binding Property}"
+                                                        Width="150" />
+                                <DataGridTextColumn Header="Runtime value"
+                                                    Binding="{Binding Value}"
+                                                    Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <StackPanel Grid.Column="1"
+                                    Margin="8,4,0,0">
+                            <Button Content="Add row"
+                                    Click="AddPreviewProperty_Click" />
+                            <Button Content="Delete row"
+                                    Click="DeletePreviewProperty_Click" />
+                            <Button Content="Reset scenario"
+                                    Click="ResetPreviewScenario_Click" />
+                            <TextBlock Margin="4,10,4,0"
+                                       Width="190"
+                                       TextWrapping="Wrap"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Text="These values are editor-only runtime data. They never change the XUI or get saved." />
+                        </StackPanel>
+                    </Grid>
                 </Grid>
             </TabItem>
             <TabItem Header="Diagnostics">

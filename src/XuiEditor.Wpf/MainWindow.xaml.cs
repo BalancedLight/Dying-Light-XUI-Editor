@@ -88,10 +88,19 @@ public partial class MainWindow : Window, IDisposable
         "Color", "TextColor", "OutlineColor", "DefaultFontColor",
         "ShadowColor", "DropShadowColor",
     };
+    private static readonly string[] PreviewPropertyNames =
+    [
+        "Text", "SourceString", "ImagePath", "Material", "Show", "Opacity",
+        "Position", "Scale", "Rotation", "Width", "Height", "Color",
+        "TextColor", "Outline", "OutlineColor", "Shadow", "Pivot",
+        "Const0", "Const1", "TextProgress", "DefaultFontColor",
+    ];
     private readonly EditorSettings _settings;
     private readonly HashSet<string> _expanded = new(StringComparer.Ordinal);
     private readonly HashSet<string> _selectedKeys = new(StringComparer.Ordinal);
     private readonly HashSet<string> _hiddenKeys = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _forceShownKeys =
+        new(StringComparer.Ordinal);
     private readonly HashSet<string> _lockedKeys = new(StringComparer.Ordinal);
     private readonly Dictionary<string, IReadOnlyList<XuiDiagnostic>>
         _textureDiagnostics = new(StringComparer.Ordinal);
@@ -99,6 +108,7 @@ public partial class MainWindow : Window, IDisposable
     private readonly DispatcherTimer _recoveryTimer;
     private readonly Stopwatch _playbackClock = new();
     private XuiDocument? _document;
+    private DyingLightInstallIndex? _installIndex;
     private DyingLightAssetResolver? _assetResolver;
     private XuiTimelineSet? _timelineSet;
     private FileSystemWatcher? _watcher;
@@ -116,6 +126,7 @@ public partial class MainWindow : Window, IDisposable
     private string? _selectedNamedFrameKey;
     private DateTime _ignoreWatcherUntilUtc;
     private bool _allowClose;
+    private bool _updatingPreviewScenario;
     private string? _recoverySuggestedPath;
     private RecoverySnapshot? _activeRecovery;
     private bool _disposed;
@@ -125,9 +136,27 @@ public partial class MainWindow : Window, IDisposable
         _settings = EditorSettingsStore.Load();
         HierarchyRows = [];
         InspectorProperties = [];
+        PreviewProperties = [];
         FilteredDiagnostics = [];
         InitializeComponent();
         DataContext = this;
+        PreviewScenarioCombo.ItemsSource = XuiPreviewScenarioCatalog.Defaults;
+        PreviewScenarioCombo.SelectedItem =
+            XuiPreviewScenarioCatalog.Defaults.FirstOrDefault(scenario =>
+                scenario.Id.Equals(
+                    _settings.PreviewScenarioId,
+                    StringComparison.Ordinal)) ??
+            XuiPreviewScenario.Empty;
+        ReferenceOpacitySlider.Value = _settings.ReferenceOverlayOpacity;
+        DataGridComboBoxColumn? previewPropertyColumn =
+            PreviewPropertiesGrid.Columns
+                .OfType<DataGridComboBoxColumn>()
+                .FirstOrDefault();
+        if (previewPropertyColumn is not null)
+        {
+            previewPropertyColumn.ItemsSource = PreviewPropertyNames;
+        }
+
         Viewport.TextureDiagnosticsAvailable +=
             Viewport_TextureDiagnosticsAvailable;
 
@@ -153,6 +182,8 @@ public partial class MainWindow : Window, IDisposable
 
     public ObservableCollection<InspectorPropertyRow> InspectorProperties { get; }
 
+    public ObservableCollection<PreviewPropertyRow> PreviewProperties { get; }
+
     public ObservableCollection<XuiDiagnostic> FilteredDiagnostics { get; }
 
     internal IReadOnlyCollection<string> ExpandedKeysForTesting => _expanded;
@@ -162,6 +193,16 @@ public partial class MainWindow : Window, IDisposable
     internal XuiViewportControl ViewportForTesting => Viewport;
 
     internal TimelineEditorControl TimelineForTesting => TimelineEditor;
+
+    internal XuiRenderContext PreviewRenderContextForTesting =>
+        BuildRenderContext();
+
+    internal void SetPreviewScenarioForTesting(string scenarioId)
+    {
+        PreviewScenarioCombo.SelectedItem =
+            XuiPreviewScenarioCatalog.Defaults.Single(scenario =>
+                scenario.Id.Equals(scenarioId, StringComparison.Ordinal));
+    }
 
     internal ListBox HierarchyListForTesting => HierarchyList;
 
@@ -223,6 +264,7 @@ public partial class MainWindow : Window, IDisposable
         ToolbarSnap.IsChecked = _settings.SnapEnabled;
         ApplyViewportSettings();
         RebuildRecentFilesMenu();
+        await EnsureInstallIndexAsync(showErrors: false).ConfigureAwait(true);
 
         string? commandLineFile = Environment.GetCommandLineArgs()
             .Skip(1)
@@ -273,6 +315,30 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
+    private async void OpenStock_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        if (!await ConfirmDiscardAsync().ConfigureAwait(true))
+        {
+            return;
+        }
+
+        if (!await EnsureInstallIndexAsync(showErrors: true).ConfigureAwait(true) ||
+            _installIndex is null)
+        {
+            return;
+        }
+
+        StockXuiBrowserWindow browser = new(_installIndex)
+        {
+            Owner = this,
+        };
+        if (browser.ShowDialog() == true &&
+            browser.SelectedEntry is XuiAssetEntry entry)
+        {
+            await OpenAssetDocumentAsync(entry).ConfigureAwait(true);
+        }
+    }
+
     private async void Save_Click(object sender, RoutedEventArgs eventArgs)
     {
         await SaveDocumentAsync(forceSaveAs: false).ConfigureAwait(true);
@@ -285,6 +351,8 @@ public partial class MainWindow : Window, IDisposable
 
     private async void AssetRoots_Click(object sender, RoutedEventArgs eventArgs)
     {
+        string? priorInstall = _settings.DyingLightInstallPath;
+        string priorLocale = _settings.Locale;
         AssetRootsWindow dialog = new(_settings)
         {
             Owner = this,
@@ -295,6 +363,19 @@ public partial class MainWindow : Window, IDisposable
         }
 
         await EditorSettingsStore.SaveAsync(_settings).ConfigureAwait(true);
+        if (!string.Equals(
+                priorInstall,
+                _settings.DyingLightInstallPath,
+                StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(
+                priorLocale,
+                _settings.Locale,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            _installIndex = null;
+        }
+
+        await EnsureInstallIndexAsync(showErrors: false).ConfigureAwait(true);
         if (_document is not null)
         {
             await RebuildAssetResolverAsync().ConfigureAwait(true);
@@ -417,6 +498,159 @@ public partial class MainWindow : Window, IDisposable
         _settings.SnapEnabled = ToolbarSnap.IsChecked == true;
         SnapMenuItem.IsChecked = _settings.SnapEnabled;
         ApplyViewportSettings();
+    }
+
+    private void PreviewScenario_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs eventArgs)
+    {
+        if (_updatingPreviewScenario ||
+            PreviewScenarioCombo.SelectedItem is not XuiPreviewScenario scenario)
+        {
+            return;
+        }
+
+        _settings.PreviewScenarioId = scenario.Id;
+        LoadPreviewScenario(scenario);
+        RefreshEvaluation();
+    }
+
+    private void PreviewPropertiesGrid_CellEditEnding(
+        object sender,
+        DataGridCellEditEndingEventArgs eventArgs)
+    {
+        _ = Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            RefreshEvaluation);
+    }
+
+    private void AddPreviewProperty_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        XuiSyntaxNode? node = SelectedNodes().FirstOrDefault();
+        PreviewPropertyRow row = new()
+        {
+            Target = node is null || _document is null
+                ? string.Empty
+                : PreviewTargetFor(node),
+            Property = "Text",
+        };
+        PreviewProperties.Add(row);
+        PreviewPropertiesGrid.SelectedItem = row;
+        PreviewPropertiesGrid.ScrollIntoView(row);
+        RefreshEvaluation();
+    }
+
+    private void DeletePreviewProperty_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        PreviewPropertyRow[] selected =
+            PreviewPropertiesGrid.SelectedItems
+                .OfType<PreviewPropertyRow>()
+                .ToArray();
+        if (selected.Length == 0 &&
+            PreviewPropertiesGrid.SelectedItem is PreviewPropertyRow single)
+        {
+            selected = [single];
+        }
+
+        foreach (PreviewPropertyRow row in selected)
+        {
+            PreviewProperties.Remove(row);
+        }
+
+        RefreshEvaluation();
+    }
+
+    private void ResetPreviewScenario_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (PreviewScenarioCombo.SelectedItem is XuiPreviewScenario scenario)
+        {
+            LoadPreviewScenario(scenario);
+            RefreshEvaluation();
+        }
+    }
+
+    private void ForceShowSelected_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        foreach (XuiSyntaxNode node in SelectedNodes())
+        {
+            _forceShownKeys.Add(node.Key);
+        }
+
+        RefreshEvaluation();
+    }
+
+    private void ClearForceShown_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        _forceShownKeys.Clear();
+        RefreshEvaluation();
+    }
+
+    private void LoadReferenceImage_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        OpenFileDialog dialog = new()
+        {
+            Title = "Load HUD or menu reference image",
+            Filter =
+                "Images (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp|All files (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false,
+        };
+        if (dialog.ShowDialog(this) == true)
+        {
+            try
+            {
+                Viewport.LoadReferenceImage(dialog.FileName);
+                StatusText.Text =
+                    $"Reference: {Path.GetFileName(dialog.FileName)}";
+            }
+            catch (Exception exception) when (
+                exception is IOException or
+                NotSupportedException)
+            {
+                MessageBox.Show(
+                    this,
+                    exception.Message,
+                    "Could not load reference image",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+    }
+
+    private void ClearReferenceImage_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        Viewport.ClearReferenceImage();
+        StatusText.Text = "Reference image cleared";
+    }
+
+    private void ReferenceOpacitySlider_ValueChanged(
+        object sender,
+        RoutedPropertyChangedEventArgs<double> eventArgs)
+    {
+        _settings.ReferenceOverlayOpacity = eventArgs.NewValue;
+        if (Viewport is not null)
+        {
+            Viewport.ReferenceImageOpacity = eventArgs.NewValue;
+        }
     }
 
     private void Fit_Click(object sender, RoutedEventArgs eventArgs) => Viewport.Fit();
@@ -1443,14 +1677,9 @@ public partial class MainWindow : Window, IDisposable
         try
         {
             StatusText.Text = "Opening XUI…";
-            XuiDocumentOptions options = new(
-                _settings.AssetRoots
-                    .Where(static root => root.EffectiveIsReadOnly)
-                    .Select(static root => root.Path)
-                    .ToArray());
             XuiDocument document = await XuiDocument.OpenAsync(
                 path,
-                options).ConfigureAwait(true);
+                CreateDocumentOptions()).ConfigureAwait(true);
             AttachDocument(document);
             _recoverySuggestedPath = null;
             _activeRecovery = null;
@@ -1475,6 +1704,39 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
+    private async Task OpenAssetDocumentAsync(XuiAssetEntry entry)
+    {
+        try
+        {
+            StatusText.Text = $"Opening stock {entry.FileName}…";
+            XuiDocument document = await XuiDocument.OpenAssetAsync(
+                entry,
+                CreateDocumentOptions()).ConfigureAwait(true);
+            AttachDocument(document);
+            _recoverySuggestedPath = null;
+            _activeRecovery = null;
+            _watcher?.Dispose();
+            _watcher = null;
+            RefreshAll();
+            await RebuildAssetResolverAsync().ConfigureAwait(true);
+            StatusText.Text =
+                "Stock XUI opened read-only · use Save As to make a mod copy";
+        }
+        catch (Exception exception) when (
+            exception is IOException or
+            UnauthorizedAccessException or
+            XuiParseException)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Could not open stock XUI",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            StatusText.Text = "Stock open failed";
+        }
+    }
+
     private async Task OpenRecoveryAsync(RecoverySnapshot snapshot)
     {
         try
@@ -1484,11 +1746,7 @@ public partial class MainWindow : Window, IDisposable
             XuiSyntaxTree tree = new XuiSyntaxParser().Parse(bytes);
             XuiDocument document = XuiDocument.FromText(
                 tree.Source,
-                new XuiDocumentOptions(
-                    _settings.AssetRoots
-                        .Where(static root => root.EffectiveIsReadOnly)
-                        .Select(static root => root.Path)
-                        .ToArray()),
+                CreateDocumentOptions(),
                 tree.Format);
             AttachDocument(document);
             _recoverySuggestedPath = snapshot.OriginalPath;
@@ -1524,6 +1782,7 @@ public partial class MainWindow : Window, IDisposable
         _expanded.Add(document.Root.Key);
         _selectedKeys.Clear();
         _hiddenKeys.Clear();
+        _forceShownKeys.Clear();
         _lockedKeys.Clear();
         _selectedNamedFrameKey = null;
         StopPlayback();
@@ -1537,6 +1796,7 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
+        await EnsureInstallIndexAsync(showErrors: false).ConfigureAwait(true);
         List<XuiAssetRoot> roots = [];
         string? documentDirectory = Path.GetDirectoryName(_document.Path);
         bool documentIsInConfiguredRoot =
@@ -1570,21 +1830,112 @@ public partial class MainWindow : Window, IDisposable
                 .Select(static root => root.ToAssetRoot()));
         _assetResolver = new DyingLightAssetResolver(
             roots,
-            fontMappings: _settings.FontMappings);
+            fontMappings: _settings.FontMappings,
+            sources: _installIndex is null ? [] : [_installIndex],
+            locale: _settings.Locale,
+            inputGlyphScheme: _settings.InputGlyphScheme);
         _textureDiagnostics.Clear();
         Viewport.SetAssetResolver(_assetResolver);
         AssetStatusText.Text = "Indexing external assets…";
         try
         {
             await _assetResolver.RebuildAsync().ConfigureAwait(true);
+            int diagnosticCount = _assetResolver.Diagnostics.Count;
             AssetStatusText.Text =
-                $"{roots.Count} roots · {_assetResolver.Diagnostics.Count} asset diagnostics";
+                $"{_assetResolver.Files.Count:N0} assets · " +
+                $"{_assetResolver.Localization?.Entries.Count ?? 0:N0} strings · " +
+                $"{diagnosticCount:N0} " +
+                (diagnosticCount == 1 ? "diagnostic" : "diagnostics");
             RefreshEvaluation();
         }
         catch (OperationCanceledException)
         {
             AssetStatusText.Text = "Asset indexing cancelled";
         }
+    }
+
+    private async Task<bool> EnsureInstallIndexAsync(bool showErrors)
+    {
+        string? install = _settings.DyingLightInstallPath;
+        if (string.IsNullOrWhiteSpace(install) ||
+            !DyingLightInstallIndex.LooksLikeInstall(install))
+        {
+            _installIndex = null;
+            AssetStatusText.Text = "Dying Light install not configured";
+            if (showErrors)
+            {
+                MessageBox.Show(
+                    this,
+                    "Choose the Dying Light installation folder from File → Dying Light Data first.",
+                    "Dying Light data required",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+
+            return false;
+        }
+
+        string fullPath = Path.TrimEndingDirectorySeparator(
+            Path.GetFullPath(install));
+        if (_installIndex is not null &&
+            _installIndex.Profile.FullPath.Equals(
+                fullPath,
+                StringComparison.OrdinalIgnoreCase) &&
+            _installIndex.Profile.NormalizedLocale.Equals(
+                DyingLightInstallProfile.NormalizeLocale(_settings.Locale),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        try
+        {
+            AssetStatusText.Text = "Indexing Dying Light PAKs and RPACKs…";
+            DyingLightInstallIndex index = new(
+                new DyingLightInstallProfile(fullPath, _settings.Locale));
+            await index.RebuildAsync().ConfigureAwait(true);
+            _installIndex = index;
+            AssetStatusText.Text =
+                $"{index.StockXuiFiles.Count:N0} stock XUIs · " +
+                $"{index.Entries.Count:N0} install assets · " +
+                index.Profile.NormalizedLocale;
+            return index.StockXuiFiles.Count > 0;
+        }
+        catch (Exception exception) when (
+            exception is IOException or
+            UnauthorizedAccessException or
+            InvalidDataException)
+        {
+            _installIndex = null;
+            AssetStatusText.Text = "Dying Light indexing failed";
+            if (showErrors)
+            {
+                MessageBox.Show(
+                    this,
+                    exception.Message,
+                    "Could not index Dying Light",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+
+            return false;
+        }
+    }
+
+    private XuiDocumentOptions CreateDocumentOptions()
+    {
+        IEnumerable<string> configured = _settings.AssetRoots
+            .Where(static root => root.EffectiveIsReadOnly)
+            .Select(static root => root.Path);
+        if (!string.IsNullOrWhiteSpace(_settings.DyingLightInstallPath))
+        {
+            configured = configured.Append(_settings.DyingLightInstallPath);
+        }
+
+        return new XuiDocumentOptions(
+            configured
+                .Where(static path => !string.IsNullOrWhiteSpace(path))
+                .ToArray());
     }
 
     private void Document_Changed(object? sender, EventArgs eventArgs)
@@ -1638,7 +1989,8 @@ public partial class MainWindow : Window, IDisposable
                 _document,
                 XuiViewport.Default,
                 _currentTick,
-                _assetResolver);
+                _assetResolver,
+                BuildRenderContext());
             Viewport.SetFrame(frame);
             Viewport.SetSelectedKeys(_selectedKeys);
             Viewport.SetHiddenKeys(EditorHiddenKeys());
@@ -1671,6 +2023,96 @@ public partial class MainWindow : Window, IDisposable
                     exception.Message),
             ]);
             StatusText.Text = "Evaluation failed safely";
+        }
+    }
+
+    private XuiRenderContext BuildRenderContext()
+    {
+        XuiPreviewScenario selected =
+            PreviewScenarioCombo?.SelectedItem as XuiPreviewScenario ??
+            XuiPreviewScenario.Empty;
+        XuiPreviewProperty[] properties = PreviewProperties
+            .Where(static row =>
+                !string.IsNullOrWhiteSpace(row.Target) &&
+                !string.IsNullOrWhiteSpace(row.Property))
+            .Select(static row => new XuiPreviewProperty(
+                row.Target.Trim(),
+                row.Property.Trim(),
+                row.Value ?? string.Empty))
+            .ToArray();
+        HashSet<string> scenarioForceShown = new(
+            selected.ForceShownTargets,
+            StringComparer.Ordinal);
+        HashSet<string> explicitlyHidden = properties
+            .Where(static property =>
+                property.Property.Equals(
+                    "Show",
+                    StringComparison.OrdinalIgnoreCase) &&
+                XuiValueParser.TryBoolean(property.Value, out bool shown) &&
+                !shown)
+            .Select(static property => property.Target)
+            .ToHashSet(StringComparer.Ordinal);
+        scenarioForceShown.UnionWith(
+            properties
+                .Where(property =>
+                    !explicitlyHidden.Contains(property.Target))
+                .Select(static property => property.Target));
+        XuiPreviewScenario effective = new(
+            selected.Id,
+            selected.DisplayName,
+            selected.Description,
+            properties,
+            scenarioForceShown);
+        return new XuiRenderContext(
+            effective,
+            _forceShownKeys,
+            ForceHiddenTargets: null,
+            ResolveLocalization: true);
+    }
+
+    private string PreviewTargetFor(XuiSyntaxNode node)
+    {
+        if (_document is null)
+        {
+            return node.Key;
+        }
+
+        string? id = XuiModelReader.GetId(node, _document.Text);
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return node.Key;
+        }
+
+        int matches = XuiModelReader.VisualDescendants(_document.Root)
+            .Prepend(_document.Root)
+            .Count(candidate => string.Equals(
+                XuiModelReader.GetId(candidate, _document.Text),
+                id,
+                StringComparison.Ordinal));
+        return matches == 1 ? id : node.Key;
+    }
+
+    private void LoadPreviewScenario(XuiPreviewScenario scenario)
+    {
+        _updatingPreviewScenario = true;
+        try
+        {
+            PreviewProperties.Clear();
+            foreach (XuiPreviewProperty property in scenario.Properties)
+            {
+                PreviewProperties.Add(new PreviewPropertyRow
+                {
+                    Target = property.Target,
+                    Property = property.Property,
+                    Value = property.Value,
+                });
+            }
+
+            PreviewScenarioDescription.Text = scenario.Description;
+        }
+        finally
+        {
+            _updatingPreviewScenario = false;
         }
     }
 
@@ -2600,7 +3042,7 @@ public partial class MainWindow : Window, IDisposable
                 FileName = Path.GetFileName(
                     _recoverySuggestedPath ??
                     _document.Path ??
-                    "Untitled.xui"),
+                    _document.DisplayName),
                 InitialDirectory = InitialSaveDirectory(),
             };
             if (dialog.ShowDialog(this) != true)
@@ -2736,17 +3178,22 @@ public partial class MainWindow : Window, IDisposable
 
     private void UpdateChrome()
     {
-        string display = _document?.Path is null
-            ? _recoverySuggestedPath is null
-                ? "Untitled"
-                : $"Recovered · {Path.GetFileName(_recoverySuggestedPath)}"
-            : Path.GetFileName(_document.Path);
+        string display = _document is null
+            ? "Untitled"
+            : _document.Path is null && _recoverySuggestedPath is not null
+                ? $"Recovered · {Path.GetFileName(_recoverySuggestedPath)}"
+                : _document.DisplayName;
         bool dirty = _document?.IsDirty == true;
         Title = $"{(dirty ? "● " : string.Empty)}{display} — Dying Light XUI Editor";
         DocumentPathText.Text = _document?.Path ??
+                                _document?.Source?.Origin ??
                                 _recoverySuggestedPath ??
                                 string.Empty;
-        DirtyText.Text = dirty ? "Modified" : "Saved";
+        DirtyText.Text = dirty
+            ? "Modified"
+            : _document?.Source?.IsReadOnly == true
+                ? "Read-only stock"
+                : "Saved";
         UndoMenuItem.IsEnabled = _document?.History.CanUndo == true;
         RedoMenuItem.IsEnabled = _document?.History.CanRedo == true;
         UndoMenuItem.Header = _document?.History.UndoDescription is string undo
@@ -2771,7 +3218,8 @@ public partial class MainWindow : Window, IDisposable
                     _document,
                     XuiViewport.Default,
                     _currentTick,
-                    _assetResolver));
+                    _assetResolver,
+                    BuildRenderContext()));
     }
 
     private void AddRecentFile(string path)

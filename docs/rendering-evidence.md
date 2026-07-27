@@ -71,6 +71,20 @@ Recovered `TextStyle` bits used by the renderer are:
 Point size, uppercase, multiline behavior, text and default font color,
 outline size/color, and shadow offset/color are retained in immutable render
 nodes. `SourceString` is used when an HTML node has no ordinary text property.
+When installed bitmap resources are present, glyph advance, atlas rectangle,
+vertical offset, special-sign scaling, wrapping, and alignment come from the
+game's `.fm` metrics rather than WPF font metrics.
+
+## Layout panels
+
+Recovered `UIStackPanel` behavior defaults to reverse-child traversal,
+skipping hidden/transparent children, applying margins, and vertically
+stacking items. Its inverse, left-margin, and column-wrap flags are evaluated.
+
+Recovered `UIWrapPanel` behavior uses declaration order, margins, horizontal
+flow, row wrapping, and optional inverse/right-aligned placement. Content
+auto-sizing changes the evaluated panel bounds and never rewrites descendant
+properties.
 
 ## Templates and resources
 

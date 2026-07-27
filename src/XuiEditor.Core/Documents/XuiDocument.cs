@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using XuiEditor.Core.Assets;
 using XuiEditor.Core.Diagnostics;
 
 namespace XuiEditor.Core.Documents;
@@ -23,6 +24,12 @@ public sealed record XuiSaveResult(
     string Path,
     string? BackupPath);
 
+public sealed record XuiDocumentSource(
+    string DisplayName,
+    string Origin,
+    string? VirtualPath,
+    bool IsReadOnly);
+
 public sealed class XuiDocument
 {
     private readonly XuiSyntaxParser _parser;
@@ -34,6 +41,7 @@ public sealed class XuiDocument
         XuiSyntaxParser parser,
         XuiSyntaxTree syntaxTree,
         string? path,
+        XuiDocumentSource? source,
         XuiDocumentOptions options,
         FileFingerprint? openedFingerprint)
     {
@@ -41,12 +49,20 @@ public sealed class XuiDocument
         _options = options;
         SyntaxTree = syntaxTree;
         Path = path;
+        Source = source;
         _baselineText = syntaxTree.Source;
         _openedFingerprint = openedFingerprint;
         History = new XuiCommandHistory(this);
     }
 
     public string? Path { get; private set; }
+
+    public XuiDocumentSource? Source { get; private set; }
+
+    public string DisplayName =>
+        Path is not null
+            ? System.IO.Path.GetFileName(Path)
+            : Source?.DisplayName ?? "Untitled";
 
     public XuiSyntaxTree SyntaxTree { get; private set; }
 
@@ -81,6 +97,11 @@ public sealed class XuiDocument
             parser,
             tree,
             fullPath,
+            new XuiDocumentSource(
+                System.IO.Path.GetFileName(fullPath),
+                fullPath,
+                null,
+                IsReadOnly: false),
             options ?? new XuiDocumentOptions(),
             fingerprint);
     }
@@ -88,7 +109,8 @@ public sealed class XuiDocument
     public static XuiDocument FromText(
         string text,
         XuiDocumentOptions? options = null,
-        XuiTextFormat? format = null)
+        XuiTextFormat? format = null,
+        XuiDocumentSource? source = null)
     {
         XuiSyntaxParser parser = new();
         XuiSyntaxTree tree = parser.Parse(text, format);
@@ -96,8 +118,44 @@ public sealed class XuiDocument
             parser,
             tree,
             path: null,
+            source,
             options ?? new XuiDocumentOptions(),
             openedFingerprint: null);
+    }
+
+    public static XuiDocument FromBytes(
+        ReadOnlySpan<byte> bytes,
+        XuiDocumentSource source,
+        XuiDocumentOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        XuiSyntaxParser parser = new();
+        XuiSyntaxTree tree = parser.Parse(bytes);
+        return new XuiDocument(
+            parser,
+            tree,
+            path: null,
+            source,
+            options ?? new XuiDocumentOptions(),
+            openedFingerprint: null);
+    }
+
+    public static async Task<XuiDocument> OpenAssetAsync(
+        XuiAssetEntry entry,
+        XuiDocumentOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        byte[] bytes = await entry.ReadAllBytesAsync(
+            cancellationToken).ConfigureAwait(false);
+        return FromBytes(
+            bytes,
+            new XuiDocumentSource(
+                entry.FileName,
+                entry.Origin.DisplayPath,
+                entry.VirtualPath,
+                entry.Origin.IsReadOnly),
+            options);
     }
 
     public void Execute(IXuiCommand command) => History.Execute(command);
@@ -172,6 +230,11 @@ public sealed class XuiDocument
             }
 
             Path = resolvedPath;
+            Source = new XuiDocumentSource(
+                System.IO.Path.GetFileName(resolvedPath),
+                resolvedPath,
+                null,
+                IsReadOnly: false);
             _baselineText = Text;
             _openedFingerprint = await FileFingerprint.CreateAsync(
                 resolvedPath,

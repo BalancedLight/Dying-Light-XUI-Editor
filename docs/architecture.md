@@ -73,13 +73,29 @@ Roots are indexed once and resolved in this order:
 1. writable workspace
 2. additional loose mod roots
 3. extracted Dying Light data
-4. bounded placeholders
+4. selected Dying Light installation
+5. bounded placeholders
+
+The install source indexes loose `DW*\Data` overrides, every non-language
+`Data*.pak` layer (including numeric patch and DLC packs), the selected locale
+plus English fallback, and `menu*_PC.rpack` RP6L resources. Installed entries
+are virtual, read-only files; the source archive is reopened for each bounded
+read and is never modified. The searchable stock-XUI browser opens these
+entries without first extracting them.
 
 `ClassOverride` and `Visual` names can resolve through XUI visual libraries
 such as `menuskin.xui`. Texture definitions support `Texture`, `Whole`,
 `Rect`, `RectWithCorner`, atlas rectangles, corner/edge/tile roles, rotations,
 and flips. DDS data is decoded with pinned `BCnEncoder.Net` 2.3.0 and cached by
-content identity.
+content identity. RP6 type-32 texture resources are reconstructed as standard
+DDS streams before decoding; this is how stock HUD references resolve
+`hud_dw.dds`.
+
+The selected installed localization catalog is parsed with declaration order
+and duplicate-key diagnostics. Installed `basicfonts.scr`, `fontstyles.scr`,
+`.fm` glyph metrics, private input-glyph catalogs, and the corresponding DDS
+font atlases provide exact bitmap text when present. A user mapping or system
+font is an explicit diagnosed fallback.
 
 The resolver never silently invents a successful result. Missing, ambiguous,
 probabilistic, corrupt, and approximate resources carry diagnostics into the
@@ -102,8 +118,9 @@ pipeline as inspector edits.
 
 ## Desktop state
 
-Panel sizes, viewport options, recent files, the writable workspace, asset
-roots, and font mappings are persisted in:
+Panel sizes, viewport options, recent files, the selected install and locale,
+input-glyph scheme, preview scenario, reference-overlay opacity, writable
+workspace, asset roots, and font mappings are persisted in:
 
 ```text
 %LocalAppData%\DyingLightXuiEditor\settings.json

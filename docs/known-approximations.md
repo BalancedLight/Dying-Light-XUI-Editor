@@ -6,11 +6,13 @@ game output:
 - **3D menu placement.** `UseScreenTransform=false` menu scenes are shown on
   their authored flat canvas. The game's camera actions, 3D placement,
   correction transforms, depth, and perspective are not emulated.
-- **Fonts.** Engine font IDs are mapped through `basicfonts.scr`,
-  `fontstyles.scr`, user-supplied font files, or installed families. If the
-  exact face is unavailable, the renderer uses a visibly diagnosed fallback.
-- **Localization.** Locale tokens remain tokens unless a matching catalog has
-  been resolved; the editor does not invent translated strings.
+- **Fonts.** The renderer uses installed `.fm` glyph metrics and font-atlas DDS
+  data when both are available. Engine IDs without an exact bitmap resource
+  are mapped through `basicfonts.scr`, `fontstyles.scr`, user-supplied font
+  files, or installed families and receive a visible approximation diagnostic.
+- **Localization.** The selected installed locale uses English fallback.
+  Tokens absent from both catalogs remain tokens; the editor does not invent
+  translated strings.
 - **Shaders and materials.** Unsupported proprietary shaders and runtime
   materials use their static bounds, template, color, opacity, and texture
   where possible. Shader-specific effects are approximate.
@@ -21,6 +23,8 @@ game output:
   are never inserted into the actual preview.
 - **Runtime content.** Online news, saves, profiles, inventory, server data,
   native list population, and similar game-owned content are not fabricated.
+  Editable preview scenarios can supply clearly editor-only values and reveal
+  hidden authored nodes without changing the source document.
 - **Probabilistic tiles.** The highest-probability declared variant is selected
   deterministically and diagnosed so repeated previews stay stable.
 - **Resolution rules.** Recovered anchor, aspect, keep-position, keep-size,

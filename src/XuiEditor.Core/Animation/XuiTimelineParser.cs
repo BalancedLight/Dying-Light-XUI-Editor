@@ -311,13 +311,47 @@ public sealed class XuiTimelineParser
             case XuiTimelineProperty.Width:
             case XuiTimelineProperty.Height:
             case XuiTimelineProperty.TextProgress:
-            case XuiTimelineProperty.Const0:
-            case XuiTimelineProperty.Const1:
                 if (XuiValueParser.TryNumber(raw, out double number))
                 {
                     value = new XuiAnimatedValue(
                         XuiTimelineValueKind.Number,
                         Number: number);
+                    return true;
+                }
+
+                break;
+
+            case XuiTimelineProperty.Const0:
+            case XuiTimelineProperty.Const1:
+                if (XuiValueParser.TryNumber(raw, out double constantNumber))
+                {
+                    value = new XuiAnimatedValue(
+                        XuiTimelineValueKind.Number,
+                        Number: constantNumber);
+                    return true;
+                }
+
+                if (XuiValueParser.TryVector4(raw, out XuiVector4 constant4))
+                {
+                    value = new XuiAnimatedValue(
+                        XuiTimelineValueKind.Vector4,
+                        Vector4: constant4);
+                    return true;
+                }
+
+                if (XuiValueParser.TryVector3(raw, out XuiVector3 constant3))
+                {
+                    value = new XuiAnimatedValue(
+                        XuiTimelineValueKind.Vector3,
+                        Vector3: constant3);
+                    return true;
+                }
+
+                if (XuiValueParser.TryVector2(raw, out XuiVector2 constant2))
+                {
+                    value = new XuiAnimatedValue(
+                        XuiTimelineValueKind.Vector2,
+                        Vector2: constant2);
                     return true;
                 }
 

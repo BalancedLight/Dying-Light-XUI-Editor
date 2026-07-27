@@ -2,6 +2,8 @@ using System.Buffers.Binary;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using XuiEditor.Core.Assets;
+using XuiEditor.Core.Documents;
+using XuiEditor.Core.Layout;
 using XuiEditor.Core.Values;
 
 namespace XuiEditor.Tests;
@@ -83,6 +85,69 @@ public sealed class AssetTests
         Assert.IsTrue(missing.IsApproximation);
         Assert.IsTrue(missing.Diagnostics.Any(static diagnostic =>
             diagnostic.Code == "XUI-FONT002"));
+    }
+
+    [TestMethod]
+    public async Task BitmapMetricsDriveTextMeasurementAndAutoSize()
+    {
+        using TestDirectory directory = new();
+        string root = directory.File("fonts");
+        Directory.CreateDirectory(root);
+        await File.WriteAllTextAsync(
+            Path.Combine(root, "basicfonts.scr"),
+            "FontAlias(\"boxed regular\", \"boxed_regular\", 16, 0, \"\", 1.0, \"boxed_regular_16.dds\")");
+        await File.WriteAllTextAsync(
+            Path.Combine(root, "fontstyles.scr"),
+            "Scaling(1.0)\nFontStyle(\"boxed_r_16\", \"boxed regular\", 1, 0, 0, 1)");
+        await File.WriteAllTextAsync(
+            Path.Combine(root, "boxed_regular_16.fm"),
+            """
+            Name("Boxed regular")
+            MapWidth(64)
+            MapHeight(64)
+            FontHeight(16)
+            Char(63,8,0,0,8,16,0)
+            Char(65,8,8,0,16,16,0)
+            """);
+        DyingLightAssetResolver resolver = new(
+        [
+            new XuiAssetRoot(root, XuiAssetRootKind.Workspace, false),
+        ],
+            directory.File("cache"));
+        await resolver.RebuildAsync();
+
+        XuiTextMeasurement measured = resolver.MeasureText(
+            "boxed_r_16",
+            "AA",
+            requestedSize: 0,
+            maximumWidth: 0,
+            multiline: false,
+            uppercase: false);
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<AdvGroup><Properties><Id>Parent</Id><Width>100</Width><Height>100</Height>" +
+            "</Properties><MyText><Properties><Id>Auto</Id><Width>1</Width><Height>1</Height>" +
+            "<Position>2,3,0</Position>" +
+            "<Text>AA</Text><Font>boxed_r_16</Font><AutoSizeToText>true</AutoSizeToText>" +
+            "<AutoSizeParentToText>true</AutoSizeParentToText>" +
+            "</Properties></MyText></AdvGroup></XuiCanvas>");
+        XuiRenderFrame frame = DyingLightLayoutEngine.Evaluate(
+                document,
+                new XuiViewport(100, 100),
+                0,
+                resolver);
+        XuiRenderNode node = frame.Nodes.Single(static candidate =>
+            candidate.Id == "Auto");
+        XuiRenderNode parent = frame.Nodes.Single(static candidate =>
+            candidate.Id == "Parent");
+
+        Assert.IsTrue(measured.IsExact);
+        Assert.AreEqual(16, measured.Width, 0.001);
+        Assert.AreEqual(16, measured.Height, 0.001);
+        Assert.AreEqual(measured.Width, node.Size.X, 0.001);
+        Assert.AreEqual(measured.Height, node.Size.Y, 0.001);
+        Assert.AreEqual(18, parent.Size.X, 0.001);
+        Assert.AreEqual(19, parent.Size.Y, 0.001);
     }
 
     [TestMethod]

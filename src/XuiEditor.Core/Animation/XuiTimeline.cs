@@ -9,6 +9,7 @@ public enum XuiTimelineValueKind
     Boolean,
     Vector2,
     Vector3,
+    Vector4,
     Quaternion,
     Color,
     Textual,
@@ -50,6 +51,7 @@ public sealed record XuiAnimatedValue(
     bool Boolean = false,
     XuiVector2 Vector2 = default,
     XuiVector3 Vector3 = default,
+    XuiVector4 Vector4 = default,
     XuiQuaternion Quaternion = default,
     XuiColor Color = default,
     string Text = "")
@@ -60,6 +62,7 @@ public sealed record XuiAnimatedValue(
         XuiTimelineValueKind.Boolean => Boolean ? "true" : "false",
         XuiTimelineValueKind.Vector2 => FormattableString.Invariant($"{Vector2.X:0.######},{Vector2.Y:0.######}"),
         XuiTimelineValueKind.Vector3 => FormattableString.Invariant($"{Vector3.X:0.######},{Vector3.Y:0.######},{Vector3.Z:0.######}"),
+        XuiTimelineValueKind.Vector4 => FormattableString.Invariant($"{Vector4.X:0.######},{Vector4.Y:0.######},{Vector4.Z:0.######},{Vector4.W:0.######}"),
         XuiTimelineValueKind.Quaternion => FormattableString.Invariant($"{Quaternion.X:0.######},{Quaternion.Y:0.######},{Quaternion.Z:0.######},{Quaternion.W:0.######}"),
         XuiTimelineValueKind.Color => $"0x{Color.Argb:X8}",
         _ => Text,

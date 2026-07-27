@@ -6,7 +6,10 @@ namespace XuiEditor.Core.Assets;
 public sealed record FontDefinitionParseResult(
     IReadOnlyList<XuiFontDefinition> Fonts,
     IReadOnlyList<XuiFontStyle> Styles,
-    IReadOnlyList<XuiDiagnostic> Diagnostics);
+    IReadOnlyList<XuiDiagnostic> Diagnostics)
+{
+    public double GlobalScale { get; init; } = 1;
+}
 
 public static class FontDefinitionParser
 {
@@ -17,6 +20,7 @@ public static class FontDefinitionParser
         List<XuiFontDefinition> fonts = [];
         List<XuiFontStyle> styles = [];
         List<XuiDiagnostic> diagnostics = [];
+        double globalScale = 1;
 
         foreach ((string path, string text) in sources)
         {
@@ -31,7 +35,14 @@ public static class FontDefinitionParser
                     continue;
                 }
 
-                if (name is "Font" or "FontAlias")
+                if (name == "Scaling" &&
+                    arguments.Count >= 1 &&
+                    TryDouble(arguments[0], out double parsedScale) &&
+                    parsedScale > 0)
+                {
+                    globalScale = parsedScale;
+                }
+                else if (name is "Font" or "FontAlias")
                 {
                     if (arguments.Count < 6 ||
                         !TryDouble(arguments[2], out double size) ||
@@ -50,7 +61,7 @@ public static class FontDefinitionParser
                         heightScale,
                         arguments.Count >= 7 ? arguments[6] : null));
                 }
-                else if (name == "FontStyle")
+                else if (name is "FontStyle" or "FontStyleAlias")
                 {
                     if (arguments.Count < 6 ||
                         !TryDouble(arguments[2], out double scale) ||
@@ -68,12 +79,18 @@ public static class FontDefinitionParser
                         scale,
                         outline,
                         spacing,
-                        signsScale));
+                        signsScale)
+                    {
+                        IsAlias = name == "FontStyleAlias",
+                    });
                 }
             }
         }
 
-        return new FontDefinitionParseResult(fonts, styles, diagnostics);
+        return new FontDefinitionParseResult(fonts, styles, diagnostics)
+        {
+            GlobalScale = globalScale,
+        };
     }
 
     private static bool TryInvocation(

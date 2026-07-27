@@ -21,7 +21,7 @@ public sealed class TimelineTests
         [
             "0.5", "true", "1,1,1", "2,3,0", "0xff010203", "0xff112233",
             "40", "20", "1", "0.3", "0,0,0.707107,0.707107",
-            "2", "3", "0xff445566", "4", "icon",
+            "0.1,0.5,0.8,1", "1,0.2,0.7,0.9", "0xff445566", "4", "icon",
             "0xff778899", "5,6,0", "menu.mat",
         ];
         XuiDocument document = XuiDocument.FromText(
@@ -38,6 +38,12 @@ public sealed class TimelineTests
         XuiAnimatedValue sampled = TimelineEvaluator.Sample(rotation, 0)!;
         Assert.AreEqual(XuiTimelineValueKind.Quaternion, sampled.Kind);
         Assert.AreEqual(90, sampled.Quaternion.ZRotationDegrees, 0.01);
+        XuiTrack constant = set.Timelines[0].Tracks.Single(static track =>
+            track.Property == XuiTimelineProperty.Const1);
+        XuiAnimatedValue sampledConstant =
+            TimelineEvaluator.Sample(constant, 0)!;
+        Assert.AreEqual(XuiTimelineValueKind.Vector4, sampledConstant.Kind);
+        Assert.AreEqual(0.9, sampledConstant.Vector4.W, 0.0001);
     }
 
     [TestMethod]
@@ -131,6 +137,40 @@ public sealed class TimelineTests
         Assert.AreEqual(
             1,
             TimelineEvaluator.Sample(numericTimeline.Tracks[0], 5)!.Number,
+            0.0001);
+    }
+
+    [TestMethod]
+    public void ConstantTracksAcceptScalarAndVectorFormsAndInterpolate()
+    {
+        XuiTimeline vectorTimeline = XuiTimelineParser.Parse(
+                XuiDocument.FromText(CreateTimelineXml(
+                    ["Const0"],
+                    ["0,1,2,3"],
+                    0,
+                    ["4,5,6,7"],
+                    10)))
+            .Timelines[0];
+        XuiTimeline scalarTimeline = XuiTimelineParser.Parse(
+                XuiDocument.FromText(CreateTimelineXml(
+                    ["Const1"],
+                    ["2"],
+                    0,
+                    ["4"],
+                    10)))
+            .Timelines[0];
+
+        XuiAnimatedValue vector =
+            TimelineEvaluator.Sample(vectorTimeline.Tracks[0], 5)!;
+        Assert.AreEqual(XuiTimelineValueKind.Vector4, vector.Kind);
+        Assert.AreEqual(2, vector.Vector4.X, 0.0001);
+        Assert.AreEqual(5, vector.Vector4.W, 0.0001);
+        Assert.AreEqual(
+            "2,3,4,5",
+            vector.ToXuiString());
+        Assert.AreEqual(
+            3,
+            TimelineEvaluator.Sample(scalarTimeline.Tracks[0], 5)!.Number,
             0.0001);
     }
 

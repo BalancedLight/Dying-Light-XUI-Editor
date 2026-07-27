@@ -1,15 +1,21 @@
 <Window x:Class="XuiEditor.Wpf.AssetRootsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Asset Roots and Font Mappings"
-        Width="820"
-        Height="590"
-        MinWidth="650"
-        MinHeight="450"
+        Title="Dying Light Data and Asset Roots"
+        Width="900"
+        Height="700"
+        MinWidth="720"
+        MinHeight="560"
+        Background="{StaticResource WindowBrush}"
+        Foreground="{StaticResource TextBrush}"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip">
     <Grid Margin="14">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="12" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="12" />
@@ -20,7 +26,7 @@
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0"
-                   Text="Writable workspace"
+                   Text="Dying Light installation"
                    FontWeight="SemiBold"
                    Margin="0,0,0,5" />
         <Grid Grid.Row="1">
@@ -28,21 +34,75 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBox x:Name="WorkspaceText" Grid.Column="0" />
+            <TextBox x:Name="InstallText"
+                     Grid.Column="0"
+                     TextChanged="InstallText_TextChanged"
+                     ToolTip="Folder containing DyingLightGame.exe and DW\Data0.pak" />
+            <Button Grid.Column="1"
+                    Content="Browse…"
+                    Margin="7,0,0,0"
+                    Click="BrowseInstall_Click" />
+        </Grid>
+        <Grid Grid.Row="2" Margin="0,7,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="120" />
+                <ColumnDefinition Width="18" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="190" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0"
+                       Text="Language"
+                       Foreground="{StaticResource MutedTextBrush}"
+                       VerticalAlignment="Center"
+                       Margin="0,0,6,0" />
+            <ComboBox x:Name="LocaleCombo"
+                      Grid.Column="1"
+                      IsEditable="True"
+                      ToolTip="Selected catalog with English fallback" />
+            <TextBlock Grid.Column="3"
+                       Text="Input prompts"
+                       Foreground="{StaticResource MutedTextBrush}"
+                       VerticalAlignment="Center"
+                       Margin="0,0,6,0" />
+            <ComboBox x:Name="InputGlyphCombo"
+                      Grid.Column="4"
+                      ToolTip="Keyboard/mouse, Xbox, or DualShock glyph catalog" />
+            <TextBlock x:Name="InstallValidationText"
+                       Grid.Column="5"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Center"
+                       TextAlignment="Right"
+                       Foreground="{StaticResource MutedTextBrush}" />
+        </Grid>
+
+        <TextBlock Grid.Row="4"
+                   Text="Writable workspace"
+                   FontWeight="SemiBold"
+                   Margin="0,0,0,5" />
+        <Grid Grid.Row="5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="WorkspaceText"
+                     Grid.Column="0"
+                     ToolTip="Stock XUIs must be saved here or another writable location" />
             <Button Grid.Column="1"
                     Content="Browse…"
                     Margin="7,0,0,0"
                     Click="BrowseWorkspace_Click" />
         </Grid>
 
-        <Grid Grid.Row="3">
+        <Grid Grid.Row="7">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <DockPanel Grid.Column="0">
                 <TextBlock DockPanel.Dock="Top"
-                           Text="Asset roots — first match wins (workspace, loose mods, extracted data)"
+                           Text="Additional asset roots — workspace and loose mods override extracted data"
                            FontWeight="SemiBold"
                            Margin="0,0,0,5" />
                 <DataGrid x:Name="RootsGrid"
@@ -77,9 +137,9 @@
             </StackPanel>
         </Grid>
 
-        <DockPanel Grid.Row="5">
+        <DockPanel Grid.Row="9">
             <TextBlock DockPanel.Dock="Top"
-                       Text="Optional exact font mappings (engine ID or family → installed family or font file)"
+                       Text="Optional font overrides (engine ID or family → installed family or font file)"
                        FontWeight="SemiBold"
                        Margin="0,0,0,5" />
             <DataGrid x:Name="FontMappingsGrid"
@@ -100,14 +160,16 @@
             </DataGrid>
         </DockPanel>
 
-        <DockPanel Grid.Row="6" Margin="0,13,0,0">
+        <DockPanel Grid.Row="10" Margin="0,13,0,0">
             <TextBlock DockPanel.Dock="Left"
                        Foreground="{StaticResource MutedTextBrush}"
                        VerticalAlignment="Center"
-                       Text="Game/extraction roots are indexed read-only; assets are never copied into the app." />
+                       Text="PAKs and RPACKs are indexed read-only. The editor never modifies the game install." />
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                 <Button Content="Cancel" IsCancel="True" MinWidth="85" />
-                <Button Content="OK" IsDefault="True" MinWidth="85"
+                <Button Content="OK"
+                        IsDefault="True"
+                        MinWidth="85"
                         Click="Ok_Click" />
             </StackPanel>
         </DockPanel>

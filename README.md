@@ -21,15 +21,19 @@ not bundled.
 
 On first use:
 
-1. Open **File > Asset Roots**.
-2. Choose a writable mod workspace.
-3. Add the extracted Dying Light data root as **Extracted Dying Light**.
-4. Add any loose mod roots whose assets should override the extraction.
-5. Open an `.xui` file.
+1. Open **File > Dying Light Data**.
+2. Choose the Dying Light folder containing `DyingLightGame.exe` and
+   `DW\Data0.pak`.
+3. Select the preview language and keyboard/controller prompt set.
+4. Optionally choose a writable mod workspace or add loose mod roots.
+5. Use **File > Open Stock XUI** to browse the installed screens, or open a
+   loose `.xui` file directly.
 
-Extracted/game roots are always treated as read-only. Opening a file from one
-of those roots requires **Save As** into the writable workspace before edits
-can be saved.
+No separate extraction is required for stock XUI, strings, fonts, or menu
+textures. The editor indexes loose installed data, base and patch PAKs, DLC
+PAKs, the selected locale with English fallback, and menu RP6 RPACKs. These
+sources are always read-only. Opening an installed or extracted file requires
+**Save As** into the writable workspace before it can be saved.
 
 ## What is implemented
 
@@ -46,8 +50,19 @@ can be saved.
 - Typed property groups plus a raw/unknown escape hatch. Invalid values remain
   visible with diagnostics instead of being silently normalized.
 - Dying Light anchors, pivots, transforms, opacity/show inheritance, keep and
-  resolution flags, visual templates, stock control families, DDS textures,
-  atlases, tilesets, nine-slice definitions, and font mappings.
+  resolution flags, stack/wrap-panel layout, visual templates, stock control
+  families, DDS textures, atlases, tilesets, and nine-slice definitions.
+- Direct install-backed resolution for PAK and RP6L/RPACK assets. In
+  particular, HUD definitions referring to `hud_dw` resolve the real
+  `hud_dw.dds` atlas from the installed menu packs.
+- Installed localization catalogs, `basicfonts.scr`, `fontstyles.scr`, `.fm`
+  bitmap metrics, private input glyphs, and font-atlas DDS resources. Exact
+  engine bitmap fonts are used when available; mappings and diagnosed
+  fallbacks remain available.
+- Editable preview scenarios for hidden/runtime-populated HUD text and
+  imagery, per-node force-show controls, and a variable-opacity reference
+  screenshot overlay. Scenario data affects only the preview and never
+  rewrites the XUI.
 - Full 60 Hz timeline parsing, playback, sampling, keyframe editing,
   interpolation/easing, named frames, loop diagnostics, and undoable timeline
   commands.

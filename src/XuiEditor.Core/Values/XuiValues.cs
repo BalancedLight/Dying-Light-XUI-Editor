@@ -19,6 +19,16 @@ public readonly record struct XuiVector3(double X, double Y, double Z)
             left.Z + ((right.Z - left.Z) * amount));
 }
 
+public readonly record struct XuiVector4(double X, double Y, double Z, double W)
+{
+    public static XuiVector4 Lerp(XuiVector4 left, XuiVector4 right, double amount) =>
+        new(
+            left.X + ((right.X - left.X) * amount),
+            left.Y + ((right.Y - left.Y) * amount),
+            left.Z + ((right.Z - left.Z) * amount),
+            left.W + ((right.W - left.W) * amount));
+}
+
 public readonly record struct XuiQuaternion(double X, double Y, double Z, double W)
 {
     public static readonly XuiQuaternion Identity = new(0, 0, 0, 1);
@@ -180,6 +190,22 @@ public static class XuiValueParser
         if (TryComponents(text, 3, out double[] components))
         {
             value = new XuiVector3(components[0], components[1], components[2]);
+            return true;
+        }
+
+        value = default;
+        return false;
+    }
+
+    public static bool TryVector4(string? text, out XuiVector4 value)
+    {
+        if (TryComponents(text, 4, out double[] components))
+        {
+            value = new XuiVector4(
+                components[0],
+                components[1],
+                components[2],
+                components[3]);
             return true;
         }
 
