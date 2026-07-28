@@ -13,12 +13,20 @@ fast tests:
   `XuiDocumentAssetContext`
 - `IAssetResolver` and Dying Light resource models
 - `XuiTimeline`, tracks, keyframes, named frames, and `TimelineEvaluator`
+- `XuiTimelineScopeCatalog`, `XuiTimelineEvaluationState`, and the
+  selection-bound timeline workspace
 
 `XuiEditor.Wpf` supplies the desktop shell. A revision-bound hierarchy index
 feeds a recycling, virtualized flat list rather than a recursive control tree.
 The canvas retains one lightweight visual per render node below a camera
 container, so panning and zooming update a transform instead of repainting
 thousands of HUD nodes.
+
+Syntax nodes are indexed by stable key and source start. Timeline scopes are
+indexed onto selectable nodes during compilation. A selection snapshot then
+resolves nodes, IDs, breadcrumb, and scope once; changing selection updates
+only the inspector, timeline, and selection overlay. It does not request a new
+layout sample.
 
 `XuiEditor.Tests` exercises the core directly and starts WPF only for focused
 fixed-DPI rendering and workspace behavior tests.
@@ -74,7 +82,18 @@ The desktop keeps a `DyingLightLayoutSession` while the document and asset
 resolver revisions remain unchanged. Timeline parsing and immutable metadata
 are reused during playback; document or asset-index changes invalidate the
 session. Render frames are diffed by stable node key, and completed textures
-redraw only the visuals that reference them.
+redraw only the visible visuals that reference them. Texture work uses a
+bounded priority queue: a selected visible image is promoted ahead of the
+ordinary HUD backlog, while invisible nodes wait until first reveal.
+
+`SampleWithChanges` returns an `XuiRenderSample` containing the immutable frame,
+changed render keys, and whether the full evaluator was required. When exactly
+one scope tick changes, the session compares only that scope's cached target
+values. Paint/text changes update their node; show and opacity propagate
+through that subtree; transform changes recompute that transform subtree.
+Width, height, layout-sensitive text, resource/material changes, unknown
+dependencies, document edits, and render-context changes deliberately fall
+back to a full evaluation.
 
 Materials resolve to explicit default-alpha, text, clip, tint,
 group-pass-through, runtime-generated, or unsupported profiles. Recovered
@@ -87,8 +106,9 @@ Roots are indexed once and resolved in this order:
 
 1. the opened document's discovered project root
 2. writable workspace
-3. additional loose mod roots
-4. extracted Dying Light data
+3. configured Dying Light project, loose-resource, loose-mod, and extracted
+   folders in user-defined order
+4. standalone texture-definition and RP6L RPACK sources
 5. selected Dying Light installation
 6. bounded placeholders
 
@@ -98,6 +118,12 @@ plus English fallback, and `menu*_PC.rpack` RP6L resources. Installed entries
 are virtual, read-only files; the source archive is reopened for each bounded
 read and is never modified. The searchable stock-XUI browser opens these
 entries without first extracting them.
+
+Standalone `.def` and texture-definition `.scr` sources retain a structurally
+discovered project/data root for provenance and DDS lookup. Standalone
+`.rpack` sources expose only bounded type-32 texture entries. Both are indexed
+read-only and are ordered ahead of the install source. Folder and file source
+order is persisted rather than being silently resorted by enum value.
 
 `ClassOverride` and `Visual` names can resolve through XUI visual libraries
 such as `menuskin.xui`. Texture definitions support `Texture`, `Whole`,
@@ -128,18 +154,78 @@ structure under `Timelines`, `Timeline`, `KeyFrame`, `NamedFrames`, and
 
 Numeric interpolation code `0` is linear. Code `2` applies the authored
 `EaseIn`, `EaseOut`, and `EaseScale` values. Boolean, string, image, font, and
-material transitions are stepped. Named-frame commands support `stop`, `goto`,
+material transitions are stepped, including switching to an intermediate key's
+new value on its exact tick. Named-frame commands support `stop`, `goto`,
 `gotoandstop`, and `gotoandplay`, with duplicate-target, unknown-command,
 recursion, and cycle diagnostics.
+
+Every element that owns a `Timelines` child is compiled into an independent
+`XuiTimelineScope`. The editor keeps a remembered integer tick for each scope,
+activates the deepest applicable owner for the current selection, and samples
+unrelated scopes at their own remembered ticks. A mixed-scope selection
+disables playback and mutation rather than synchronizing unrelated controllers.
+**All in scope** expands only the active owner's targets, and named-frame
+markers and commands are likewise scope-local. Visual-library animations are
+resolved independently at tick zero.
+
+For a useful first view, the desktop initializes each document scope to a
+deterministic editor-only composed tick. Candidate key ticks are scored from
+their sampled `Show`, `Opacity`, `Scale`, and color-alpha values, and the
+earliest maximum is selected. This settles ordinary fade/expand-in sequences
+without executing named-frame commands, coordinating playheads, or changing
+the XUI. Mutually exclusive sequences remain mutually exclusive because one
+tick is selected for the whole owner scope. The timeline header marks this
+state as `composed`; **Stop** writes an explicit tick `0` for only the active
+scope.
+
+Per-scope animation overrides are cached by owner and tick. Sampling a new
+tick re-evaluates only the changed scope; frozen scopes reuse immutable
+override maps. The WPF viewport similarly skips unchanged retained-visual
+presentation, resource, camera, grid, ruler, selection, hidden-state, and
+diagnostic work.
+
+During repeated pan or zoom input, the viewport applies WPF `BitmapCache` only
+to the node layer beneath the camera transform. Texture completions are
+deferred until the camera gesture ends, so a late asynchronous DDS does not
+invalidate the flattened HUD while it is moving. Timeline or document changes
+drop the temporary cache immediately, preserving incremental animation.
+
+The integer overload of `DyingLightLayoutEngine.Evaluate` and
+`DyingLightLayoutSession.Sample` remains a synchronized compatibility API.
+The desktop uses `XuiTimelineEvaluationState` instead. Preview-scenario and
+controller properties are applied after sampled timeline values, so curated
+runtime placeholders remain higher-priority.
+
+Some runtime UI controllers intentionally coordinate nested scopes. The editor
+does not fabricate playback coordination. The composed first view positions
+the Irisu HUD's `HudZoneInfoDI` scope at its earliest visible tick and its child
+`G_Group` scope at the first visible image, so the project-local
+`irisu_attack_00` texture appears immediately. Scrubbing either scope remains
+independent, and the named-frame **Go to** action still provides exact manual
+positioning without executing a frame command.
 
 Keyframe and marker edits use the same command history and source-patching
 pipeline as inspector edits.
 
 ## Desktop state
 
+Hierarchy rows persist for a document revision. Expansion changes synchronize
+only the changed contiguous branch, while filtering performs one batched
+reset. Eye and padlock controls expose direct and inherited editor-only states
+with shape, color, tooltips, focus feedback, and accessibility names. Inherited
+states identify the responsible ancestor. These states never dirty the
+document. **Hide all except this** stores the current direct-hide set, hides
+only the top-level excluded branches, keeps the selected subtree and its
+ancestor path visible, and supports exact restoration.
+
+The Raw XML editor is lazy. Collapsed selections do not allocate subtree text;
+expanding automatically loads up to 256 KiB, while larger subtrees require an
+explicit load before the editable WPF text box is populated.
+
 Panel sizes, viewport options, recent files, the selected install and locale,
 input-glyph scheme, preview scenario, reference-overlay opacity, writable
-workspace, asset roots, and font mappings are persisted in:
+workspace, ordered folder roots, standalone texture-definition/RPACK sources,
+and font mappings are persisted in:
 
 ```text
 %LocalAppData%\DyingLightXuiEditor\settings.json

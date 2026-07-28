@@ -94,6 +94,14 @@ public sealed record XuiRenderNode(
 {
     public XuiVector2 AuthoredSize { get; init; } = Size;
 
+    public double LocalOpacity { get; init; } = Opacity;
+
+    public bool LocalIsShown { get; init; } = IsShown;
+
+    public bool ForceShown { get; init; }
+
+    public bool EstablishesClip { get; init; }
+
     public XuiPaintKind PaintKind { get; init; }
 
     public XuiMaterialProfile MaterialProfile { get; init; } =
@@ -148,3 +156,8 @@ public sealed record XuiRenderFrame(
                 (node.ClipBounds is null ||
                  node.ClipBounds.Value.Contains(logicalPoint)));
 }
+
+public sealed record XuiRenderSample(
+    XuiRenderFrame Frame,
+    IReadOnlyList<string> ChangedRenderNodeKeys,
+    bool FullEvaluationRequired);

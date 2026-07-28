@@ -40,6 +40,11 @@ public sealed class TimelineEvaluator
                 return leftValue ?? rightValue;
             }
 
+            if (tick == right.Tick)
+            {
+                return rightValue;
+            }
+
             if (!CanInterpolate(leftValue, rightValue) ||
                 left.Interpolation == XuiInterpolation.Unknown ||
                 right.Tick == left.Tick)

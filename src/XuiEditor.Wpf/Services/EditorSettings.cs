@@ -43,6 +43,9 @@ public sealed class EditorSettings
 
     public List<AssetRootSetting> AssetRoots { get; set; } = [];
 
+    public List<AdditionalAssetSourceSetting> AdditionalAssetSources { get; set; } =
+        [];
+
     public List<string> RecentFiles { get; set; } = [];
 
     public Dictionary<string, string> FontMappings { get; set; } =
@@ -62,10 +65,33 @@ public sealed class AssetRootSetting
     public bool EffectiveIsReadOnly =>
         IsReadOnly ||
         Kind is XuiAssetRootKind.ExtractedDyingLight or
-            XuiAssetRootKind.DyingLightInstall;
+            XuiAssetRootKind.DyingLightInstall or
+            XuiAssetRootKind.AdditionalTextureDefinitions or
+            XuiAssetRootKind.Rp6ResourcePack;
 
     public XuiAssetRoot ToAssetRoot() =>
         new(Path, Kind, EffectiveIsReadOnly);
+}
+
+public sealed class AdditionalAssetSourceSetting
+{
+    public string Path { get; set; } = string.Empty;
+
+    [JsonConverter(typeof(JsonStringEnumConverter<XuiConfiguredAssetSourceKind>))]
+    public XuiConfiguredAssetSourceKind Kind { get; set; }
+
+    [JsonIgnore]
+    public string DisplayKind => Kind switch
+    {
+        XuiConfiguredAssetSourceKind.TextureDefinitionFile =>
+            "Texture definitions",
+        XuiConfiguredAssetSourceKind.Rp6ResourcePack =>
+            "RPACK",
+        _ => Kind.ToString(),
+    };
+
+    public ConfiguredAssetSource ToAssetSource() =>
+        new(Path, Kind);
 }
 
 public static class EditorSettingsStore
@@ -184,6 +210,7 @@ public static class EditorSettingsStore
     private static void Normalize(EditorSettings settings)
     {
         settings.AssetRoots ??= [];
+        settings.AdditionalAssetSources ??= [];
         settings.RecentFiles ??= [];
         settings.Locale = DyingLightInstallProfile.NormalizeLocale(
             settings.Locale);
@@ -200,7 +227,9 @@ public static class EditorSettingsStore
         foreach (AssetRootSetting root in settings.AssetRoots)
         {
             if (root.Kind is XuiAssetRootKind.ExtractedDyingLight or
-                XuiAssetRootKind.DyingLightInstall)
+                XuiAssetRootKind.DyingLightInstall or
+                XuiAssetRootKind.AdditionalTextureDefinitions or
+                XuiAssetRootKind.Rp6ResourcePack)
             {
                 root.IsReadOnly = true;
             }

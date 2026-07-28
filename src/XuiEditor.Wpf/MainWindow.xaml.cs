@@ -24,6 +24,7 @@ namespace XuiEditor.Wpf;
 public partial class MainWindow : Window, IDisposable
 {
     private const string MixedValue = "— mixed —";
+    private const int AutomaticRawXmlCharacterLimit = 256 * 1024;
     private static readonly HashSet<string> KnownProperties = new(
         StringComparer.Ordinal)
     {
@@ -94,12 +95,16 @@ public partial class MainWindow : Window, IDisposable
     private readonly HashSet<string> _expanded = new(StringComparer.Ordinal);
     private readonly HashSet<string> _selectedKeys = new(StringComparer.Ordinal);
     private readonly HashSet<string> _hiddenKeys = new(StringComparer.Ordinal);
+    private HashSet<string>? _hiddenKeysBeforeIsolation;
     private readonly HashSet<string> _forceShownKeys =
         new(StringComparer.Ordinal);
     private readonly HashSet<string> _lockedKeys = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, HierarchyRow> _visibleHierarchyRows =
+        new(StringComparer.Ordinal);
     private readonly Dictionary<string, IReadOnlyList<XuiDiagnostic>>
         _textureDiagnostics = new(StringComparer.Ordinal);
     private IReadOnlyList<XuiDiagnostic> _evaluationDiagnostics = [];
+    private bool _evaluationDiagnosticsInitialized;
     private readonly DispatcherTimer _playbackTimer;
     private readonly DispatcherTimer _recoveryTimer;
     private readonly DispatcherTimer _hierarchySearchTimer;
@@ -109,7 +114,9 @@ public partial class MainWindow : Window, IDisposable
     private DyingLightAssetResolver? _assetResolver;
     private DyingLightLayoutSession? _layoutSession;
     private HierarchyIndex? _hierarchyIndex;
+    private string? _lastHierarchyFilter;
     private XuiTimelineSet? _timelineSet;
+    private XuiTimelineWorkspace? _timelineWorkspace;
     private FileSystemWatcher? _watcher;
     private bool _syncingSelection;
     private bool _updatingTick;
@@ -120,15 +127,19 @@ public partial class MainWindow : Window, IDisposable
     private HashSet<string>? _expansionBeforeFilter;
     private bool _isPlaying;
     private double _playbackRemainder;
-    private int _currentTick;
     private long _layoutEvaluationCount;
     private string? _copiedKeyFrameXml;
     private string? _selectedNamedFrameKey;
+    private string? _rawXmlLoadedNodeKey;
+    private long _rawXmlLoadedRevision = -1;
     private DateTime _ignoreWatcherUntilUtc;
     private bool _allowClose;
     private string? _recoverySuggestedPath;
     private RecoverySnapshot? _activeRecovery;
     private bool _disposed;
+
+    private int CurrentTimelineTick =>
+        _timelineWorkspace?.ActiveTick ?? 0;
 
     public MainWindow()
     {
@@ -194,8 +205,30 @@ public partial class MainWindow : Window, IDisposable
 
     internal TimelineEditorControl TimelineForTesting => TimelineEditor;
 
+    internal XuiTimelineWorkspace? TimelineWorkspaceForTesting =>
+        _timelineWorkspace;
+
+    internal string TimelineScopeLabelForTesting =>
+        TimelineScopeText.Text;
+
+    internal int NamedFrameCountForTesting =>
+        NamedFrameComboBox.Items.Count;
+
+    internal bool TimelineEditingEnabledForTesting =>
+        TimelineTransportPanel.IsEnabled &&
+        TimelineEditPanel.IsEnabled &&
+        TimelineEditor.IsEnabled;
+
     internal long LayoutEvaluationCountForTesting =>
         _layoutEvaluationCount;
+
+    internal bool RawXmlMaterializedForTesting =>
+        _rawXmlLoadedNodeKey is not null;
+
+    internal string RawXmlStatusForTesting => RawXmlStatusText.Text;
+
+    internal HierarchyRow? HierarchyRowForTesting(string nodeKey) =>
+        _hierarchyIndex?.FindRow(nodeKey);
 
     internal XuiRenderContext PreviewRenderContextForTesting =>
         BuildRenderContext();
@@ -223,6 +256,16 @@ public partial class MainWindow : Window, IDisposable
         RefreshAll();
     }
 
+    internal void SetAssetResolverForTesting(
+        DyingLightAssetResolver resolver)
+    {
+        _assetResolver = resolver ??
+                         throw new ArgumentNullException(nameof(resolver));
+        _layoutSession = null;
+        Viewport.SetAssetResolver(resolver);
+        RefreshEvaluation();
+    }
+
     internal void SetHierarchyExpansionForTesting(string nodeKey, bool expanded)
     {
         if (expanded)
@@ -244,14 +287,82 @@ public partial class MainWindow : Window, IDisposable
         ApplyHierarchyFilter();
     }
 
+    internal void SetEditorHiddenForTesting(string nodeKey, bool hidden)
+    {
+        _hiddenKeysBeforeIsolation = null;
+        if (hidden)
+        {
+            _hiddenKeys.Add(nodeKey);
+        }
+        else
+        {
+            _hiddenKeys.Remove(nodeKey);
+        }
+
+        _hierarchyIndex?.UpdateEditorStates(_hiddenKeys, _lockedKeys);
+        Viewport.SetHiddenKeys(EditorHiddenKeys());
+    }
+
+    internal void IsolateHierarchyForTesting(string nodeKey) =>
+        IsolateHierarchy(nodeKey);
+
+    internal void RestoreHierarchyIsolationForTesting() =>
+        RestoreHierarchyIsolation();
+
+    internal void SetEditorLockedForTesting(string nodeKey, bool locked)
+    {
+        if (locked)
+        {
+            _lockedKeys.Add(nodeKey);
+        }
+        else
+        {
+            _lockedKeys.Remove(nodeKey);
+        }
+
+        _hierarchyIndex?.UpdateEditorStates(_hiddenKeys, _lockedKeys);
+    }
+
+    internal void SetRawXmlExpandedForTesting(
+        bool expanded,
+        bool loadLarge = false)
+    {
+        RawXmlExpander.IsExpanded = expanded;
+        if (expanded)
+        {
+            RefreshRawXmlEditor(allowLarge: loadLarge);
+        }
+    }
+
     internal void SelectNodeKeysForTesting(IEnumerable<string> nodeKeys)
     {
         _selectedKeys.Clear();
         _selectedKeys.UnionWith(nodeKeys);
-        EnsureSelectedAncestorsExpanded();
-        BuildHierarchy();
+        if (EnsureSelectedAncestorsExpanded())
+        {
+            BuildHierarchy();
+        }
+
         SelectRowsFromKeys();
         UpdateSelectionSurfaces();
+    }
+
+    internal void SetAllInScopeForTesting(bool enabled)
+    {
+        AllTracksToggle.IsChecked = enabled;
+        UpdateTimelineData();
+    }
+
+    internal void SetTimelineTickForTesting(int tick) =>
+        SetCurrentTick(tick);
+
+    internal void GoToNamedFrameForTesting(string name)
+    {
+        NamedFrameComboBox.SelectedItem =
+            (_timelineWorkspace?.ActiveScope?.NamedFrames ?? [])
+            .Single(frame =>
+                frame.Name.Equals(name, StringComparison.Ordinal));
+        GoToNamedFrame_Click(this, new RoutedEventArgs());
     }
 
     internal void CommitTransformForTesting(
@@ -625,7 +736,8 @@ public partial class MainWindow : Window, IDisposable
 
     private void PlayPause_Click(object sender, RoutedEventArgs eventArgs)
     {
-        if (_timelineSet is null || _timelineSet.MaximumTick <= 0)
+        if (_timelineWorkspace?.ActiveScope is not XuiTimelineScope scope ||
+            scope.MaximumTick <= 0)
         {
             return;
         }
@@ -654,15 +766,15 @@ public partial class MainWindow : Window, IDisposable
     private void PreviousTick_Click(object sender, RoutedEventArgs eventArgs)
     {
         StopPlayback();
-        SetCurrentTick(Math.Max(0, _currentTick - 1));
+        SetCurrentTick(Math.Max(0, CurrentTimelineTick - 1));
     }
 
     private void NextTick_Click(object sender, RoutedEventArgs eventArgs)
     {
         StopPlayback();
         SetCurrentTick(Math.Min(
-            _timelineSet?.MaximumTick ?? int.MaxValue,
-            _currentTick + 1));
+            _timelineWorkspace?.ActiveScope?.MaximumTick ?? int.MaxValue,
+            CurrentTimelineTick + 1));
     }
 
     private void AddKeyFrame_Click(object sender, RoutedEventArgs eventArgs)
@@ -680,15 +792,18 @@ public partial class MainWindow : Window, IDisposable
         }
 
         string newline = _document.Format.NewLine;
+        int currentTick = CurrentTimelineTick;
         List<string> lines =
         [
             "<KeyFrame>",
-            $"<Time>{_currentTick.ToString(CultureInfo.InvariantCulture)}</Time>",
+            $"<Time>{currentTick.ToString(CultureInfo.InvariantCulture)}</Time>",
             "<Interpolation>0</Interpolation>",
         ];
         foreach (XuiTrack track in timeline.Tracks)
         {
-            XuiAnimatedValue? sampled = TimelineEvaluator.Sample(track, _currentTick);
+            XuiAnimatedValue? sampled = TimelineEvaluator.Sample(
+                track,
+                currentTick);
             lines.Add($"<Prop>{sampled?.ToXuiString() ?? DefaultTimelineValue(track.Property)}</Prop>");
         }
 
@@ -697,7 +812,7 @@ public partial class MainWindow : Window, IDisposable
             _document,
             timeline.Syntax,
             string.Join(newline, lines),
-            $"Add keyframe at {_currentTick}"));
+            $"Add keyframe at {currentTick}"));
     }
 
     private void DeleteKeyFrame_Click(object sender, RoutedEventArgs eventArgs)
@@ -744,12 +859,13 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
-        string raw = ReplaceKeyFrameTime(_copiedKeyFrameXml, _currentTick);
+        int currentTick = CurrentTimelineTick;
+        string raw = ReplaceKeyFrameTime(_copiedKeyFrameXml, currentTick);
         _document.Execute(XuiCommandFactory.InsertChildXml(
             _document,
             timeline.Syntax,
             raw,
-            $"Paste keyframe at {_currentTick}"));
+            $"Paste keyframe at {currentTick}"));
     }
 
     private void HierarchyExpand_Click(object sender, RoutedEventArgs eventArgs)
@@ -794,9 +910,12 @@ public partial class MainWindow : Window, IDisposable
         object sender,
         RoutedEventArgs eventArgs)
     {
-        EnsureSelectedAncestorsExpanded();
-        BuildHierarchy();
-        SelectRowsFromKeys();
+        if (EnsureSelectedAncestorsExpanded())
+        {
+            BuildHierarchy();
+        }
+
+        SelectRowsFromKeys(scrollIntoView: true);
         HierarchyList.Focus();
     }
 
@@ -852,6 +971,7 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
+        _hiddenKeysBeforeIsolation = null;
         if (row.IsEditorVisible)
         {
             _hiddenKeys.Remove(row.NodeKey);
@@ -861,6 +981,88 @@ public partial class MainWindow : Window, IDisposable
             _hiddenKeys.Add(row.NodeKey);
         }
 
+        _hierarchyIndex?.UpdateEditorStates(_hiddenKeys, _lockedKeys);
+        Viewport.SetHiddenKeys(EditorHiddenKeys());
+    }
+
+    private void HierarchyContextMenu_Opened(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (sender is not ContextMenu menu)
+        {
+            return;
+        }
+
+        foreach (MenuItem item in menu.Items.OfType<MenuItem>())
+        {
+            if (Equals(item.Tag, "RestoreIsolation"))
+            {
+                item.IsEnabled = _hiddenKeysBeforeIsolation is not null;
+            }
+        }
+    }
+
+    private void HierarchyIsolate_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (sender is MenuItem { DataContext: HierarchyRow row })
+        {
+            IsolateHierarchy(row.NodeKey);
+        }
+    }
+
+    private void HierarchyRestoreIsolation_Click(
+        object sender,
+        RoutedEventArgs eventArgs) =>
+        RestoreHierarchyIsolation();
+
+    private void HierarchyShowAll_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        _hiddenKeysBeforeIsolation = null;
+        _hiddenKeys.Clear();
+        ApplyHierarchyVisibility();
+    }
+
+    private void IsolateHierarchy(string nodeKey)
+    {
+        if (_hierarchyIndex is null ||
+            _hierarchyIndex.Find(nodeKey) is null)
+        {
+            return;
+        }
+
+        _hiddenKeysBeforeIsolation =
+            new HashSet<string>(_hiddenKeys, StringComparer.Ordinal);
+        _hiddenKeys.Clear();
+        _hiddenKeys.UnionWith(
+            _hierarchyIndex.HiddenBranchRootsExcept(nodeKey));
+        _selectedKeys.Clear();
+        _selectedKeys.Add(nodeKey);
+        SelectRowsFromKeys(scrollIntoView: false);
+        UpdateSelectionSurfaces();
+        ApplyHierarchyVisibility();
+    }
+
+    private void RestoreHierarchyIsolation()
+    {
+        if (_hiddenKeysBeforeIsolation is null)
+        {
+            return;
+        }
+
+        _hiddenKeys.Clear();
+        _hiddenKeys.UnionWith(_hiddenKeysBeforeIsolation);
+        _hiddenKeysBeforeIsolation = null;
+        ApplyHierarchyVisibility();
+    }
+
+    private void ApplyHierarchyVisibility()
+    {
+        _hierarchyIndex?.UpdateEditorStates(_hiddenKeys, _lockedKeys);
         Viewport.SetHiddenKeys(EditorHiddenKeys());
     }
 
@@ -881,6 +1083,8 @@ public partial class MainWindow : Window, IDisposable
         {
             _lockedKeys.Remove(row.NodeKey);
         }
+
+        _hierarchyIndex?.UpdateEditorStates(_hiddenKeys, _lockedKeys);
     }
 
     private void HierarchySearch_TextChanged(
@@ -962,9 +1166,12 @@ public partial class MainWindow : Window, IDisposable
             _selectedKeys.Add(eventArgs.NodeKey);
         }
 
-        EnsureSelectedAncestorsExpanded();
-        BuildHierarchy();
-        SelectRowsFromKeys();
+        if (EnsureSelectedAncestorsExpanded())
+        {
+            BuildHierarchy();
+        }
+
+        SelectRowsFromKeys(scrollIntoView: true);
         UpdateSelectionSurfaces();
     }
 
@@ -1296,13 +1503,31 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private void ResetRawXml_Click(object sender, RoutedEventArgs eventArgs) =>
+    private void RawXmlExpander_Expanded(
+        object sender,
+        RoutedEventArgs eventArgs) =>
         RefreshRawXmlEditor();
+
+    private void LoadLargeRawXml_Click(
+        object sender,
+        RoutedEventArgs eventArgs) =>
+        RefreshRawXmlEditor(allowLarge: true);
+
+    private void ResetRawXml_Click(object sender, RoutedEventArgs eventArgs) =>
+        RefreshRawXmlEditor(
+            allowLarge:
+                _document is not null &&
+                _rawXmlLoadedRevision == _document.Revision);
 
     private void ApplyRawXml_Click(object sender, RoutedEventArgs eventArgs)
     {
-        if (_document is null || SelectedNodes() is not [XuiSyntaxNode selected])
+        if (_document is null ||
+            SelectedNodes() is not [XuiSyntaxNode selected] ||
+            _rawXmlLoadedNodeKey != selected.Key ||
+            _rawXmlLoadedRevision != _document.Revision)
         {
+            RawXmlErrorText.Text =
+                "Load the XML for the current selection before applying it.";
             return;
         }
 
@@ -1356,8 +1581,26 @@ public partial class MainWindow : Window, IDisposable
 
     private void TimelineEditor_SelectedKeyFrameChanged(
         object? sender,
-        EventArgs eventArgs) =>
+        EventArgs eventArgs)
+    {
+        if (_document is not null &&
+            TimelineEditor.SelectedTimeline is XuiTimeline timeline &&
+            _timelineWorkspace is not null)
+        {
+            bool scopeChanged = _timelineWorkspace.ResolveSelection(
+                [],
+                _document.Text,
+                timeline.ScopeKey);
+            if (scopeChanged)
+            {
+                StopPlayback();
+                RefreshNamedFrameEditor();
+                UpdateTimelinePositionChrome();
+            }
+        }
+
         RefreshKeyFrameEditor();
+    }
 
     private void KeyFrameValue_LostKeyboardFocus(
         object sender,
@@ -1446,28 +1689,30 @@ public partial class MainWindow : Window, IDisposable
         object sender,
         RoutedEventArgs eventArgs)
     {
-        if (_document is null)
+        if (_document is null ||
+            _timelineWorkspace?.ActiveScope is not XuiTimelineScope activeScope)
         {
+            StatusText.Text =
+                "Select nodes from one timeline scope before adding a named frame.";
             return;
         }
 
-        string scopeKey = TimelineForKeyEditing()?.ScopeKey ??
-                          PlaybackScope();
-        XuiSyntaxNode scope = _document.SyntaxTree.FindByKey(scopeKey) ??
-                              _document.Root;
-        HashSet<string> names = (_timelineSet?.NamedFrames ?? [])
-            .Where(frame => frame.ScopeKey == scope.Key)
+        XuiSyntaxNode scope = _document.SyntaxTree.FindByKey(
+                                  activeScope.ScopeKey) ??
+                              activeScope.Owner;
+        HashSet<string> names = activeScope.NamedFrames
             .Select(static frame => frame.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        string name = $"Frame_{_currentTick}";
+        int currentTick = CurrentTimelineTick;
+        string name = $"Frame_{currentTick}";
         for (int suffix = 2; names.Contains(name); suffix++)
         {
-            name = $"Frame_{_currentTick}_{suffix}";
+            name = $"Frame_{currentTick}_{suffix}";
         }
 
         string frameXml = CreateNamedFrameXml(
             name,
-            _currentTick,
+            currentTick,
             string.Empty,
             string.Empty,
             _document.Format.NewLine);
@@ -1519,6 +1764,19 @@ public partial class MainWindow : Window, IDisposable
                 string.Equals(frame.Name, name, StringComparison.Ordinal))
             ?.Syntax.Key;
         RefreshNamedFrameEditor();
+    }
+
+    private void GoToNamedFrame_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (NamedFrameComboBox.SelectedItem is not XuiNamedFrame frame)
+        {
+            return;
+        }
+
+        StopPlayback();
+        SetCurrentTick(frame.Tick);
     }
 
     private void ApplyNamedFrame_Click(
@@ -1855,14 +2113,17 @@ public partial class MainWindow : Window, IDisposable
         _expanded.Add(document.Root.Key);
         _selectedKeys.Clear();
         _hiddenKeys.Clear();
+        _hiddenKeysBeforeIsolation = null;
         _forceShownKeys.Clear();
         _lockedKeys.Clear();
         _selectedNamedFrameKey = null;
+        TimelineEditor.SelectKeyFrame(null);
         _layoutSession = null;
+        _timelineWorkspace = null;
         _hierarchyIndex = null;
         _evaluationDiagnostics = [];
+        _evaluationDiagnosticsInitialized = false;
         StopPlayback();
-        _currentTick = 0;
     }
 
     private async Task RebuildAssetResolverAsync()
@@ -1921,12 +2182,22 @@ public partial class MainWindow : Window, IDisposable
         roots.AddRange(
             _settings.AssetRoots
                 .Where(static root => !string.IsNullOrWhiteSpace(root.Path))
-                .OrderBy(static root => root.Kind)
                 .Select(static root => root.ToAssetRoot()));
+        List<IXuiAssetSource> sources = _settings.AdditionalAssetSources
+            .Where(static source =>
+                !string.IsNullOrWhiteSpace(source.Path))
+            .Select(static source =>
+                (IXuiAssetSource)source.ToAssetSource())
+            .ToList();
+        if (_installIndex is not null)
+        {
+            sources.Add(_installIndex);
+        }
+
         _assetResolver = new DyingLightAssetResolver(
             roots,
             fontMappings: _settings.FontMappings,
-            sources: _installIndex is null ? [] : [_installIndex],
+            sources: sources,
             locale: _settings.Locale,
             inputGlyphScheme: _settings.InputGlyphScheme);
         _textureDiagnostics.Clear();
@@ -2064,9 +2335,13 @@ public partial class MainWindow : Window, IDisposable
 
         EnsureCompiledLayout();
         BuildHierarchy();
-        SelectRowsFromKeys();
-        BuildInspector();
-        UpdateTimelineData();
+        SelectRowsFromKeys(scrollIntoView: false);
+        SelectionSnapshot selection = CaptureSelection();
+        BuildInspector(selection);
+        ResolveTimelineScopeFromSelection(
+            selection,
+            preferSelectedKeyFrame: true);
+        UpdateTimelineData(selection);
         RefreshNamedFrameEditor();
         RefreshEvaluation();
         UpdateChrome();
@@ -2084,24 +2359,24 @@ public partial class MainWindow : Window, IDisposable
         {
             EnsureCompiledLayout();
             _layoutEvaluationCount++;
-            XuiRenderFrame frame = _layoutSession!.Sample(
+            XuiRenderSample sample = _layoutSession!.SampleWithChanges(
                 XuiViewport.Default,
-                _currentTick,
+                _timelineWorkspace?.EvaluationState ??
+                XuiTimelineEvaluationState.Initial,
                 BuildRenderContext());
-            Viewport.SetFrame(frame);
+            XuiRenderFrame frame = sample.Frame;
+            Viewport.SetSample(sample);
             Viewport.SetSelectedKeys(_selectedKeys);
             Viewport.SetHiddenKeys(EditorHiddenKeys());
-            TimelineEditor.SetTick(_currentTick);
-            int maximum = Math.Max(1, _timelineSet?.MaximumTick ?? 0);
-            _updatingTick = true;
-            TickSlider.Maximum = maximum;
-            TickSlider.Value = Math.Clamp(_currentTick, 0, maximum);
-            _updatingTick = false;
-            TickText.Text = string.Create(
-                CultureInfo.InvariantCulture,
-                $"{_currentTick} ticks  ·  {_currentTick / 60.0:0.000}s");
-            _evaluationDiagnostics = frame.Diagnostics;
-            RefreshDiagnosticsOnly();
+            UpdateTimelinePositionChrome();
+            if (!_evaluationDiagnosticsInitialized ||
+                !_evaluationDiagnostics.SequenceEqual(frame.Diagnostics))
+            {
+                _evaluationDiagnostics = frame.Diagnostics;
+                _evaluationDiagnosticsInitialized = true;
+                RefreshDiagnosticsOnly();
+            }
+
             DocumentStatsText.Text =
                 $"{frame.Nodes.Count:N0} nodes · {_timelineSet?.Timelines.Count ?? 0:N0} timelines";
         }
@@ -2125,12 +2400,15 @@ public partial class MainWindow : Window, IDisposable
         {
             _layoutSession = null;
             _timelineSet = null;
+            _timelineWorkspace = null;
             return;
         }
 
         if (_layoutSession?.IsCurrent(_document, _assetResolver) == true)
         {
             _timelineSet = _layoutSession.Timelines;
+            _timelineWorkspace ??=
+                new XuiTimelineWorkspace(_layoutSession.TimelineScopes);
             return;
         }
 
@@ -2138,6 +2416,15 @@ public partial class MainWindow : Window, IDisposable
             _document,
             _assetResolver);
         _timelineSet = _layoutSession.Timelines;
+        if (_timelineWorkspace is null)
+        {
+            _timelineWorkspace =
+                new XuiTimelineWorkspace(_layoutSession.TimelineScopes);
+        }
+        else
+        {
+            _timelineWorkspace.Rebind(_layoutSession.TimelineScopes);
+        }
     }
 
     private void RefreshDiagnosticsOnly()
@@ -2175,25 +2462,49 @@ public partial class MainWindow : Window, IDisposable
         if (_document is null)
         {
             HierarchyRows.ReplaceAll([]);
+            _visibleHierarchyRows.Clear();
+            _lastHierarchyFilter = null;
             return;
         }
 
+        bool rebuiltIndex = false;
         if (_hierarchyIndex?.IsCurrent(_document) != true)
         {
             _hierarchyIndex = HierarchyIndex.Build(_document);
+            rebuiltIndex = true;
         }
 
+        _hierarchyIndex.UpdateEditorStates(_hiddenKeys, _lockedKeys);
         string filter = HierarchySearch?.Text.Trim() ?? string.Empty;
         IReadOnlyList<HierarchyRow> rows = _hierarchyIndex.Flatten(
             filter,
-            _expanded,
-            _hiddenKeys,
-            _lockedKeys);
-        HierarchyRows.ReplaceAll(rows);
+            _expanded);
+        if (rebuiltIndex ||
+            !string.Equals(
+                filter,
+                _lastHierarchyFilter,
+                StringComparison.Ordinal))
+        {
+            HierarchyRows.ReplaceAll(rows);
+        }
+        else
+        {
+            HierarchyRows.Synchronize(
+                rows,
+                ReferenceEqualityComparer.Instance);
+        }
+
+        _lastHierarchyFilter = filter;
+        _visibleHierarchyRows.Clear();
+        foreach (HierarchyRow row in rows)
+        {
+            _visibleHierarchyRows.Add(row.NodeKey, row);
+        }
+
         HierarchyCountText.Text = $"{rows.Count:N0}";
     }
 
-    private void BuildInspector()
+    private void BuildInspector(SelectionSnapshot? selection = null)
     {
         InspectorProperties.Clear();
         if (_document is null)
@@ -2202,7 +2513,8 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
-        XuiSyntaxNode[] nodes = SelectedNodes();
+        SelectionSnapshot snapshot = selection ?? CaptureSelection();
+        XuiSyntaxNode[] nodes = snapshot.Nodes;
         SelectionCountText.Text = nodes.Length switch
         {
             0 => string.Empty,
@@ -2254,17 +2566,19 @@ public partial class MainWindow : Window, IDisposable
             InspectorProperties.Add(row);
         }
 
-        BreadcrumbText.Text = BuildBreadcrumb(nodes[0]);
-        RefreshRawXmlEditor();
+        BreadcrumbText.Text = snapshot.Breadcrumb;
+        RefreshRawXmlEditor(nodes);
     }
 
-    private void RefreshRawXmlEditor()
+    private void RefreshRawXmlEditor(
+        XuiSyntaxNode[]? selectedNodes = null,
+        bool allowLarge = false)
     {
-        if (_document is null || SelectedNodes() is not [XuiSyntaxNode selected])
+        if (_document is null ||
+            (selectedNodes ?? SelectedNodes()) is not [XuiSyntaxNode selected])
         {
             RawXmlExpander.Visibility = Visibility.Collapsed;
-            RawXmlTextBox.Text = string.Empty;
-            RawXmlErrorText.Text = string.Empty;
+            ClearRawXmlEditor();
             return;
         }
 
@@ -2273,14 +2587,58 @@ public partial class MainWindow : Window, IDisposable
         if (current is null)
         {
             RawXmlExpander.Visibility = Visibility.Collapsed;
+            ClearRawXmlEditor();
             return;
         }
 
         RawXmlExpander.Visibility = Visibility.Visible;
+        int length = current.End - current.Start;
+        RawXmlStatusText.Text = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{length:N0} characters");
+        if (!RawXmlExpander.IsExpanded)
+        {
+            ClearRawXmlEditor(keepStatus: true);
+            return;
+        }
+
+        if (length > AutomaticRawXmlCharacterLimit && !allowLarge)
+        {
+            ClearRawXmlEditor(keepStatus: true);
+            RawXmlStatusText.Text = string.Create(
+                CultureInfo.InvariantCulture,
+                $"{length / (1024.0 * 1024.0):0.0} MiB of XML — load explicitly to edit");
+            LoadLargeRawXmlButton.Visibility = Visibility.Visible;
+            return;
+        }
+
         RawXmlTextBox.Text = _document.Text.Substring(
             current.Start,
-            current.End - current.Start);
+            length);
+        RawXmlTextBox.IsEnabled = true;
+        ResetRawXmlButton.IsEnabled = true;
+        ApplyRawXmlButton.IsEnabled = true;
+        LoadLargeRawXmlButton.Visibility = Visibility.Collapsed;
+        _rawXmlLoadedNodeKey = current.Key;
+        _rawXmlLoadedRevision = _document.Revision;
         RawXmlErrorText.Text = string.Empty;
+    }
+
+    private void ClearRawXmlEditor(bool keepStatus = false)
+    {
+        RawXmlTextBox.Text = string.Empty;
+        RawXmlTextBox.IsEnabled = false;
+        ResetRawXmlButton.IsEnabled = false;
+        ApplyRawXmlButton.IsEnabled = false;
+        LoadLargeRawXmlButton.Visibility = Visibility.Collapsed;
+        RawXmlErrorText.Text = string.Empty;
+        if (!keepStatus)
+        {
+            RawXmlStatusText.Text = string.Empty;
+        }
+
+        _rawXmlLoadedNodeKey = null;
+        _rawXmlLoadedRevision = -1;
     }
 
     private void CommitInspectorValue(InspectorPropertyRow row)
@@ -2348,31 +2706,92 @@ public partial class MainWindow : Window, IDisposable
 
     private void UpdateSelectionSurfaces()
     {
+        StopPlayback();
         Viewport.SetSelectedKeys(_selectedKeys);
-        BuildInspector();
-        UpdateTimelineData();
+        SelectionSnapshot selection = CaptureSelection();
+        BuildInspector(selection);
+        ResolveTimelineScopeFromSelection(selection);
+        UpdateTimelineData(selection);
+        RefreshNamedFrameEditor();
     }
 
-    private void UpdateTimelineData()
+    private bool ResolveTimelineScopeFromSelection(
+        SelectionSnapshot? selection = null,
+        bool preferSelectedKeyFrame = false)
+    {
+        if (_document is null || _timelineWorkspace is null)
+        {
+            return false;
+        }
+
+        return _timelineWorkspace.ResolveScopes(
+            (selection ?? CaptureSelection()).Scopes,
+            preferSelectedKeyFrame
+                ? TimelineEditor.SelectedTimeline?.ScopeKey
+                : null);
+    }
+
+    private void UpdateTimelineData(SelectionSnapshot? selection = null)
     {
         if (_document is null)
         {
-            TimelineEditor.SetData(null, [], _currentTick);
+            TimelineEditor.SetScopeData(
+                null,
+                activeScopeKey: null,
+                [],
+                tick: 0,
+                showAllInScope: false,
+                mixedScopes: false);
             RefreshKeyFrameEditor();
+            UpdateTimelineScopeChrome();
             return;
         }
 
-        IReadOnlyList<string> selectedIds = SelectedNodes()
-            .Select(node => XuiModelReader.GetId(node, _document.Text))
-            .Where(static id => !string.IsNullOrEmpty(id))
-            .Cast<string>()
-            .ToArray();
-        TimelineEditor.SetData(
-            _timelineSet,
+        IReadOnlyList<string> selectedIds =
+            (selection ?? CaptureSelection()).Ids;
+        TimelineEditor.SetScopeData(
+            _timelineWorkspace?.ActiveScope,
             selectedIds,
-            _currentTick,
-            AllTracksToggle.IsChecked == true);
+            CurrentTimelineTick,
+            AllTracksToggle.IsChecked == true,
+            _timelineWorkspace?.HasMixedSelection == true);
+        UpdateTimelineScopeChrome();
         RefreshKeyFrameEditor();
+        UpdateTimelinePositionChrome();
+    }
+
+    private void UpdateTimelinePositionChrome()
+    {
+        int currentTick = CurrentTimelineTick;
+        TimelineEditor.SetTick(currentTick);
+        int maximum = Math.Max(
+            1,
+            _timelineWorkspace?.ActiveScope?.MaximumTick ?? 0);
+        _updatingTick = true;
+        TickSlider.Maximum = maximum;
+        TickSlider.Value = Math.Clamp(currentTick, 0, maximum);
+        _updatingTick = false;
+        TickText.Text = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{currentTick} ticks  ·  {currentTick / 60.0:0.000}s");
+        UpdateTimelineScopeChrome();
+    }
+
+    private void UpdateTimelineScopeChrome()
+    {
+        XuiTimelineScope? scope = _timelineWorkspace?.ActiveScope;
+        bool enabled = scope is not null &&
+                       _timelineWorkspace?.HasMixedSelection != true;
+        TimelineTransportPanel.IsEnabled = enabled;
+        TimelineEditPanel.IsEnabled = enabled;
+        TimelineEditor.IsEnabled = enabled;
+        TimelineScopeText.Text = _timelineWorkspace?.HasMixedSelection == true
+            ? "Mixed timeline scopes"
+            : scope is null
+                ? "No timeline scope"
+                : string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{scope.DisplayName} · {CurrentTimelineTick} / {scope.MaximumTick}{(_timelineWorkspace?.ActiveTickIsComposed == true ? " · composed" : string.Empty)}");
     }
 
     private void RefreshKeyFrameEditor()
@@ -2529,7 +2948,7 @@ public partial class MainWindow : Window, IDisposable
         try
         {
             IReadOnlyList<XuiNamedFrame> frames =
-                _timelineSet?.NamedFrames ?? [];
+                _timelineWorkspace?.ActiveScope?.NamedFrames ?? [];
             string? selectedKey = _selectedNamedFrameKey;
             NamedFrameComboBox.ItemsSource = frames;
             XuiNamedFrame? selected = frames.FirstOrDefault(frame =>
@@ -2636,21 +3055,31 @@ public partial class MainWindow : Window, IDisposable
         return string.Join(newline, lines);
     }
 
-    private void SelectRowsFromKeys()
+    private void SelectRowsFromKeys(bool scrollIntoView = false)
     {
         _syncingSelection = true;
         try
         {
-            HierarchyList.SelectedItems.Clear();
-            foreach (HierarchyRow row in HierarchyRows)
+            HierarchyRow[] selectedRows =
+                HierarchyList.SelectedItems.Cast<HierarchyRow>().ToArray();
+            foreach (HierarchyRow row in selectedRows)
             {
-                if (_selectedKeys.Contains(row.NodeKey))
+                if (!_selectedKeys.Contains(row.NodeKey))
+                {
+                    HierarchyList.SelectedItems.Remove(row);
+                }
+            }
+
+            foreach (string key in _selectedKeys)
+            {
+                if (_visibleHierarchyRows.TryGetValue(key, out HierarchyRow? row) &&
+                    !HierarchyList.SelectedItems.Contains(row))
                 {
                     HierarchyList.SelectedItems.Add(row);
                 }
             }
 
-            if (HierarchyList.SelectedItems.Count > 0)
+            if (scrollIntoView && HierarchyList.SelectedItems.Count > 0)
             {
                 HierarchyList.ScrollIntoView(HierarchyList.SelectedItems[0]);
             }
@@ -2661,22 +3090,23 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private void EnsureSelectedAncestorsExpanded()
+    private bool EnsureSelectedAncestorsExpanded()
     {
-        if (_document is null)
+        if (_document is null || _hierarchyIndex is null)
         {
-            return;
+            return false;
         }
 
+        bool changed = false;
         foreach (string key in _selectedKeys)
         {
-            XuiSyntaxNode? current = _document.SyntaxTree.FindByKey(key)?.Parent;
-            while (current is not null)
+            foreach (string ancestorKey in _hierarchyIndex.Ancestors(key))
             {
-                _expanded.Add(current.Key);
-                current = current.Parent;
+                changed |= _expanded.Add(ancestorKey);
             }
         }
+
+        return changed;
     }
 
     private XuiSyntaxNode[] SelectedNodes()
@@ -2692,6 +3122,37 @@ public partial class MainWindow : Window, IDisposable
             .Cast<XuiSyntaxNode>()
             .OrderBy(static node => node.Start)
             .ToArray();
+    }
+
+    private SelectionSnapshot CaptureSelection()
+    {
+        XuiSyntaxNode[] nodes = SelectedNodes();
+        if (_document is null || nodes.Length == 0)
+        {
+            return SelectionSnapshot.Empty;
+        }
+
+        string[] ids = nodes
+            .Select(node => XuiModelReader.GetId(node, _document.Text))
+            .Where(static id => !string.IsNullOrEmpty(id))
+            .Cast<string>()
+            .ToArray();
+        XuiTimelineScope[] scopes = _timelineWorkspace is null
+            ? []
+            : nodes
+                .Select(node =>
+                    _timelineWorkspace.Catalog.ResolveForNode(
+                        node,
+                        _document.Text))
+                .Where(static scope => scope is not null)
+                .Cast<XuiTimelineScope>()
+                .DistinctBy(static scope => scope.ScopeKey)
+                .ToArray();
+        return new SelectionSnapshot(
+            nodes,
+            ids,
+            scopes,
+            BuildBreadcrumb(nodes[0]));
     }
 
     private void MoveSelected(int direction)
@@ -2860,26 +3321,24 @@ public partial class MainWindow : Window, IDisposable
     }
 
     private XuiSyntaxNode? FindNodeAtStart(int start) =>
-        _document?.Root.DescendantsAndSelf()
-            .FirstOrDefault(node => node.Start == start);
+        _document?.SyntaxTree.FindByStart(start);
 
     private void SetCurrentTick(int tick)
     {
-        int maximum = Math.Max(0, _timelineSet?.MaximumTick ?? 0);
-        _currentTick = Math.Clamp(tick, 0, maximum);
-        _updatingTick = true;
-        TickSlider.Value = _currentTick;
-        _updatingTick = false;
-        TickText.Text = string.Create(
-            CultureInfo.InvariantCulture,
-            $"{_currentTick} ticks  ·  {_currentTick / 60.0:0.000}s");
-        TimelineEditor.SetTick(_currentTick);
+        if (_timelineWorkspace?.ActiveScope is null)
+        {
+            return;
+        }
+
+        _timelineWorkspace.SetActiveTick(tick);
         RefreshEvaluation();
     }
 
     private void PlaybackTimer_Tick(object? sender, EventArgs eventArgs)
     {
-        if (!_isPlaying || _timelineSet is null)
+        if (!_isPlaying ||
+            _timelineSet is null ||
+            _timelineWorkspace?.ActiveScope is not XuiTimelineScope scope)
         {
             return;
         }
@@ -2895,13 +3354,11 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
-        string scope = PlaybackScope();
-        int tick = _currentTick;
+        int tick = CurrentTimelineTick;
         bool playing = true;
         for (int index = 0; index < steps && playing; index++)
         {
             TimelinePlaybackState state = TimelinePlayback.Advance(
-                _timelineSet,
                 scope,
                 tick,
                 true,
@@ -2944,31 +3401,10 @@ public partial class MainWindow : Window, IDisposable
         return 1;
     }
 
-    private string PlaybackScope()
-    {
-        if (_timelineSet is null)
-        {
-            return _document?.Root.Key ?? string.Empty;
-        }
-
-        HashSet<string> selectedIds = SelectedNodes()
-            .Select(node => XuiModelReader.GetId(node, _document!.Text))
-            .Where(static id => !string.IsNullOrEmpty(id))
-            .Cast<string>()
-            .ToHashSet(StringComparer.Ordinal);
-        return _timelineSet.Timelines
-                   .FirstOrDefault(timeline => selectedIds.Contains(timeline.TargetId))
-                   ?.ScopeKey ??
-               (_timelineSet.Timelines.Count > 0
-                   ? _timelineSet.Timelines[0].ScopeKey
-                   : null) ??
-               _document?.Root.Key ??
-               string.Empty;
-    }
-
     private XuiTimeline? TimelineForKeyEditing()
     {
-        if (_timelineSet is null)
+        if (_timelineSet is null ||
+            _timelineWorkspace?.ActiveScope is not XuiTimelineScope scope)
         {
             return null;
         }
@@ -2976,7 +3412,7 @@ public partial class MainWindow : Window, IDisposable
         XuiKeyFrame? selected = TimelineEditor.SelectedKeyFrame;
         if (selected is not null)
         {
-            return _timelineSet.Timelines.FirstOrDefault(timeline =>
+            return scope.Timelines.FirstOrDefault(timeline =>
                 timeline.Tracks.Any(track =>
                     track.KeyFrames.Any(frame =>
                         frame.Syntax.Key == selected.Syntax.Key)));
@@ -2987,7 +3423,7 @@ public partial class MainWindow : Window, IDisposable
             .Where(static id => !string.IsNullOrEmpty(id))
             .Cast<string>()
             .ToHashSet(StringComparer.Ordinal);
-        return _timelineSet.Timelines.FirstOrDefault(timeline =>
+        return scope.Timelines.FirstOrDefault(timeline =>
             selectedIds.Contains(timeline.TargetId));
     }
 
@@ -3276,6 +3712,12 @@ public partial class MainWindow : Window, IDisposable
 
     private bool IsLocked(string key)
     {
+        HierarchyRow? row = _hierarchyIndex?.FindRow(key);
+        if (row is not null)
+        {
+            return row.LockState != HierarchyLockState.Unlocked;
+        }
+
         XuiSyntaxNode? node = _document?.SyntaxTree.FindByKey(key);
         while (node is not null)
         {
@@ -3312,8 +3754,13 @@ public partial class MainWindow : Window, IDisposable
             .FullPath;
     }
 
-    private HashSet<string> EditorHiddenKeys()
+    private IReadOnlySet<string> EditorHiddenKeys()
     {
+        if (_hierarchyIndex is not null)
+        {
+            return _hierarchyIndex.EffectivelyHiddenKeys;
+        }
+
         if (_document is null || _hiddenKeys.Count == 0)
         {
             return _hiddenKeys;
@@ -3529,6 +3976,16 @@ public partial class MainWindow : Window, IDisposable
             raw.AsSpan(0, valueStart),
             tick.ToString(CultureInfo.InvariantCulture),
             raw.AsSpan(end));
+    }
+
+    private sealed record SelectionSnapshot(
+        XuiSyntaxNode[] Nodes,
+        string[] Ids,
+        XuiTimelineScope[] Scopes,
+        string Breadcrumb)
+    {
+        public static SelectionSnapshot Empty { get; } =
+            new([], [], [], string.Empty);
     }
 
     public void Dispose()

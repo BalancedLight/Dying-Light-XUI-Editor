@@ -111,6 +111,35 @@ public sealed class DocumentRoundTripTests
     }
 
     [TestMethod]
+    public void SyntaxIndexesMatchTraversalWithDuplicateAuthoredIds()
+    {
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Id>Same</Id></Properties>" +
+            "<AdvGroup><Properties><Id>Same</Id></Properties>" +
+            "<MyImage><Properties><Id>Same</Id></Properties></MyImage>" +
+            "</AdvGroup><!-- retained --></XuiCanvas>");
+        XuiSyntaxNode[] traversed = document.SyntaxTree.Document
+            .DescendantsAndSelf()
+            .ToArray();
+
+        foreach (XuiSyntaxNode node in traversed)
+        {
+            Assert.AreSame(
+                node,
+                document.SyntaxTree.FindByKey(node.Key),
+                node.Key);
+        }
+
+        foreach (XuiSyntaxNode node in document.Root.DescendantsAndSelf())
+        {
+            Assert.AreSame(
+                node,
+                document.SyntaxTree.FindByStart(node.Start),
+                node.Key);
+        }
+    }
+
+    [TestMethod]
     public void ExcessiveNestingFailsClosed()
     {
         string source =

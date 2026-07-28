@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using XuiEditor.Core.Animation;
 using XuiEditor.Core.Assets;
 using XuiEditor.Core.Diagnostics;
 using XuiEditor.Core.Documents;
@@ -256,6 +257,134 @@ public sealed class LayoutTests
         Assert.AreEqual(0.5, child.Opacity, 0.001);
         Assert.AreEqual(10, child.WorldBounds.X, 0.001);
         Assert.AreEqual(5, child.WorldBounds.Y, 0.001);
+    }
+
+    [TestMethod]
+    public void NestedTimelineScopesSampleIndependentTicks()
+    {
+        XuiDocument document = Document(
+            "<AdvGroup><Properties><Id>HUD_DI</Id><Width>100</Width>" +
+            "<Height>100</Height><Opacity>1</Opacity></Properties>" +
+            "<AdvGroup><Properties><Id>G_Group</Id><Width>100</Width>" +
+            "<Height>100</Height></Properties>" +
+            "<MyImage><Properties><Id>I_0</Id><Width>10</Width><Height>10</Height>" +
+            "<Show>true</Show></Properties></MyImage>" +
+            "<MyImage><Properties><Id>I_1</Id><Width>10</Width><Height>10</Height>" +
+            "<Show>false</Show></Properties></MyImage>" +
+            "<Timelines><Timeline><Id>I_0</Id><TimelineProp>Show</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>true</Prop></KeyFrame><KeyFrame><Time>20</Time>" +
+            "<Interpolation>0</Interpolation><Prop>false</Prop></KeyFrame>" +
+            "</Timeline><Timeline><Id>I_1</Id><TimelineProp>Show</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>false</Prop></KeyFrame><KeyFrame><Time>20</Time>" +
+            "<Interpolation>0</Interpolation><Prop>true</Prop></KeyFrame>" +
+            "</Timeline></Timelines></AdvGroup></AdvGroup>" +
+            "<Timelines><Timeline><Id>HUD_DI</Id><TimelineProp>Opacity</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>1</Prop></KeyFrame><KeyFrame><Time>5</Time>" +
+            "<Interpolation>0</Interpolation><Prop>0</Prop></KeyFrame>" +
+            "</Timeline></Timelines>");
+        DyingLightLayoutSession session =
+            DyingLightLayoutSession.Compile(document);
+        XuiTimelineScope root = session.TimelineScopes.RootScope!;
+        XuiTimelineScope group = session.TimelineScopes.Scopes.Single(scope =>
+            scope.OwnerId == "G_Group");
+
+        XuiRenderFrame localAtFive = session.Sample(
+            XuiViewport.Default,
+            XuiTimelineEvaluationState.ScopeLocal(
+                new Dictionary<string, int>(StringComparer.Ordinal)
+                {
+                    [root.ScopeKey] = 0,
+                    [group.ScopeKey] = 5,
+                }));
+        XuiRenderNode localHud = localAtFive.Nodes.Single(static node =>
+            node.Id == "HUD_DI");
+        XuiRenderNode localFirst = localAtFive.Nodes.Single(static node =>
+            node.Id == "I_0");
+        Assert.AreEqual(1, localHud.Opacity, 0.001);
+        Assert.IsTrue(localFirst.IsShown);
+        int samplesAfterFirstFrame =
+            session.TimelineScopeEvaluationCount;
+
+        XuiRenderFrame localAtTwenty = session.Sample(
+            XuiViewport.Default,
+            XuiTimelineEvaluationState.ScopeLocal(
+                new Dictionary<string, int>(StringComparer.Ordinal)
+                {
+                    [root.ScopeKey] = 0,
+                    [group.ScopeKey] = 20,
+                }));
+        Assert.IsFalse(localAtTwenty.Nodes.Single(static node =>
+            node.Id == "I_0").IsShown);
+        Assert.IsTrue(localAtTwenty.Nodes.Single(static node =>
+            node.Id == "I_1").IsShown);
+        Assert.AreEqual(
+            samplesAfterFirstFrame + 1,
+            session.TimelineScopeEvaluationCount,
+            "Changing one local scope should sample only that scope.");
+
+        _ = session.Sample(
+            XuiViewport.Default,
+            XuiTimelineEvaluationState.ScopeLocal(
+                new Dictionary<string, int>(StringComparer.Ordinal)
+                {
+                    [root.ScopeKey] = 0,
+                    [group.ScopeKey] = 20,
+                }));
+        Assert.AreEqual(
+            samplesAfterFirstFrame + 1,
+            session.TimelineScopeEvaluationCount,
+            "Sampling the same local pose should reuse cached overrides.");
+
+        XuiRenderFrame synchronized = session.Sample(
+            XuiViewport.Default,
+            5);
+        Assert.AreEqual(
+            0,
+            synchronized.Nodes.Single(static node =>
+                node.Id == "HUD_DI").Opacity,
+            0.001);
+    }
+
+    [TestMethod]
+    public void PreviewPropertiesRemainHigherPriorityThanTimelineSamples()
+    {
+        XuiDocument document = Document(
+            "<MyImage><Properties><Id>Child</Id><Width>10</Width><Height>10</Height>" +
+            "<Show>true</Show><Opacity>1</Opacity><Position>0,0,0</Position>" +
+            "<ImagePath>authored</ImagePath></Properties></MyImage>" +
+            "<Timelines><Timeline><Id>Child</Id><TimelineProp>Show</TimelineProp>" +
+            "<TimelineProp>Opacity</TimelineProp><TimelineProp>Position</TimelineProp>" +
+            "<TimelineProp>ImagePath</TimelineProp><KeyFrame><Time>0</Time>" +
+            "<Interpolation>0</Interpolation><Prop>false</Prop><Prop>0.1</Prop>" +
+            "<Prop>2,3,0</Prop><Prop>animated</Prop></KeyFrame>" +
+            "</Timeline></Timelines>");
+        XuiPreviewScenario scenario = new(
+            "test",
+            "Test",
+            "Test runtime overrides.",
+            [
+                new XuiPreviewProperty("Child", "Show", "true"),
+                new XuiPreviewProperty("Child", "Opacity", "0.75"),
+                new XuiPreviewProperty("Child", "Position", "8,9,0"),
+                new XuiPreviewProperty("Child", "ImagePath", "preview"),
+            ],
+            new HashSet<string>(StringComparer.Ordinal));
+
+        XuiRenderNode child = DyingLightLayoutEngine.Evaluate(
+                document,
+                XuiViewport.Default,
+                XuiTimelineEvaluationState.Initial,
+                renderContext: new XuiRenderContext(scenario))
+            .Nodes.Single(static node => node.Id == "Child");
+
+        Assert.IsTrue(child.IsShown);
+        Assert.AreEqual(0.75, child.Opacity, 0.001);
+        Assert.AreEqual(8, child.Position.X, 0.001);
+        Assert.AreEqual(9, child.Position.Y, 0.001);
+        Assert.AreEqual("preview", child.ImagePath);
     }
 
     [TestMethod]
@@ -705,6 +834,107 @@ public sealed class LayoutTests
     }
 
     [TestMethod]
+    public void IncrementalScopeSampleMatchesFreshFullEvaluation()
+    {
+        XuiDocument document = Document(
+            "<AdvGroup><Properties><Id>Clip</Id><Width>80</Width><Height>80</Height>" +
+            "<Position>7,9,0</Position><ClipChildren>true</ClipChildren></Properties>" +
+            "<MyImage><Properties><Id>Animated</Id><Width>20</Width><Height>10</Height>" +
+            "<Position>1,2,0</Position><Pivot>2,3,0</Pivot><Scale>1,1,1</Scale>" +
+            "<Rotation>0</Rotation><Opacity>1</Opacity><Show>true</Show>" +
+            "<Color>0xff102030</Color></Properties>" +
+            "<MyImage><Properties><Id>Descendant</Id><Width>4</Width><Height>5</Height>" +
+            "<Position>3,4,0</Position><Opacity>0.5</Opacity></Properties></MyImage>" +
+            "</MyImage><MyText><Properties><Id>Label</Id><Width>30</Width><Height>8</Height>" +
+            "<DefaultFontColor>0xff111111</DefaultFontColor><Text>Label</Text>" +
+            "</Properties></MyText></AdvGroup>" +
+            "<Timelines><Timeline><Id>Animated</Id>" +
+            "<TimelineProp>Show</TimelineProp><TimelineProp>Opacity</TimelineProp>" +
+            "<TimelineProp>Position</TimelineProp><TimelineProp>Scale</TimelineProp>" +
+            "<TimelineProp>Rotation</TimelineProp><TimelineProp>Pivot</TimelineProp>" +
+            "<TimelineProp>Color</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>true</Prop><Prop>1</Prop><Prop>1,2,0</Prop>" +
+            "<Prop>1,1,1</Prop><Prop>0</Prop><Prop>2,3,0</Prop>" +
+            "<Prop>0xff102030</Prop></KeyFrame>" +
+            "<KeyFrame><Time>10</Time><Interpolation>0</Interpolation>" +
+            "<Prop>false</Prop><Prop>0.4</Prop><Prop>21,12,0</Prop>" +
+            "<Prop>2,1.5,1</Prop><Prop>30</Prop><Prop>4,5,0</Prop>" +
+            "<Prop>0xff90a0b0</Prop></KeyFrame></Timeline>" +
+            "<Timeline><Id>Label</Id><TimelineProp>DefaultFontColor</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>0xff111111</Prop></KeyFrame>" +
+            "<KeyFrame><Time>10</Time><Interpolation>0</Interpolation>" +
+            "<Prop>0xffeeeeee</Prop></KeyFrame></Timeline></Timelines>");
+        DyingLightLayoutSession session =
+            DyingLightLayoutSession.Compile(document);
+        XuiTimelineScope scope = session.TimelineScopes.Scopes.Single();
+        XuiTimelineEvaluationState tickZero =
+            XuiTimelineEvaluationState.ScopeLocal(
+                new Dictionary<string, int>(StringComparer.Ordinal)
+                {
+                    [scope.ScopeKey] = 0,
+                });
+        XuiTimelineEvaluationState tickFive =
+            XuiTimelineEvaluationState.ScopeLocal(
+                new Dictionary<string, int>(StringComparer.Ordinal)
+                {
+                    [scope.ScopeKey] = 5,
+                });
+        _ = session.Sample(XuiViewport.Default, tickZero);
+
+        XuiRenderSample incremental = session.SampleWithChanges(
+            XuiViewport.Default,
+            tickFive);
+        XuiRenderFrame full = DyingLightLayoutSession
+            .Compile(document)
+            .Sample(XuiViewport.Default, tickFive);
+
+        Assert.IsFalse(incremental.FullEvaluationRequired);
+        Assert.IsTrue(incremental.ChangedRenderNodeKeys.Count >= 3);
+        CollectionAssert.AreEqual(
+            full.Nodes.ToArray(),
+            incremental.Frame.Nodes.ToArray());
+        CollectionAssert.AreEqual(
+            full.Diagnostics.ToArray(),
+            incremental.Frame.Diagnostics.ToArray());
+    }
+
+    [TestMethod]
+    public void LayoutSensitiveTimelineChangeFallsBackToFullEvaluation()
+    {
+        XuiDocument document = Document(
+            "<MyImage><Properties><Id>Animated</Id><Width>10</Width>" +
+            "<Height>10</Height></Properties></MyImage>" +
+            "<Timelines><Timeline><Id>Animated</Id><TimelineProp>Width</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>10</Prop></KeyFrame><KeyFrame><Time>10</Time>" +
+            "<Interpolation>0</Interpolation><Prop>30</Prop></KeyFrame>" +
+            "</Timeline></Timelines>");
+        DyingLightLayoutSession session =
+            DyingLightLayoutSession.Compile(document);
+        XuiTimelineScope scope = session.TimelineScopes.Scopes.Single();
+        XuiTimelineEvaluationState State(int tick) =>
+            XuiTimelineEvaluationState.ScopeLocal(
+                new Dictionary<string, int>(StringComparer.Ordinal)
+                {
+                    [scope.ScopeKey] = tick,
+                });
+        _ = session.Sample(XuiViewport.Default, State(0));
+
+        XuiRenderSample sample = session.SampleWithChanges(
+            XuiViewport.Default,
+            State(10));
+
+        Assert.IsTrue(sample.FullEvaluationRequired);
+        Assert.AreEqual(
+            30,
+            sample.Frame.Nodes.Single(static node =>
+                node.Id == "Animated").Size.X,
+            0.001);
+    }
+
+    [TestMethod]
     public void WhiteSolidPaintRetainsNestedTransformAndClip()
     {
         XuiDocument document = Document(
@@ -741,6 +971,7 @@ public sealed class LayoutTests
             "<Text>design-time placeholder</Text></Properties></MyTextPresenter>" +
             "<Timelines><Timeline><Id>Background</Id><TimelineProp>Opacity</TimelineProp>" +
             "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation><Prop>0.25</Prop></KeyFrame>" +
+            "<KeyFrame><Time>10</Time><Interpolation>0</Interpolation><Prop>0.9</Prop></KeyFrame>" +
             "</Timeline></Timelines></XuiVisual></XuiCanvas>");
         DyingLightAssetResolver resolver = new(
         [
@@ -757,6 +988,12 @@ public sealed class LayoutTests
             new XuiViewport(100, 100),
             0,
             resolver);
+        XuiRenderFrame laterDocumentTick =
+            DyingLightLayoutEngine.Evaluate(
+                document,
+                new XuiViewport(100, 100),
+                10,
+                resolver);
 
         XuiRenderNode button = frame.Nodes.Single(static node => node.Id == "Button");
         XuiRenderNode background = frame.Nodes.Single(static node =>
@@ -765,6 +1002,11 @@ public sealed class LayoutTests
         Assert.AreEqual(new Core.Values.XuiVector2(30, 12), button.Size);
         Assert.IsTrue(button.VisualResolved);
         Assert.AreEqual(0.25, background.Opacity, 0.001);
+        Assert.AreEqual(
+            0.25,
+            laterDocumentTick.Nodes.Single(static node =>
+                node.Id == "Background").Opacity,
+            0.001);
         Assert.AreEqual("PLAY", label.Text);
         Assert.IsTrue(label.IsVisualTemplatePart);
         Assert.AreEqual(button.Key, label.SelectionKey);

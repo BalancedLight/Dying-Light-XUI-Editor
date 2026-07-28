@@ -84,6 +84,8 @@ public interface IXuiAssetSource
 
     bool IsReadOnly { get; }
 
+    XuiAssetRoot? AssetRoot => null;
+
     IReadOnlyList<XuiAssetEntry> Entries { get; }
 
     IReadOnlyList<XuiDiagnostic> Diagnostics { get; }

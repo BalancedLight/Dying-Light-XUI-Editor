@@ -19,6 +19,42 @@ public sealed class TimelinePlayback
         bool loop)
     {
         ArgumentNullException.ThrowIfNull(timelineSet);
+        IReadOnlyList<XuiNamedFrame> namedFrames = timelineSet.NamedFrames
+            .Where(frame => frame.ScopeKey == scopeKey)
+            .ToArray();
+        return AdvanceCore(
+            namedFrames,
+            scopeKey,
+            ScopeMaximumTick(timelineSet, scopeKey),
+            currentTick,
+            playing,
+            loop);
+    }
+
+    public static TimelinePlaybackState Advance(
+        XuiTimelineScope scope,
+        int currentTick,
+        bool playing,
+        bool loop)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+        return AdvanceCore(
+            scope.NamedFrames,
+            scope.ScopeKey,
+            scope.MaximumTick,
+            currentTick,
+            playing,
+            loop);
+    }
+
+    private static TimelinePlaybackState AdvanceCore(
+        IReadOnlyList<XuiNamedFrame> namedFrames,
+        string scopeKey,
+        int maximumTick,
+        int currentTick,
+        bool playing,
+        bool loop)
+    {
         if (!playing)
         {
             return new TimelinePlaybackState(currentTick, false, []);
@@ -31,9 +67,8 @@ public sealed class TimelinePlayback
 
         for (int hops = 0; hops < MaximumCommandHops; hops++)
         {
-            XuiNamedFrame? frame = timelineSet.NamedFrames
+            XuiNamedFrame? frame = namedFrames
                 .Where(frame =>
-                    frame.ScopeKey == scopeKey &&
                     frame.Tick == tick &&
                     frame.Command.Length > 0)
                 .LastOrDefault();
@@ -68,9 +103,8 @@ public sealed class TimelinePlayback
                             diagnostics);
                     }
 
-                    XuiNamedFrame? target = timelineSet.NamedFrames.LastOrDefault(
+                    XuiNamedFrame? target = namedFrames.LastOrDefault(
                         candidate =>
-                            candidate.ScopeKey == scopeKey &&
                             string.Equals(
                                 candidate.Name,
                                 frame.CommandParameter,
@@ -105,12 +139,31 @@ public sealed class TimelinePlayback
             break;
         }
 
-        if (tick > timelineSet.MaximumTick)
+        if (tick > maximumTick)
         {
-            tick = loop ? 0 : timelineSet.MaximumTick;
+            tick = loop ? 0 : maximumTick;
             continuePlaying = loop;
         }
 
         return new TimelinePlaybackState(tick, continuePlaying, diagnostics);
+    }
+
+    private static int ScopeMaximumTick(
+        XuiTimelineSet timelineSet,
+        string scopeKey)
+    {
+        int keyMaximum = timelineSet.Timelines
+            .Where(timeline => timeline.ScopeKey == scopeKey)
+            .SelectMany(static timeline => timeline.Tracks)
+            .SelectMany(static track => track.KeyFrames)
+            .Select(static frame => frame.Tick)
+            .DefaultIfEmpty()
+            .Max();
+        int frameMaximum = timelineSet.NamedFrames
+            .Where(frame => frame.ScopeKey == scopeKey)
+            .Select(static frame => frame.Tick)
+            .DefaultIfEmpty()
+            .Max();
+        return Math.Max(keyMaximum, frameMaximum);
     }
 }

@@ -40,7 +40,10 @@ public sealed class TimelineEditorControl : FrameworkElement
     private readonly VisualCollection _visuals;
     private readonly DrawingVisual _drawing = new();
     private readonly List<TrackItem> _tracks = [];
-    private XuiTimelineSet? _timelineSet;
+    private IReadOnlyList<XuiNamedFrame> _scopeNamedFrames = [];
+    private bool _hasTimelineData;
+    private string? _activeScopeKey;
+    private int _scopeMaximumTick;
     private int _tick;
     private double _pixelsPerTick = 3;
     private double _horizontalTick;
@@ -49,6 +52,7 @@ public sealed class TimelineEditorControl : FrameworkElement
     private TrackKey? _dragKey;
     private int _dragTick;
     private bool _waitingForSelection;
+    private bool _mixedScopes;
 
     public TimelineEditorControl()
     {
@@ -76,6 +80,12 @@ public sealed class TimelineEditorControl : FrameworkElement
 
     internal int VisibleTrackCountForTesting => _tracks.Count;
 
+    internal IReadOnlyCollection<string> VisibleScopeKeysForTesting =>
+        _tracks
+            .Select(static item => item.Timeline.ScopeKey)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
     protected override int VisualChildrenCount => _visuals.Count;
 
     protected override Visual GetVisualChild(int index) => _visuals[index];
@@ -86,24 +96,111 @@ public sealed class TimelineEditorControl : FrameworkElement
         int tick,
         bool showAllWhenEmpty = false)
     {
+        SetScopeData(
+            timelineSet,
+            activeScopeKey: null,
+            selectedIds,
+            tick,
+            showAllWhenEmpty,
+            mixedScopes: false);
+    }
+
+    public void SetScopeData(
+        XuiTimelineSet? timelineSet,
+        string? activeScopeKey,
+        IEnumerable<string> selectedIds,
+        int tick,
+        bool showAllInScope,
+        bool mixedScopes)
+    {
         ArgumentNullException.ThrowIfNull(selectedIds);
+        IReadOnlyList<XuiTimeline> timelines = timelineSet is null
+            ? []
+            : activeScopeKey is null
+                ? timelineSet.Timelines
+                : timelineSet.Timelines
+                    .Where(timeline =>
+                        timeline.ScopeKey.Equals(
+                            activeScopeKey,
+                            StringComparison.Ordinal))
+                    .ToArray();
+        IReadOnlyList<XuiNamedFrame> namedFrames = timelineSet is null
+            ? []
+            : activeScopeKey is null
+                ? timelineSet.NamedFrames
+                : timelineSet.NamedFrames
+                    .Where(frame =>
+                        frame.ScopeKey.Equals(
+                            activeScopeKey,
+                            StringComparison.Ordinal))
+                    .ToArray();
+        int maximumTick = MaximumTick(timelines, namedFrames);
+        SetScopeDataCore(
+            timelineSet is not null,
+            activeScopeKey,
+            timelines,
+            namedFrames,
+            maximumTick,
+            selectedIds,
+            tick,
+            showAllInScope,
+            mixedScopes);
+    }
+
+    public void SetScopeData(
+        XuiTimelineScope? activeScope,
+        IEnumerable<string> selectedIds,
+        int tick,
+        bool showAllInScope,
+        bool mixedScopes)
+    {
+        ArgumentNullException.ThrowIfNull(selectedIds);
+        SetScopeDataCore(
+            activeScope is not null || mixedScopes,
+            activeScope?.ScopeKey,
+            activeScope?.Timelines ?? [],
+            activeScope?.NamedFrames ?? [],
+            activeScope?.MaximumTick ?? 0,
+            selectedIds,
+            tick,
+            showAllInScope,
+            mixedScopes);
+    }
+
+    private void SetScopeDataCore(
+        bool hasTimelineData,
+        string? activeScopeKey,
+        IReadOnlyList<XuiTimeline> timelines,
+        IReadOnlyList<XuiNamedFrame> namedFrames,
+        int maximumTick,
+        IEnumerable<string> selectedIds,
+        int tick,
+        bool showAllInScope,
+        bool mixedScopes)
+    {
         string? selectedSyntaxKey = _selectedKey?.Frame.Syntax.Key;
-        _timelineSet = timelineSet;
+        _hasTimelineData = hasTimelineData;
+        _scopeNamedFrames = namedFrames;
+        _activeScopeKey = activeScopeKey;
+        _mixedScopes = mixedScopes;
         _tick = Math.Max(0, tick);
         HashSet<string> targets = new(selectedIds, StringComparer.Ordinal);
         _tracks.Clear();
         _waitingForSelection =
-            timelineSet is not null &&
+            hasTimelineData &&
+            activeScopeKey is not null &&
             targets.Count == 0 &&
-            !showAllWhenEmpty;
-        if (timelineSet is not null)
+            !showAllInScope;
+        if (hasTimelineData && !mixedScopes)
         {
-            IEnumerable<XuiTimeline> timelines = targets.Count == 0 &&
-                                                 showAllWhenEmpty
-                ? timelineSet.Timelines
-                : timelineSet.Timelines.Where(timeline =>
+            IEnumerable<XuiTimeline> visibleTimelines = timelines;
+            if (!showAllInScope)
+            {
+                visibleTimelines = visibleTimelines.Where(timeline =>
                     targets.Contains(timeline.TargetId));
-            foreach (XuiTimeline timeline in timelines)
+            }
+
+            foreach (XuiTimeline timeline in visibleTimelines)
             {
                 foreach (XuiTrack track in timeline.Tracks)
                 {
@@ -112,6 +209,7 @@ public sealed class TimelineEditorControl : FrameworkElement
             }
         }
 
+        _scopeMaximumTick = maximumTick;
         _selectedKey = selectedSyntaxKey is null
             ? null
             : FindKeys().FirstOrDefault(candidate =>
@@ -122,6 +220,17 @@ public sealed class TimelineEditorControl : FrameworkElement
             Math.Max(0, (_tracks.Count * RowHeight) - ActualHeight + HeaderHeight));
         Redraw();
     }
+
+    private static int MaximumTick(
+        IReadOnlyList<XuiTimeline> timelines,
+        IReadOnlyList<XuiNamedFrame> namedFrames) =>
+        timelines
+            .SelectMany(static timeline => timeline.Tracks)
+            .SelectMany(static track => track.KeyFrames)
+            .Select(static frame => frame.Tick)
+            .Concat(namedFrames.Select(static frame => frame.Tick))
+            .DefaultIfEmpty()
+            .Max();
 
     public void SetTick(int tick)
     {
@@ -270,7 +379,7 @@ public sealed class TimelineEditorControl : FrameworkElement
             new Rect(0, 0, ActualWidth, ActualHeight));
         DrawNamedFrameRanges(drawing);
         DrawHeader(drawing);
-        if (_timelineSet is null)
+        if (!_hasTimelineData)
         {
             DrawEmpty(drawing, "No timeline data");
             return;
@@ -280,9 +389,13 @@ public sealed class TimelineEditorControl : FrameworkElement
         {
             DrawEmpty(
                 drawing,
-                _waitingForSelection
-                    ? "Select a hierarchy or canvas node to view its tracks"
-                    : "The current selection has no animated tracks");
+                _mixedScopes
+                    ? "Selected nodes belong to different timeline scopes"
+                    : _activeScopeKey is null
+                        ? "This document has no timeline scope"
+                        : _waitingForSelection
+                            ? "Select a node in this scope or enable All in scope"
+                            : "The current selection has no animated tracks");
         }
 
         DrawRows(drawing);
@@ -321,9 +434,9 @@ public sealed class TimelineEditorControl : FrameworkElement
                 Color.FromRgb(154, 161, 170));
         }
 
-        if (_timelineSet is not null)
+        if (_hasTimelineData)
         {
-            foreach (XuiNamedFrame frame in _timelineSet.NamedFrames)
+            foreach (XuiNamedFrame frame in ScopeNamedFrames())
             {
                 double x = TickToPoint(frame.Tick);
                 if (x < LabelWidth || x > ActualWidth)
@@ -349,17 +462,21 @@ public sealed class TimelineEditorControl : FrameworkElement
 
     private void DrawNamedFrameRanges(DrawingContext drawing)
     {
-        if (_timelineSet is null ||
-            _timelineSet.NamedFrames.Count == 0 ||
+        if (!_hasTimelineData ||
             ActualHeight <= HeaderHeight)
         {
             return;
         }
 
-        XuiNamedFrame[] frames = _timelineSet.NamedFrames
+        XuiNamedFrame[] frames = ScopeNamedFrames()
             .OrderBy(static frame => frame.Tick)
             .ThenBy(static frame => frame.Name, StringComparer.Ordinal)
             .ToArray();
+        if (frames.Length == 0)
+        {
+            return;
+        }
+
         drawing.PushClip(new RectangleGeometry(new Rect(
             LabelWidth,
             HeaderHeight,
@@ -372,7 +489,7 @@ public sealed class TimelineEditorControl : FrameworkElement
                 ? frames[index + 1].Tick
                 : Math.Max(
                     startTick + 1,
-                    _timelineSet.MaximumTick + 1);
+                    _scopeMaximumTick + 1);
             if (endTick <= startTick)
             {
                 continue;
@@ -400,6 +517,9 @@ public sealed class TimelineEditorControl : FrameworkElement
 
         drawing.Pop();
     }
+
+    private IEnumerable<XuiNamedFrame> ScopeNamedFrames() =>
+        _scopeNamedFrames;
 
     private void DrawRows(DrawingContext drawing)
     {

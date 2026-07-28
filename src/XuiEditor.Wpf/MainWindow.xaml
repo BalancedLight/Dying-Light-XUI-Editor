@@ -60,9 +60,14 @@
         <Style x:Key="HierarchyToggle" TargetType="CheckBox">
             <Setter Property="Width" Value="22" />
             <Setter Property="Height" Value="22" />
-            <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+            <Setter Property="Foreground" Value="#8DC5E8" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        </Style>
+        <Style x:Key="HierarchyVisibilityToggle"
+               TargetType="CheckBox"
+               BasedOn="{StaticResource HierarchyToggle}">
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="CheckBox">
@@ -71,21 +76,174 @@
                                 BorderBrush="Transparent"
                                 BorderThickness="1"
                                 CornerRadius="2">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" />
+                            <Viewbox Width="15"
+                                     Height="15"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center">
+                                <Grid Width="16" Height="16">
+                                    <Path Data="M1,8 C3.4,4.2 6,3 8,3 C10,3 12.6,4.2 15,8 C12.6,11.8 10,13 8,13 C6,13 3.4,11.8 1,8 Z"
+                                          Fill="Transparent"
+                                          Stroke="{TemplateBinding Foreground}"
+                                          StrokeThickness="1.6"
+                                          StrokeLineJoin="Round" />
+                                    <Ellipse Width="4.5"
+                                             Height="4.5"
+                                             HorizontalAlignment="Center"
+                                             VerticalAlignment="Center"
+                                             Fill="{TemplateBinding Foreground}" />
+                                    <Path x:Name="VisibilitySlash"
+                                          Visibility="Collapsed"
+                                          Data="M2,2 L14,14"
+                                          Stroke="{TemplateBinding Foreground}"
+                                          StrokeThickness="2.1"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round" />
+                                    <Path x:Name="VisibilityAncestorMarker"
+                                          Visibility="Collapsed"
+                                          Data="M11,1 L15,1 L15,5"
+                                          Stroke="{TemplateBinding Foreground}"
+                                          StrokeThickness="1.4"
+                                          StrokeLineJoin="Round" />
+                                </Grid>
+                            </Viewbox>
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
+                            <DataTrigger Binding="{Binding VisibilityState}"
+                                         Value="{x:Static models:HierarchyVisibilityState.Hidden}">
                                 <Setter Property="Foreground"
                                         Value="{StaticResource AccentBrush}" />
-                            </Trigger>
+                                <Setter TargetName="VisibilitySlash"
+                                        Property="Visibility"
+                                        Value="Visible" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding VisibilityState}"
+                                         Value="{x:Static models:HierarchyVisibilityState.HiddenByAncestor}">
+                                <Setter Property="Foreground"
+                                        Value="{StaticResource MutedTextBrush}" />
+                                <Setter TargetName="VisibilitySlash"
+                                        Property="Visibility"
+                                        Value="Visible" />
+                                <Setter TargetName="VisibilityAncestorMarker"
+                                        Property="Visibility"
+                                        Value="Visible" />
+                            </DataTrigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="ToggleBorder"
                                         Property="BorderBrush"
                                         Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="ToggleBorder"
+                                        Property="Background"
+                                        Value="#30353B" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ToggleBorder"
+                                        Property="Background"
+                                        Value="#42301F" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="ToggleBorder"
+                                        Property="BorderBrush"
+                                        Value="#8DC5E8" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.4" />
+                                <Setter Property="Opacity" Value="0.72" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="HierarchyLockToggle"
+               TargetType="CheckBox"
+               BasedOn="{StaticResource HierarchyToggle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="ToggleBorder"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="1"
+                                CornerRadius="2">
+                            <Viewbox Width="15"
+                                     Height="15"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center">
+                                <Grid Width="16" Height="16">
+                                    <Path Data="M3,7 L13,7 L13,15 L3,15 Z"
+                                          Fill="Transparent"
+                                          Stroke="{TemplateBinding Foreground}"
+                                          StrokeThickness="1.6"
+                                          StrokeLineJoin="Round" />
+                                    <Path x:Name="OpenShackle"
+                                          Data="M5,7 L5,5 C5,2.5 7,1.5 9,1.5 C11,1.5 12.5,3 12.5,5"
+                                          Fill="Transparent"
+                                          Stroke="{TemplateBinding Foreground}"
+                                          StrokeThickness="1.7"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round" />
+                                    <Path x:Name="ClosedShackle"
+                                          Visibility="Collapsed"
+                                          Data="M5,7 L5,5 C5,2.5 6.5,1.5 8,1.5 C9.5,1.5 11,2.5 11,5 L11,7"
+                                          Fill="Transparent"
+                                          Stroke="{TemplateBinding Foreground}"
+                                          StrokeThickness="1.7"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round" />
+                                    <Path x:Name="LockAncestorMarker"
+                                          Visibility="Collapsed"
+                                          Data="M11,1 L15,1 L15,5"
+                                          Stroke="{TemplateBinding Foreground}"
+                                          StrokeThickness="1.4"
+                                          StrokeLineJoin="Round" />
+                                </Grid>
+                            </Viewbox>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding LockState}"
+                                         Value="{x:Static models:HierarchyLockState.Locked}">
+                                <Setter Property="Foreground"
+                                        Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="OpenShackle"
+                                        Property="Visibility"
+                                        Value="Collapsed" />
+                                <Setter TargetName="ClosedShackle"
+                                        Property="Visibility"
+                                        Value="Visible" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding LockState}"
+                                         Value="{x:Static models:HierarchyLockState.LockedByAncestor}">
+                                <Setter Property="Foreground"
+                                        Value="{StaticResource MutedTextBrush}" />
+                                <Setter TargetName="OpenShackle"
+                                        Property="Visibility"
+                                        Value="Collapsed" />
+                                <Setter TargetName="ClosedShackle"
+                                        Property="Visibility"
+                                        Value="Visible" />
+                                <Setter TargetName="LockAncestorMarker"
+                                        Property="Visibility"
+                                        Value="Visible" />
+                            </DataTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ToggleBorder"
+                                        Property="BorderBrush"
+                                        Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="ToggleBorder"
+                                        Property="Background"
+                                        Value="#30353B" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ToggleBorder"
+                                        Property="Background"
+                                        Value="#42301F" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="ToggleBorder"
+                                        Property="BorderBrush"
+                                        Value="#8DC5E8" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.72" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -122,9 +280,6 @@
                           Click="Save_Click" />
                 <MenuItem Header="Save _As…" InputGestureText="Ctrl+Shift+S"
                           Click="SaveAs_Click" />
-                <Separator />
-                <MenuItem Header="Dying Light _Data…"
-                          Click="AssetRoots_Click" />
                 <Separator />
                 <MenuItem Header="E_xit" Click="Exit_Click" />
             </MenuItem>
@@ -191,6 +346,11 @@
                           Click="CopyKeyFrame_Click" />
                 <MenuItem Header="_Paste Keyframe" InputGestureText="Ctrl+Alt+V"
                           Click="PasteKeyFrame_Click" />
+            </MenuItem>
+            <MenuItem Header="_Settings">
+                <MenuItem Header="Dying Light _Resources…"
+                          ToolTip="Configure the install, project folders, loose resources, texture definitions, and RPACKs"
+                          Click="AssetRoots_Click" />
             </MenuItem>
         </Menu>
 
@@ -331,6 +491,20 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate DataType="{x:Type models:HierarchyRow}">
                                 <Grid Height="24">
+                                    <Grid.ContextMenu>
+                                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                                                     Opened="HierarchyContextMenu_Opened">
+                                            <MenuItem Header="Hide all except this"
+                                                      ToolTip="Isolate this item and its descendants"
+                                                      Click="HierarchyIsolate_Click" />
+                                            <MenuItem Header="Restore visibility before isolate"
+                                                      Tag="RestoreIsolation"
+                                                      Click="HierarchyRestoreIsolation_Click" />
+                                            <Separator />
+                                            <MenuItem Header="Show all"
+                                                      Click="HierarchyShowAll_Click" />
+                                        </ContextMenu>
+                                    </Grid.ContextMenu>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="22" />
@@ -362,7 +536,8 @@
                                     </Button>
                                     <StackPanel Grid.Column="2"
                                                 Orientation="Horizontal"
-                                                VerticalAlignment="Center">
+                                                VerticalAlignment="Center"
+                                                Opacity="{Binding RowTextOpacity}">
                                         <TextBlock Text="{Binding DisplayName}"
                                                    TextTrimming="CharacterEllipsis" />
                                         <TextBlock Text="{Binding ElementName, StringFormat=  · {0}}"
@@ -371,23 +546,27 @@
                                                    TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                     <CheckBox Grid.Column="3"
-                                              Style="{StaticResource HierarchyToggle}"
+                                              Style="{StaticResource HierarchyVisibilityToggle}"
                                               Tag="{Binding}"
                                               IsChecked="{Binding IsEditorVisible}"
+                                              IsEnabled="{Binding CanToggleVisibility}"
                                               Click="HierarchyVisibility_Click"
-                                              Content="V"
                                               HorizontalAlignment="Center"
                                               VerticalAlignment="Center"
-                                              ToolTip="Editor visibility (does not alter XUI)" />
+                                              ToolTip="{Binding VisibilityToolTip}"
+                                              ToolTipService.ShowOnDisabled="True"
+                                              AutomationProperties.Name="{Binding VisibilityAutomationName}" />
                                     <CheckBox Grid.Column="4"
-                                              Style="{StaticResource HierarchyToggle}"
+                                              Style="{StaticResource HierarchyLockToggle}"
                                               Tag="{Binding}"
                                               IsChecked="{Binding IsLocked}"
+                                              IsEnabled="{Binding CanToggleLock}"
                                               Click="HierarchyLock_Click"
-                                              Content="L"
                                               HorizontalAlignment="Center"
                                               VerticalAlignment="Center"
-                                              ToolTip="Lock transforms in the editor" />
+                                              ToolTip="{Binding LockToolTip}"
+                                              ToolTipService.ShowOnDisabled="True"
+                                              AutomationProperties.Name="{Binding LockAutomationName}" />
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -431,16 +610,31 @@
                               DockPanel.Dock="Bottom"
                               Header="Raw XML"
                               Visibility="Collapsed"
+                              Expanded="RawXmlExpander_Expanded"
                               BorderBrush="{StaticResource BorderBrush}"
                               BorderThickness="0,1,0,0"
                               Padding="8,5">
                         <Grid>
                             <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
                                 <RowDefinition Height="150" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
+                            <DockPanel Grid.Row="0"
+                                       Margin="0,0,0,5">
+                                <Button x:Name="LoadLargeRawXmlButton"
+                                        DockPanel.Dock="Right"
+                                        Content="Load large XML"
+                                        Visibility="Collapsed"
+                                        Click="LoadLargeRawXml_Click" />
+                                <TextBlock x:Name="RawXmlStatusText"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           TextWrapping="Wrap"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
                             <TextBox x:Name="RawXmlTextBox"
+                                     Grid.Row="1"
                                      FontFamily="Consolas"
                                      FontSize="11"
                                      AcceptsReturn="True"
@@ -449,17 +643,19 @@
                                      VerticalScrollBarVisibility="Auto"
                                      TextWrapping="NoWrap"
                                      SpellCheck.IsEnabled="False" />
-                            <StackPanel Grid.Row="1"
+                            <StackPanel Grid.Row="2"
                                         Orientation="Horizontal"
                                         HorizontalAlignment="Right"
                                         Margin="0,5,0,0">
-                                <Button Content="Reset"
+                                <Button x:Name="ResetRawXmlButton"
+                                        Content="Reset"
                                         Click="ResetRawXml_Click" />
-                                <Button Content="Apply XML"
+                                <Button x:Name="ApplyRawXmlButton"
+                                        Content="Apply XML"
                                         Click="ApplyRawXml_Click" />
                             </StackPanel>
                             <TextBlock x:Name="RawXmlErrorText"
-                                       Grid.Row="2"
+                                       Grid.Row="3"
                                        Foreground="{StaticResource DangerBrush}"
                                        TextWrapping="Wrap"
                                        Margin="0,4,0,0" />
@@ -592,8 +788,15 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <DockPanel Grid.Row="0">
-                                <StackPanel Orientation="Horizontal"
+                                <StackPanel x:Name="TimelineTransportPanel"
+                                            Orientation="Horizontal"
                                             DockPanel.Dock="Left">
+                                    <TextBlock x:Name="TimelineScopeText"
+                                               MinWidth="150"
+                                               Foreground="{StaticResource AccentBrush}"
+                                               VerticalAlignment="Center"
+                                               Margin="2,0,8,0"
+                                               Text="No timeline scope" />
                                     <Button x:Name="PlayPauseButton"
                                             Content="Play"
                                             Click="PlayPause_Click" />
@@ -606,8 +809,8 @@
                                               VerticalAlignment="Center"
                                               Margin="9,0" />
                                     <ToggleButton x:Name="AllTracksToggle"
-                                                  Content="All tracks"
-                                                  ToolTip="Show every timeline when no hierarchy node is selected"
+                                                  Content="All in scope"
+                                                  ToolTip="Show every target owned by the active timeline scope"
                                                   Checked="AllTracksToggle_Changed"
                                                   Unchecked="AllTracksToggle_Changed" />
                                     <TextBlock Text="Speed"
@@ -644,7 +847,9 @@
                                             ValueChanged="TickSlider_ValueChanged" />
                                 </StackPanel>
                             </DockPanel>
-                            <WrapPanel Grid.Row="1" Margin="0,4,0,0">
+                            <WrapPanel x:Name="TimelineEditPanel"
+                                       Grid.Row="1"
+                                       Margin="0,4,0,0">
                                 <TextBlock Text="Selected key"
                                            Foreground="{StaticResource MutedTextBrush}"
                                            VerticalAlignment="Center"
@@ -727,6 +932,7 @@
                                          Margin="4,0,0,0"
                                          ToolTip="Command target" />
                                 <Button Content="+ Marker" Click="AddNamedFrame_Click" />
+                                <Button Content="Go to" Click="GoToNamedFrame_Click" />
                                 <Button Content="Apply" Click="ApplyNamedFrame_Click" />
                                 <Button Content="Delete" Click="DeleteNamedFrame_Click" />
                             </WrapPanel>

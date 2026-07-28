@@ -4,14 +4,16 @@ Validation performed on Windows x64 on 2026-07-27:
 
 ```text
 dotnet restore XuiEditor.slnx --locked-mode
-dotnet test XuiEditor.slnx --configuration Debug --no-restore
-dotnet test XuiEditor.slnx --configuration Release --no-restore
+dotnet test tests\XuiEditor.Tests\XuiEditor.Tests.csproj
+  --configuration Debug --no-restore
+dotnet test tests\XuiEditor.Tests\XuiEditor.Tests.csproj
+  --configuration Release --no-restore
 dotnet publish src\XuiEditor.Wpf\XuiEditor.Wpf.csproj
   -c Release -r win-x64 --self-contained true --no-restore
   -o artifacts\publish\win-x64
 ```
 
-Both test configurations passed all 105 tests with zero build warnings.
+Both test configurations passed all 125 tests with zero build warnings.
 
 Coverage includes:
 
@@ -36,8 +38,14 @@ Coverage includes:
   BC-compressed and classic uncompressed BGRX DDS decoding, cache invalidation,
   precedence, provenance-aware cache identity, deterministic basename
   collisions, and missing resources
-- every supported timeline property, step/linear/eased sampling, named-frame
-  commands, loops, recursion, duplicate targets, and keyframe undo/redo
+- every supported timeline property, exact stepped keys, linear/eased
+  sampling, named-frame commands, loops, recursion, duplicate targets, and
+  keyframe undo/redo
+- independent timeline-owner scopes, remembered per-scope ticks,
+  synchronized compatibility sampling, mixed-scope selection, scoped
+  playback, and the `All in scope` track filter
+- deterministic composed first poses for fade/expand-in scopes, including
+  truthful scope-wide handling of mutually exclusive alternatives
 - the deterministic stock 0/1/11/12/22-tick fixture
 - extracted `menumain_pc.xui`, `menuoptionscontrolskeyboard.xui`,
   `menuskin.xui`, `intro.xui`, `menubountybrief.xui`,
@@ -47,18 +55,34 @@ Coverage includes:
 - structural `data\menu`, `PakAssets\XUI`, and isolated-document asset-root
   discovery, with project definitions and DDS files taking precedence over
   configured, extracted, and installed roots
+- persisted ordered Dying Light project, loose-resource, individual
+  texture-definition, and RP6L RPACK sources, including a synthetic
+  definition/RPACK pair resolved through the same public resolver
 - a synthetic Workshop project plus the real Irisu project, including decoded
-  project-local `irisu_attack_00` pixels and byte-identical source isolation
+  project-local `irisu_attack_00` pixels, selected-image priority over the
+  large HUD texture backlog, a real retained `ImageDrawing`, and byte-identical
+  source isolation
 - the real `hud_dw` texture definition and DDS source for the 20×20
   `aggro_skull` atlas region (the similarly named `hud_dl` is not used)
 - HUD preview scenarios, runtime text placeholders, hidden-node reveal rules,
   and source-byte isolation
 - 10,000-node hierarchy virtualization, fixed 24-pixel rows, expansion/filter
-  state, selection synchronization, settings/pane persistence, recovery
-  isolation, fixed-DPI WPF rendering, and absence of audio APIs
+  state, selection synchronization, persistent hierarchy rows, direct and
+  inherited eye/lock states, settings/pane persistence, recovery isolation,
+  fixed-DPI WPF rendering, and absence of audio APIs
+- reversible editor-only `Hide all except this` isolation that retains the
+  selected node's ancestors and subtree without changing document bytes
+- constant-time syntax-key and nearest-scope lookup, 100 warm cross-scope
+  selections without layout sampling or hierarchy resets, and lazy Raw XML
+  with an explicit gate for subtrees over 256 KiB
 - dark editor-owned templates for menus, combo boxes, context menus, tooltips,
   scrollbars, and other native WPF controls
-- texture-only visual invalidation and the selection-scoped timeline mode
+- texture-only visual invalidation, frozen-scope animation caching,
+  scope-target property deltas, incremental transform/show/opacity/paint
+  propagation, retained-visual updates, and correctness-first full-evaluation
+  fallbacks during selection-scoped playback
+- bounded visible-texture scheduling and temporary flattened viewport caching
+  during repeated HUD pan/zoom input, with deferred resource redraws
 - the single-file publish contract and embedded multi-resolution icon
 
 The current installation at
@@ -79,8 +103,8 @@ The final `win-x64` publish contains one file and no sidecars:
 
 ```text
 DyingLightXuiEditor.exe
-65,503,403 bytes
-SHA-256 045385F1BABA1F45DA34FE1DA940C960283485944665C77CB4B90634B56A20A7
+65,533,841 bytes
+SHA-256 C09E204157EB2558709F918A146E689D60A3F0FCE7FBDC330FA9BEAA662EA50B
 ```
 
 The self-contained executable was launched without Unity or an installed .NET
@@ -90,9 +114,14 @@ the dialog remained at its authored position, Yes and No were separated and
 fully textured, and the common runtime profile hid OK. It then opened the real
 4,066-node, 1,898-timeline Irisu Workshop `hud.xui`, discovered the project's
 `data` root, resolved `I_Irisu_00` to the project-local `irisu_attack_00`
-definition/DDS, and rendered the red attack overlay at tick 4. Both documents
-remained clean, the exact spawned editor process was closed normally, and
-Dying Light and Dying Light Player were not launched.
+definition/DDS, and rendered the red attack overlay immediately from the
+composed `HUD_DI=0`, `HudZoneInfoDI=3`, and `G_Group=1` state. Its active image
+scope exposed 3 tracks and 5 named frames rather than constructing the
+document-wide timeline, and three warm WPF samples stayed within the 100 ms
+30-FPS budget while updating at most four retained presentations. Both
+documents remained clean. A hidden single-file smoke start reached input-idle
+before its exact spawned process was cleaned up; Dying Light and Dying Light
+Player were not launched.
 
 The controlled Player comparison is documented in
 [runtime-comparison.md](runtime-comparison.md).

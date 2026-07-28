@@ -6,6 +6,8 @@ public sealed class HierarchyIndex
 {
     private readonly Dictionary<string, Entry> _entries;
     private readonly IReadOnlyList<Entry> _declarationOrder;
+    private readonly HashSet<string> _effectivelyHiddenKeys =
+        new(StringComparer.Ordinal);
 
     private HierarchyIndex(
         XuiDocument document,
@@ -25,13 +27,16 @@ public sealed class HierarchyIndex
 
     public string RootKey { get; }
 
+    public IReadOnlySet<string> EffectivelyHiddenKeys =>
+        _effectivelyHiddenKeys;
+
     public static HierarchyIndex Build(XuiDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
         Dictionary<string, Entry> entries = new(StringComparer.Ordinal);
         List<Entry> declarationOrder = [];
 
-        void Add(XuiSyntaxNode node, string? parentKey)
+        void Add(XuiSyntaxNode node, string? parentKey, int depth)
         {
             XuiSyntaxNode[] children =
                 XuiModelReader.VisualChildren(node).ToArray();
@@ -53,6 +58,11 @@ public sealed class HierarchyIndex
             string display = id.Length > 0
                 ? id
                 : $"<{node.Name}>";
+            HierarchyRow row = new(
+                node,
+                display,
+                depth,
+                children.Length > 0);
             Entry entry = new(
                 node,
                 parentKey,
@@ -64,16 +74,17 @@ public sealed class HierarchyIndex
                         id,
                         visual,
                         classOverride)
-                    .ToUpperInvariant());
+                    .ToUpperInvariant(),
+                row);
             entries.Add(node.Key, entry);
             declarationOrder.Add(entry);
             foreach (XuiSyntaxNode child in children)
             {
-                Add(child, node.Key);
+                Add(child, node.Key, depth + 1);
             }
         }
 
-        Add(document.Root, parentKey: null);
+        Add(document.Root, parentKey: null, depth: 0);
         return new HierarchyIndex(document, entries, declarationOrder);
     }
 
@@ -82,6 +93,8 @@ public sealed class HierarchyIndex
         Revision == document.Revision;
 
     public Entry? Find(string key) => _entries.GetValueOrDefault(key);
+
+    public HierarchyRow? FindRow(string key) => Find(key)?.Row;
 
     public IEnumerable<string> Ancestors(string key)
     {
@@ -93,17 +106,101 @@ public sealed class HierarchyIndex
         }
     }
 
-    public IReadOnlyList<HierarchyRow> Flatten(
-        string filter,
-        IReadOnlySet<string> expanded,
+    public IReadOnlyList<string> HiddenBranchRootsExcept(string key)
+    {
+        if (!_entries.ContainsKey(key))
+        {
+            return [];
+        }
+
+        HashSet<string> kept = new(StringComparer.Ordinal);
+        kept.Add(key);
+        kept.UnionWith(Ancestors(key));
+        AddDescendants(key);
+
+        List<string> hiddenRoots = [];
+        foreach (Entry entry in _declarationOrder)
+        {
+            if (kept.Contains(entry.Node.Key))
+            {
+                continue;
+            }
+
+            if (entry.ParentKey is null || kept.Contains(entry.ParentKey))
+            {
+                hiddenRoots.Add(entry.Node.Key);
+            }
+        }
+
+        return hiddenRoots;
+
+        void AddDescendants(string parentKey)
+        {
+            foreach (string childKey in _entries[parentKey].Children)
+            {
+                if (kept.Add(childKey))
+                {
+                    AddDescendants(childKey);
+                }
+            }
+        }
+    }
+
+    public void UpdateEditorStates(
         IReadOnlySet<string> hidden,
         IReadOnlySet<string> locked)
+    {
+        _effectivelyHiddenKeys.Clear();
+        Update(RootKey, hiddenBy: null, lockedBy: null);
+        return;
+
+        void Update(string key, string? hiddenBy, string? lockedBy)
+        {
+            Entry entry = _entries[key];
+            bool directlyHidden = hidden.Contains(key);
+            bool directlyLocked = locked.Contains(key);
+            HierarchyVisibilityState visibilityState = directlyHidden
+                ? HierarchyVisibilityState.Hidden
+                : hiddenBy is not null
+                    ? HierarchyVisibilityState.HiddenByAncestor
+                    : HierarchyVisibilityState.Visible;
+            HierarchyLockState lockState = directlyLocked
+                ? HierarchyLockState.Locked
+                : lockedBy is not null
+                    ? HierarchyLockState.LockedByAncestor
+                    : HierarchyLockState.Unlocked;
+            entry.Row.SetEditorStates(
+                visibilityState,
+                directlyHidden ? null : hiddenBy,
+                lockState,
+                directlyLocked ? null : lockedBy);
+            if (visibilityState != HierarchyVisibilityState.Visible)
+            {
+                _effectivelyHiddenKeys.Add(key);
+            }
+
+            string? descendantHiddenBy = directlyHidden
+                ? entry.DisplayName
+                : hiddenBy;
+            string? descendantLockedBy = directlyLocked
+                ? entry.DisplayName
+                : lockedBy;
+            foreach (string childKey in entry.Children)
+            {
+                Update(childKey, descendantHiddenBy, descendantLockedBy);
+            }
+        }
+    }
+
+    public IReadOnlyList<HierarchyRow> Flatten(
+        string filter,
+        IReadOnlySet<string> expanded)
     {
         string normalizedFilter = filter.Trim().ToUpperInvariant();
         List<HierarchyRow> rows = [];
         if (normalizedFilter.Length == 0)
         {
-            AddExpanded(RootKey, 0);
+            AddExpanded(RootKey);
             return rows;
         }
 
@@ -127,25 +224,26 @@ public sealed class HierarchyIndex
             }
         }
 
-        AddFiltered(RootKey, 0, ancestorMatched: false);
+        AddFiltered(RootKey, ancestorMatched: false);
         return rows;
 
-        void AddExpanded(string key, int depth)
+        void AddExpanded(string key)
         {
             Entry entry = _entries[key];
-            rows.Add(CreateRow(entry, depth, expanded.Contains(key)));
-            if (!expanded.Contains(key))
+            entry.Row.IsExpanded = expanded.Contains(key);
+            rows.Add(entry.Row);
+            if (!entry.Row.IsExpanded)
             {
                 return;
             }
 
             foreach (string childKey in entry.Children)
             {
-                AddExpanded(childKey, depth + 1);
+                AddExpanded(childKey);
             }
         }
 
-        void AddFiltered(string key, int depth, bool ancestorMatched)
+        void AddFiltered(string key, bool ancestorMatched)
         {
             Entry entry = _entries[key];
             bool selfMatches = matchingSubtrees.Contains(key);
@@ -156,28 +254,15 @@ public sealed class HierarchyIndex
                 return;
             }
 
-            rows.Add(CreateRow(entry, depth, isExpanded: true));
+            entry.Row.IsExpanded = true;
+            rows.Add(entry.Row);
             foreach (string childKey in entry.Children)
             {
                 AddFiltered(
                     childKey,
-                    depth + 1,
                     ancestorMatched || selfMatches);
             }
         }
-
-        HierarchyRow CreateRow(
-            Entry entry,
-            int depth,
-            bool isExpanded) =>
-            new(
-                entry.Node,
-                entry.DisplayName,
-                depth,
-                entry.Children.Count > 0,
-                isExpanded,
-                !hidden.Contains(entry.Node.Key),
-                locked.Contains(entry.Node.Key));
     }
 
     public sealed record Entry(
@@ -185,5 +270,6 @@ public sealed class HierarchyIndex
         string? ParentKey,
         IReadOnlyList<string> Children,
         string DisplayName,
-        string SearchText);
+        string SearchText,
+        HierarchyRow Row);
 }

@@ -111,6 +111,33 @@ public sealed class TimelineTests
     }
 
     [TestMethod]
+    public void StepTracksUseAnIntermediateKeyValueOnItsExactTick()
+    {
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>1</Width><Height>1</Height></Properties>" +
+            "<MyImage><Properties><Id>I</Id></Properties></MyImage>" +
+            "<Timelines><Timeline><Id>I</Id><TimelineProp>Show</TimelineProp>" +
+            "<TimelineProp>ImagePath</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>false</Prop><Prop>before</Prop></KeyFrame>" +
+            "<KeyFrame><Time>5</Time><Interpolation>0</Interpolation>" +
+            "<Prop>true</Prop><Prop>exact</Prop></KeyFrame>" +
+            "<KeyFrame><Time>10</Time><Interpolation>0</Interpolation>" +
+            "<Prop>false</Prop><Prop>after</Prop></KeyFrame>" +
+            "</Timeline></Timelines></XuiCanvas>");
+        XuiTimeline timeline =
+            XuiTimelineParser.Parse(document).Timelines[0];
+
+        Assert.IsFalse(
+            TimelineEvaluator.Sample(timeline.Tracks[0], 4)!.Boolean);
+        Assert.IsTrue(
+            TimelineEvaluator.Sample(timeline.Tracks[0], 5)!.Boolean);
+        Assert.AreEqual(
+            "exact",
+            TimelineEvaluator.Sample(timeline.Tracks[1], 5)!.Text);
+    }
+
+    [TestMethod]
     public void OutlineAcceptsBooleanAndNumericCorpusForms()
     {
         XuiTimeline booleanTimeline = XuiTimelineParser.Parse(
@@ -224,6 +251,179 @@ public sealed class TimelineTests
             diagnostic.Code == "XUI-TL010"));
     }
 
+    [TestMethod]
+    public void ScopeCatalogAndWorkspaceRememberIndependentLocalTicks()
+    {
+        XuiDocument first = XuiDocument.FromText(
+            NestedScopeXml(groupMaximumTick: 10));
+        XuiTimelineSet firstSet = XuiTimelineParser.Parse(first);
+        XuiTimelineScopeCatalog firstCatalog =
+            XuiTimelineScopeCatalog.Build(first, firstSet);
+        XuiTimelineScope root = firstCatalog.RootScope!;
+        XuiTimelineScope group = firstCatalog.Scopes.Single(scope =>
+            scope.OwnerId == "G_Group");
+        XuiSyntaxNode groupTarget = first.Root
+            .DescendantsAndSelf()
+            .Single(node =>
+                XuiModelReader.GetId(node, first.Text) == "I_Child");
+        XuiTimelineWorkspace workspace = new(firstCatalog);
+
+        Assert.AreEqual("XuiCanvas", root.Owner.Name);
+        Assert.AreEqual(root.ScopeKey, workspace.ActiveScope?.ScopeKey);
+        Assert.IsTrue(workspace.ResolveSelection([groupTarget], first.Text));
+        Assert.AreEqual(group.ScopeKey, workspace.ActiveScope?.ScopeKey);
+        Assert.IsTrue(workspace.SetActiveTick(9));
+        Assert.AreEqual(9, workspace.ActiveTick);
+
+        Assert.IsTrue(workspace.ResolveSelection([root.Owner], first.Text));
+        Assert.IsTrue(workspace.SetActiveTick(3));
+        Assert.AreEqual(3, workspace.ActiveTick);
+        Assert.IsTrue(workspace.ResolveSelection([groupTarget], first.Text));
+        Assert.AreEqual(9, workspace.ActiveTick);
+        Assert.AreEqual(3, workspace.EvaluationState.TickFor(root.ScopeKey));
+        Assert.AreEqual(9, workspace.EvaluationState.TickFor(group.ScopeKey));
+
+        XuiDocument edited = XuiDocument.FromText(
+            NestedScopeXml(groupMaximumTick: 4));
+        XuiTimelineScopeCatalog editedCatalog =
+            XuiTimelineScopeCatalog.Build(
+                edited,
+                XuiTimelineParser.Parse(edited));
+        workspace.Rebind(editedCatalog);
+
+        Assert.AreEqual(4, workspace.ActiveTick);
+        Assert.AreEqual(
+            3,
+            workspace.TickFor(editedCatalog.RootScope!.ScopeKey));
+    }
+
+    [TestMethod]
+    public void WorkspaceDefaultsEachScopeToItsEarliestFullyVisiblePose()
+    {
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<AdvGroup><Properties><Id>Group</Id></Properties>" +
+            "<MyImage><Properties><Id>Animated</Id><Show>false</Show></Properties></MyImage>" +
+            "<Timelines><Timeline><Id>Animated</Id>" +
+            "<TimelineProp>Show</TimelineProp><TimelineProp>Opacity</TimelineProp>" +
+            "<TimelineProp>Scale</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>false</Prop><Prop>0</Prop><Prop>0,0,0</Prop></KeyFrame>" +
+            "<KeyFrame><Time>3</Time><Interpolation>0</Interpolation>" +
+            "<Prop>true</Prop><Prop>0</Prop><Prop>0,0,0</Prop></KeyFrame>" +
+            "<KeyFrame><Time>10</Time><Interpolation>0</Interpolation>" +
+            "<Prop>true</Prop><Prop>1</Prop><Prop>0.5,0.5,0</Prop></KeyFrame>" +
+            "<KeyFrame><Time>12</Time><Interpolation>0</Interpolation>" +
+            "<Prop>true</Prop><Prop>1</Prop><Prop>1,1,0</Prop></KeyFrame>" +
+            "<KeyFrame><Time>20</Time><Interpolation>0</Interpolation>" +
+            "<Prop>false</Prop><Prop>0</Prop><Prop>0,0,0</Prop></KeyFrame>" +
+            "</Timeline></Timelines></AdvGroup>" +
+            "<Timelines><Timeline><Id>Group</Id><TimelineProp>Opacity</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation><Prop>1</Prop></KeyFrame>" +
+            "<KeyFrame><Time>5</Time><Interpolation>0</Interpolation><Prop>0</Prop></KeyFrame>" +
+            "</Timeline></Timelines></XuiCanvas>");
+        XuiTimelineScopeCatalog catalog = XuiTimelineScopeCatalog.Build(
+            document,
+            XuiTimelineParser.Parse(document));
+        XuiTimelineScope groupScope = catalog.Scopes.Single(scope =>
+            scope.OwnerId == "Group");
+        XuiSyntaxNode animated = document.Root
+            .DescendantsAndSelf()
+            .Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Animated");
+        XuiTimelineWorkspace workspace = new(catalog);
+
+        Assert.AreEqual(12, groupScope.ComposedTick);
+        Assert.AreEqual(0, workspace.ActiveTick);
+        Assert.IsTrue(workspace.ResolveSelection([animated], document.Text));
+        Assert.AreEqual(12, workspace.ActiveTick);
+        Assert.IsTrue(workspace.ActiveTickIsComposed);
+        Assert.AreEqual(
+            12,
+            workspace.EvaluationState.TickFor(groupScope.ScopeKey));
+        Assert.AreEqual(0, workspace.RememberedTicks.Count);
+
+        Assert.IsTrue(workspace.ResetActiveTick());
+        Assert.AreEqual(0, workspace.ActiveTick);
+        Assert.IsFalse(workspace.ActiveTickIsComposed);
+        Assert.AreEqual(0, workspace.EvaluationState.TickFor(
+            groupScope.ScopeKey));
+    }
+
+    [TestMethod]
+    public void MixedScopeSelectionDisablesTheActiveWorkspaceScope()
+    {
+        XuiDocument document = XuiDocument.FromText(
+            NestedScopeXml(groupMaximumTick: 10));
+        XuiTimelineScopeCatalog catalog = XuiTimelineScopeCatalog.Build(
+            document,
+            XuiTimelineParser.Parse(document));
+        XuiSyntaxNode rootTarget = document.Root
+            .DescendantsAndSelf()
+            .Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "HUD_DI");
+        XuiSyntaxNode groupTarget = document.Root
+            .DescendantsAndSelf()
+            .Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "I_Child");
+        XuiTimelineWorkspace workspace = new(catalog);
+
+        Assert.IsTrue(workspace.ResolveSelection(
+            [rootTarget, groupTarget],
+            document.Text));
+
+        Assert.IsTrue(workspace.HasMixedSelection);
+        Assert.IsNull(workspace.ActiveScope);
+        Assert.IsFalse(workspace.SetActiveTick(5));
+    }
+
+    [TestMethod]
+    public void SynchronizedEvaluationStateRetainsTheLegacyTickContract()
+    {
+        XuiTimelineEvaluationState synchronized =
+            XuiTimelineEvaluationState.Synchronized(17);
+        XuiTimelineEvaluationState local =
+            XuiTimelineEvaluationState.ScopeLocal(
+                new Dictionary<string, int>(StringComparer.Ordinal)
+                {
+                    ["group"] = 9,
+                });
+
+        Assert.AreEqual(17, synchronized.TickFor("root"));
+        Assert.AreEqual(17, synchronized.TickFor("group"));
+        Assert.AreEqual(0, local.TickFor("root"));
+        Assert.AreEqual(9, local.TickFor("group"));
+    }
+
+    [TestMethod]
+    public void PlaybackStopsAtTheActiveScopesLocalMaximum()
+    {
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>1</Width><Height>1</Height></Properties>" +
+            "<AdvGroup><Properties><Id>Group</Id></Properties>" +
+            "<MyImage><Properties><Id>Child</Id></Properties></MyImage>" +
+            "<Timelines><Timeline><Id>Child</Id><TimelineProp>Opacity</TimelineProp>" +
+            Key(0, "0") + Key(2, "1") +
+            "</Timeline></Timelines></AdvGroup>" +
+            "<MyImage><Properties><Id>RootChild</Id></Properties></MyImage>" +
+            "<Timelines><Timeline><Id>RootChild</Id><TimelineProp>Opacity</TimelineProp>" +
+            Key(0, "0") + Key(100, "1") +
+            "</Timeline></Timelines></XuiCanvas>");
+        XuiTimelineSet set = XuiTimelineParser.Parse(document);
+        string groupScope = set.Timelines.Single(timeline =>
+            timeline.TargetId == "Child").ScopeKey;
+
+        TimelinePlaybackState state = TimelinePlayback.Advance(
+            set,
+            groupScope,
+            currentTick: 2,
+            playing: true,
+            loop: false);
+
+        Assert.AreEqual(2, state.Tick);
+        Assert.IsFalse(state.IsPlaying);
+    }
+
     private static string CreateTimelineXml(
         IReadOnlyList<string> properties,
         IReadOnlyList<string> firstValues,
@@ -252,4 +452,22 @@ public sealed class TimelineTests
     private static string Key(int tick, string value) =>
         $"<KeyFrame><Time>{tick}</Time><Interpolation>0</Interpolation>" +
         $"<Prop>{value}</Prop></KeyFrame>";
+
+    private static string NestedScopeXml(int groupMaximumTick) =>
+        "<XuiCanvas><Properties><Width>1280</Width><Height>720</Height></Properties>" +
+        "<AdvGroup><Properties><Id>HUD_DI</Id></Properties>" +
+        "<AdvGroup><Properties><Id>G_Group</Id></Properties>" +
+        "<MyImage><Properties><Id>I_Child</Id></Properties></MyImage>" +
+        "<Timelines><Timeline><Id>I_Child</Id><TimelineProp>Show</TimelineProp>" +
+        Key(0, "true") +
+        Key(groupMaximumTick, "false") +
+        "</Timeline><NamedFrames><NamedFrame><Name>Idle</Name><Time>0</Time>" +
+        "</NamedFrame><NamedFrame><Name>End</Name><Time>" +
+        groupMaximumTick.ToString(
+            System.Globalization.CultureInfo.InvariantCulture) +
+        "</Time></NamedFrame></NamedFrames></Timelines></AdvGroup></AdvGroup>" +
+        "<Timelines><Timeline><Id>HUD_DI</Id><TimelineProp>Opacity</TimelineProp>" +
+        Key(0, "1") +
+        Key(5, "0") +
+        "</Timeline></Timelines></XuiCanvas>";
 }

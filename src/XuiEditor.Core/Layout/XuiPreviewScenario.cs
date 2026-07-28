@@ -36,8 +36,8 @@ public sealed record XuiPreviewScenario(
 
     public static XuiPreviewScenario Empty { get; } = new(
         "authored",
-        "Authored state",
-        "Shows authored values with deterministic common controller initialization.",
+        "Composed state",
+        "Settles independent animation scopes at their earliest fully visible pose without changing authored data.",
         [],
         new HashSet<string>(StringComparer.Ordinal));
 

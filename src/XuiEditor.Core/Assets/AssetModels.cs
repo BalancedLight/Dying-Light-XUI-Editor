@@ -8,9 +8,13 @@ namespace XuiEditor.Core.Assets;
 public enum XuiAssetRootKind
 {
     Workspace,
+    DyingLightProject,
+    LooseResources,
     LooseMod,
     ExtractedDyingLight,
     DyingLightInstall,
+    AdditionalTextureDefinitions,
+    Rp6ResourcePack,
 }
 
 public sealed record XuiAssetRoot(
@@ -21,7 +25,9 @@ public sealed record XuiAssetRoot(
     public bool EffectiveIsReadOnly =>
         IsReadOnly ||
         Kind is XuiAssetRootKind.ExtractedDyingLight or
-            XuiAssetRootKind.DyingLightInstall;
+            XuiAssetRootKind.DyingLightInstall or
+            XuiAssetRootKind.AdditionalTextureDefinitions or
+            XuiAssetRootKind.Rp6ResourcePack;
 
     public string FullPath { get; } =
         System.IO.Path.TrimEndingDirectorySeparator(

@@ -23,6 +23,14 @@ public partial class AssetRootsWindow : Window
                 Kind = root.Kind,
                 IsReadOnly = root.EffectiveIsReadOnly,
             }));
+        AdditionalSources =
+            new ObservableCollection<AdditionalAssetSourceSetting>(
+                settings.AdditionalAssetSources.Select(static source =>
+                    new AdditionalAssetSourceSetting
+                    {
+                        Path = source.Path,
+                        Kind = source.Kind,
+                    }));
         FontMappings = new ObservableCollection<FontMappingRow>(
             settings.FontMappings.Select(static mapping =>
                 new FontMappingRow
@@ -41,6 +49,10 @@ public partial class AssetRootsWindow : Window
     }
 
     public ObservableCollection<AssetRootSetting> Roots { get; }
+
+    public ObservableCollection<AdditionalAssetSourceSetting>
+        AdditionalSources
+    { get; }
 
     public ObservableCollection<FontMappingRow> FontMappings { get; }
 
@@ -83,8 +95,28 @@ public partial class AssetRootsWindow : Window
     private void AddLoose_Click(object sender, RoutedEventArgs eventArgs) =>
         AddRoot(XuiAssetRootKind.LooseMod, isReadOnly: false);
 
+    private void AddProject_Click(object sender, RoutedEventArgs eventArgs) =>
+        AddRoot(XuiAssetRootKind.DyingLightProject, isReadOnly: false);
+
+    private void AddLooseResources_Click(
+        object sender,
+        RoutedEventArgs eventArgs) =>
+        AddRoot(XuiAssetRootKind.LooseResources, isReadOnly: false);
+
     private void AddExtracted_Click(object sender, RoutedEventArgs eventArgs) =>
         AddRoot(XuiAssetRootKind.ExtractedDyingLight, isReadOnly: true);
+
+    private void AddTextureDefinitions_Click(
+        object sender,
+        RoutedEventArgs eventArgs) =>
+        AddSources(
+            XuiConfiguredAssetSourceKind.TextureDefinitionFile,
+            "Dying Light texture definitions (*.def;*.scr)|*.def;*.scr|All files (*.*)|*.*");
+
+    private void AddRpack_Click(object sender, RoutedEventArgs eventArgs) =>
+        AddSources(
+            XuiConfiguredAssetSourceKind.Rp6ResourcePack,
+            "Dying Light resource packs (*.rpack)|*.rpack|All files (*.*)|*.*");
 
     private void Remove_Click(object sender, RoutedEventArgs eventArgs)
     {
@@ -97,6 +129,24 @@ public partial class AssetRootsWindow : Window
     private void MoveUp_Click(object sender, RoutedEventArgs eventArgs) => Move(-1);
 
     private void MoveDown_Click(object sender, RoutedEventArgs eventArgs) => Move(1);
+
+    private void RemoveSource_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        if (SourcesGrid.SelectedItem is AdditionalAssetSourceSetting source)
+        {
+            AdditionalSources.Remove(source);
+        }
+    }
+
+    private void MoveSourceUp_Click(
+        object sender,
+        RoutedEventArgs eventArgs) =>
+        MoveSource(-1);
+
+    private void MoveSourceDown_Click(
+        object sender,
+        RoutedEventArgs eventArgs) =>
+        MoveSource(1);
 
     private void Ok_Click(object sender, RoutedEventArgs eventArgs)
     {
@@ -157,15 +207,75 @@ public partial class AssetRootsWindow : Window
                 ? scheme
                 : XuiInputGlyphScheme.KeyboardAndMouse;
         _settings.WorkspaceRoot = workspace.Length == 0 ? null : workspace;
-        _settings.AssetRoots = Roots
-            .Where(static root => !string.IsNullOrWhiteSpace(root.Path))
-            .Select(static root => new AssetRootSetting
+        List<AssetRootSetting> normalizedRoots = [];
+        foreach (AssetRootSetting root in Roots.Where(static root =>
+                     !string.IsNullOrWhiteSpace(root.Path)))
+        {
+            string path;
+            try
             {
-                Path = Path.GetFullPath(root.Path),
+                path = Path.TrimEndingDirectorySeparator(
+                    Path.GetFullPath(root.Path));
+            }
+            catch (Exception exception) when (
+                exception is ArgumentException or
+                NotSupportedException or
+                PathTooLongException)
+            {
+                ShowInvalidResourcePath(root.Path, exception.Message);
+                return;
+            }
+
+            if (!Directory.Exists(path))
+            {
+                ShowInvalidResourcePath(
+                    path,
+                    "The configured resource folder does not exist.");
+                return;
+            }
+
+            normalizedRoots.Add(new AssetRootSetting
+            {
+                Path = path,
                 Kind = root.Kind,
                 IsReadOnly = root.EffectiveIsReadOnly,
-            })
-            .ToList();
+            });
+        }
+
+        List<AdditionalAssetSourceSetting> normalizedSources = [];
+        foreach (AdditionalAssetSourceSetting source in AdditionalSources)
+        {
+            string path;
+            try
+            {
+                path = Path.GetFullPath(source.Path);
+            }
+            catch (Exception exception) when (
+                exception is ArgumentException or
+                NotSupportedException or
+                PathTooLongException)
+            {
+                ShowInvalidResourcePath(source.Path, exception.Message);
+                return;
+            }
+
+            if (!File.Exists(path))
+            {
+                ShowInvalidResourcePath(
+                    path,
+                    "The configured resource file does not exist.");
+                return;
+            }
+
+            normalizedSources.Add(new AdditionalAssetSourceSetting
+            {
+                Path = path,
+                Kind = source.Kind,
+            });
+        }
+
+        _settings.AssetRoots = normalizedRoots;
+        _settings.AdditionalAssetSources = normalizedSources;
         _settings.FontMappings = FontMappings
             .Where(static mapping =>
                 !string.IsNullOrWhiteSpace(mapping.EngineId) &&
@@ -184,9 +294,16 @@ public partial class AssetRootsWindow : Window
     {
         OpenFolderDialog dialog = new()
         {
-            Title = kind == XuiAssetRootKind.LooseMod
-                ? "Choose a loose Dying Light mod root"
-                : "Choose an extracted Dying Light asset root",
+            Title = kind switch
+            {
+                XuiAssetRootKind.DyingLightProject =>
+                    "Choose a Dying Light Workshop or Developer Tools project",
+                XuiAssetRootKind.LooseResources =>
+                    "Choose a loose resource folder",
+                XuiAssetRootKind.LooseMod =>
+                    "Choose a loose Dying Light mod root",
+                _ => "Choose an extracted Dying Light asset root",
+            },
         };
         if (dialog.ShowDialog(this) != true)
         {
@@ -202,6 +319,37 @@ public partial class AssetRootsWindow : Window
         Roots.Add(root);
         RootsGrid.SelectedItem = root;
         RootsGrid.ScrollIntoView(root);
+    }
+
+    private void AddSources(
+        XuiConfiguredAssetSourceKind kind,
+        string filter)
+    {
+        OpenFileDialog dialog = new()
+        {
+            Title = kind == XuiConfiguredAssetSourceKind.Rp6ResourcePack
+                ? "Choose Dying Light RPACK files"
+                : "Choose additional texture-definition files",
+            Filter = filter,
+            Multiselect = true,
+            CheckFileExists = true,
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        foreach (string path in dialog.FileNames)
+        {
+            AdditionalAssetSourceSetting source = new()
+            {
+                Path = path,
+                Kind = kind,
+            };
+            AdditionalSources.Add(source);
+            SourcesGrid.SelectedItem = source;
+            SourcesGrid.ScrollIntoView(source);
+        }
     }
 
     private void Move(int direction)
@@ -222,6 +370,24 @@ public partial class AssetRootsWindow : Window
         RootsGrid.SelectedItem = root;
     }
 
+    private void MoveSource(int direction)
+    {
+        if (SourcesGrid.SelectedItem is not AdditionalAssetSourceSetting source)
+        {
+            return;
+        }
+
+        int index = AdditionalSources.IndexOf(source);
+        int destination = index + direction;
+        if (destination < 0 || destination >= AdditionalSources.Count)
+        {
+            return;
+        }
+
+        AdditionalSources.Move(index, destination);
+        SourcesGrid.SelectedItem = source;
+    }
+
     private void ConfigureKindColumn()
     {
         DataGridComboBoxColumn? kindColumn =
@@ -231,6 +397,8 @@ public partial class AssetRootsWindow : Window
             kindColumn.ItemsSource = new[]
             {
                 XuiAssetRootKind.Workspace,
+                XuiAssetRootKind.DyingLightProject,
+                XuiAssetRootKind.LooseResources,
                 XuiAssetRootKind.LooseMod,
                 XuiAssetRootKind.ExtractedDyingLight,
             };
@@ -299,6 +467,16 @@ public partial class AssetRootsWindow : Window
             this,
             message,
             "Invalid Dying Light installation",
+            MessageBoxButton.OK,
+            MessageBoxImage.Error);
+    }
+
+    private void ShowInvalidResourcePath(string path, string message)
+    {
+        MessageBox.Show(
+            this,
+            $"{message}{Environment.NewLine}{Environment.NewLine}{path}",
+            "Invalid resource path",
             MessageBoxButton.OK,
             MessageBoxImage.Error);
     }

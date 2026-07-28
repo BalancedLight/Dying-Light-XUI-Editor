@@ -147,6 +147,9 @@ public sealed record XuiTextFormat(
 
 public sealed class XuiSyntaxTree
 {
+    private readonly Dictionary<string, XuiSyntaxNode> _nodesByKey;
+    private readonly Dictionary<int, XuiSyntaxNode> _nodesByStart;
+
     internal XuiSyntaxTree(
         string source,
         XuiSyntaxNode document,
@@ -157,6 +160,28 @@ public sealed class XuiSyntaxTree
         Document = document;
         Root = root;
         Format = format;
+        _nodesByKey = new Dictionary<string, XuiSyntaxNode>(
+            StringComparer.Ordinal);
+        _nodesByStart = [];
+        foreach (XuiSyntaxNode node in document.DescendantsAndSelf())
+        {
+            if (!_nodesByKey.TryAdd(node.Key, node))
+            {
+                throw new XuiParseException(
+                    $"The parser produced duplicate syntax key '{node.Key}'.");
+            }
+
+        }
+
+        foreach (XuiSyntaxNode node in root.DescendantsAndSelf())
+        {
+            _nodesByStart.TryAdd(node.Start, node);
+        }
+
+        foreach (XuiSyntaxNode node in document.DescendantsAndSelf())
+        {
+            _nodesByStart.TryAdd(node.Start, node);
+        }
     }
 
     public string Source { get; }
@@ -168,8 +193,10 @@ public sealed class XuiSyntaxTree
     public XuiTextFormat Format { get; }
 
     public XuiSyntaxNode? FindByKey(string key) =>
-        Document.DescendantsAndSelf().FirstOrDefault(node =>
-            string.Equals(node.Key, key, StringComparison.Ordinal));
+        _nodesByKey.GetValueOrDefault(key);
+
+    public XuiSyntaxNode? FindByStart(int start) =>
+        _nodesByStart.GetValueOrDefault(start);
 }
 
 public sealed class XuiParseException : Exception

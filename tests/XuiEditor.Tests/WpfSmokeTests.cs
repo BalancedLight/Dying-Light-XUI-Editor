@@ -475,7 +475,20 @@ public sealed class WpfSmokeTests
         Assert.IsTrue(
             viewport.RetainedContainerHasClipForTesting(child.Key));
         long redraws = viewport.NodeContentRedrawCountForTesting;
+        long presentationUpdates =
+            viewport.NodePresentationUpdateCountForTesting;
         long cameraUpdates = viewport.CameraUpdateCountForTesting;
+        viewport.SetFrame(frame);
+        Assert.AreEqual(
+            redraws,
+            viewport.NodeContentRedrawCountForTesting);
+        Assert.AreEqual(
+            presentationUpdates,
+            viewport.NodePresentationUpdateCountForTesting);
+        Assert.AreEqual(
+            cameraUpdates,
+            viewport.CameraUpdateCountForTesting);
+
         viewport.ZoomBy(1.2);
         Assert.AreEqual(redraws, viewport.NodeContentRedrawCountForTesting);
         Assert.IsGreaterThan(
@@ -685,6 +698,85 @@ public sealed class WpfSmokeTests
 
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
+    public void TimelineWorkspaceFiltersAndRemembersActiveScopeState()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<AdvGroup><Properties><Id>HUD</Id></Properties>" +
+            "<AdvGroup><Properties><Id>Group</Id></Properties>" +
+            "<MyImage><Properties><Id>I0</Id></Properties></MyImage>" +
+            "<MyImage><Properties><Id>I1</Id></Properties></MyImage>" +
+            "<Timelines><Timeline><Id>I0</Id><TimelineProp>Show</TimelineProp>" +
+            "<TimelineProp>Position</TimelineProp><KeyFrame><Time>0</Time>" +
+            "<Interpolation>0</Interpolation><Prop>true</Prop><Prop>0,0,0</Prop>" +
+            "</KeyFrame><KeyFrame><Time>20</Time><Interpolation>0</Interpolation>" +
+            "<Prop>false</Prop><Prop>20,0,0</Prop></KeyFrame></Timeline>" +
+            "<Timeline><Id>I1</Id><TimelineProp>Opacity</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation><Prop>1</Prop>" +
+            "</KeyFrame></Timeline><NamedFrames>" +
+            "<NamedFrame><Name>Idle</Name><Time>0</Time></NamedFrame>" +
+            "<NamedFrame><Name>Show</Name><Time>1</Time><Command>goto</Command>" +
+            "<CommandParams>EndShow</CommandParams></NamedFrame>" +
+            "<NamedFrame><Name>EndShow</Name><Time>20</Time></NamedFrame>" +
+            "</NamedFrames></Timelines></AdvGroup></AdvGroup>" +
+            "<Timelines><Timeline><Id>HUD</Id><TimelineProp>Opacity</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation><Prop>1</Prop>" +
+            "</KeyFrame><KeyFrame><Time>5</Time><Interpolation>0</Interpolation>" +
+            "<Prop>0</Prop></KeyFrame></Timeline><NamedFrames>" +
+            "<NamedFrame><Name>Idle</Name><Time>0</Time></NamedFrame>" +
+            "<NamedFrame><Name>Hidden</Name><Time>5</Time></NamedFrame>" +
+            "</NamedFrames></Timelines></XuiCanvas>");
+        XuiSyntaxNode hud = document.Root.DescendantsAndSelf().Single(node =>
+            XuiModelReader.GetId(node, document.Text) == "HUD");
+        XuiSyntaxNode first = document.Root.DescendantsAndSelf().Single(node =>
+            XuiModelReader.GetId(node, document.Text) == "I0");
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+
+        window.SelectNodeKeysForTesting([first.Key]);
+        Assert.AreEqual("Group", window.TimelineWorkspaceForTesting!
+            .ActiveScope?.OwnerId);
+        Assert.AreEqual(2, window.TimelineForTesting.VisibleTrackCountForTesting);
+        Assert.AreEqual(3, window.NamedFrameCountForTesting);
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                window.TimelineWorkspaceForTesting.ActiveScope!.ScopeKey,
+            },
+            window.TimelineForTesting.VisibleScopeKeysForTesting.ToArray());
+        window.GoToNamedFrameForTesting("Show");
+        Assert.AreEqual(1, window.TimelineWorkspaceForTesting.ActiveTick);
+        window.SetTimelineTickForTesting(4);
+
+        window.SelectNodeKeysForTesting([hud.Key]);
+        Assert.AreEqual("HUD", window.TimelineWorkspaceForTesting!
+            .ActiveScope?.TargetIds.Single());
+        window.SetTimelineTickForTesting(2);
+        window.SelectNodeKeysForTesting([first.Key]);
+        Assert.AreEqual(4, window.TimelineWorkspaceForTesting!.ActiveTick);
+
+        window.SetAllInScopeForTesting(true);
+        Assert.AreEqual(3, window.TimelineForTesting.VisibleTrackCountForTesting);
+        StringAssert.Contains(window.TimelineScopeLabelForTesting, "4 / 20");
+
+        window.SelectNodeKeysForTesting([hud.Key, first.Key]);
+        Assert.IsTrue(window.TimelineWorkspaceForTesting!.HasMixedSelection);
+        Assert.AreEqual(0, window.TimelineForTesting.VisibleTrackCountForTesting);
+        Assert.IsFalse(window.TimelineEditingEnabledForTesting);
+        Assert.AreEqual("Mixed timeline scopes", window.TimelineScopeLabelForTesting);
+
+        window.AttachDocumentForTesting(document);
+        Assert.AreEqual(0, window.TimelineWorkspaceForTesting!.ActiveTick);
+        Assert.AreEqual(
+            window.TimelineWorkspaceForTesting.Catalog.RootScope?.ScopeKey,
+            window.TimelineWorkspaceForTesting.ActiveScope?.ScopeKey);
+        Assert.AreEqual(0, window.TimelineWorkspaceForTesting.RememberedTicks.Count);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
     [Timeout(20_000)]
     public void LargeHierarchyFiltersWithoutOverlapOrExpansionStateLoss()
     {
@@ -696,18 +788,31 @@ public sealed class WpfSmokeTests
             Height = 930,
         };
         XuiDocument document = XuiDocument.FromText(
-            CreateLargeHierarchy(50, 200));
+            CreateLargeHierarchy(10, 1_000));
         window.AttachDocumentForTesting(document);
         XuiSyntaxNode group = XuiModelReader.VisualDescendants(document.Root)
             .Single(node =>
-                XuiModelReader.GetId(node, document.Text) == "Group010");
+                XuiModelReader.GetId(node, document.Text) == "Group002");
         XuiSyntaxNode item = XuiModelReader.VisualDescendants(document.Root)
             .Single(node =>
                 XuiModelReader.GetId(node, document.Text) == "Item02199");
+        HierarchyRow persistentGroup =
+            window.HierarchyRowForTesting(group.Key)!;
 
-        Assert.AreEqual(51, window.HierarchyRows.Count);
+        Assert.AreEqual(11, window.HierarchyRows.Count);
+        for (int iteration = 0; iteration < 3; iteration++)
+        {
+            window.SetHierarchyExpansionForTesting(group.Key, true);
+            Assert.AreEqual(1_011, window.HierarchyRows.Count);
+            window.SetHierarchyExpansionForTesting(group.Key, false);
+            Assert.AreEqual(11, window.HierarchyRows.Count);
+        }
+
         window.SetHierarchyExpansionForTesting(group.Key, true);
-        Assert.AreEqual(251, window.HierarchyRows.Count);
+        Assert.AreSame(
+            persistentGroup,
+            window.HierarchyRowForTesting(group.Key));
+        Assert.AreEqual(1_011, window.HierarchyRows.Count);
         string[] expansionBeforeFilter =
             window.ExpandedKeysForTesting.Order(StringComparer.Ordinal).ToArray();
 
@@ -732,7 +837,7 @@ public sealed class WpfSmokeTests
         CollectionAssert.AreEqual(
             expansionBeforeFilter,
             window.ExpandedKeysForTesting.Order(StringComparer.Ordinal).ToArray());
-        Assert.AreEqual(251, window.HierarchyRows.Count);
+        Assert.AreEqual(1_011, window.HierarchyRows.Count);
 
         FrameworkElement content = (FrameworkElement)window.Content;
         content.Measure(new Size(1500, 930));
@@ -764,7 +869,201 @@ public sealed class WpfSmokeTests
         Assert.IsTrue(window.ViewportForTesting.IsSelectedForTesting(item.Key));
         Assert.AreEqual(1, window.TimelineForTesting.VisibleTrackCountForTesting);
         window.SetHierarchyExpansionForTesting(group.Key, false);
-        Assert.AreEqual(51, window.HierarchyRows.Count);
+        Assert.AreSame(
+            persistentGroup,
+            window.HierarchyRowForTesting(group.Key));
+        Assert.AreEqual(11, window.HierarchyRows.Count);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    [Timeout(20_000)]
+    public void WarmScopeSelectionsDoNotEvaluateOrResetTheHud()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            CreateScopeSelectionHierarchy(100));
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        XuiSyntaxNode[] groups = XuiModelReader
+            .VisualDescendants(document.Root)
+            .Where(static node => node.Name == "AdvGroup")
+            .ToArray();
+        int hierarchyResets = 0;
+        window.HierarchyRows.CollectionChanged += (_, eventArgs) =>
+        {
+            if (eventArgs.Action == NotifyCollectionChangedAction.Reset)
+            {
+                hierarchyResets++;
+            }
+        };
+        long layoutSamples = window.LayoutEvaluationCountForTesting;
+
+        Stopwatch clock = Stopwatch.StartNew();
+        foreach (XuiSyntaxNode group in groups)
+        {
+            window.SelectNodeKeysForTesting([group.Key]);
+            Assert.IsFalse(window.RawXmlMaterializedForTesting);
+        }
+
+        clock.Stop();
+        Assert.IsLessThan(
+            TimeSpan.FromMilliseconds(500),
+            clock.Elapsed,
+            $"100 indexed scope selections took {clock.Elapsed.TotalMilliseconds:0.0} ms.");
+        Assert.AreEqual(
+            layoutSamples,
+            window.LayoutEvaluationCountForTesting);
+        Assert.AreEqual(0, hierarchyResets);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void HierarchyStatesDistinguishDirectAndInheritedOverrides()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<AdvGroup><Properties><Id>Parent</Id></Properties>" +
+            "<AdvGroup><Properties><Id>Child</Id></Properties>" +
+            "<MyImage><Properties><Id>Grandchild</Id></Properties></MyImage>" +
+            "</AdvGroup></AdvGroup></XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        XuiSyntaxNode parent = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node => XuiModelReader.GetId(node, document.Text) == "Parent");
+        XuiSyntaxNode child = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node => XuiModelReader.GetId(node, document.Text) == "Child");
+        XuiSyntaxNode grandchild = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Grandchild");
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+
+        window.SetEditorHiddenForTesting(child.Key, hidden: true);
+        window.SetEditorHiddenForTesting(parent.Key, hidden: true);
+        window.SetEditorLockedForTesting(parent.Key, locked: true);
+        HierarchyRow parentRow = window.HierarchyRowForTesting(parent.Key)!;
+        HierarchyRow childRow = window.HierarchyRowForTesting(child.Key)!;
+        HierarchyRow grandchildRow =
+            window.HierarchyRowForTesting(grandchild.Key)!;
+
+        Assert.AreEqual(
+            HierarchyVisibilityState.Hidden,
+            parentRow.VisibilityState);
+        Assert.AreEqual(
+            HierarchyVisibilityState.Hidden,
+            childRow.VisibilityState);
+        Assert.IsTrue(childRow.CanToggleVisibility);
+        Assert.AreEqual(
+            HierarchyVisibilityState.HiddenByAncestor,
+            grandchildRow.VisibilityState);
+        Assert.IsFalse(grandchildRow.CanToggleVisibility);
+        StringAssert.Contains(
+            grandchildRow.VisibilityToolTip,
+            "Child");
+        Assert.AreEqual(
+            HierarchyLockState.LockedByAncestor,
+            childRow.LockState);
+        Assert.IsFalse(childRow.CanToggleLock);
+        StringAssert.Contains(childRow.LockToolTip, "Parent");
+        Assert.AreEqual(0.48, grandchildRow.RowTextOpacity, 0.001);
+
+        window.SetEditorHiddenForTesting(parent.Key, hidden: false);
+        Assert.AreEqual(
+            HierarchyVisibilityState.Hidden,
+            childRow.VisibilityState);
+        window.SetEditorHiddenForTesting(child.Key, hidden: false);
+        window.SetEditorLockedForTesting(parent.Key, locked: false);
+        Assert.AreEqual(
+            HierarchyVisibilityState.Visible,
+            grandchildRow.VisibilityState);
+        Assert.AreEqual(
+            HierarchyLockState.Unlocked,
+            childRow.LockState);
+        Assert.AreEqual(source, document.Text);
+        Assert.IsFalse(document.IsDirty);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void HierarchyIsolationKeepsAncestorsAndSubtreeAndCanRestore()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<AdvGroup><Properties><Id>A</Id></Properties>" +
+            "<MyImage><Properties><Id>Target</Id></Properties>" +
+            "<MyImage><Properties><Id>TargetChild</Id></Properties></MyImage>" +
+            "</MyImage><MyImage><Properties><Id>Sibling</Id></Properties></MyImage>" +
+            "</AdvGroup><AdvGroup><Properties><Id>B</Id></Properties></AdvGroup>" +
+            "</XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        Dictionary<string, XuiSyntaxNode> nodes =
+            XuiModelReader.VisualDescendants(document.Root)
+                .ToDictionary(
+                    node => XuiModelReader.GetId(node, document.Text)!,
+                    StringComparer.Ordinal);
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        window.SetEditorHiddenForTesting(nodes["B"].Key, hidden: true);
+
+        window.IsolateHierarchyForTesting(nodes["Target"].Key);
+
+        Assert.AreEqual(
+            HierarchyVisibilityState.Visible,
+            window.HierarchyRowForTesting(nodes["A"].Key)!.VisibilityState);
+        Assert.AreEqual(
+            HierarchyVisibilityState.Visible,
+            window.HierarchyRowForTesting(nodes["Target"].Key)!.VisibilityState);
+        Assert.AreEqual(
+            HierarchyVisibilityState.Visible,
+            window.HierarchyRowForTesting(nodes["TargetChild"].Key)!
+                .VisibilityState);
+        Assert.AreEqual(
+            HierarchyVisibilityState.Hidden,
+            window.HierarchyRowForTesting(nodes["Sibling"].Key)!.VisibilityState);
+        Assert.AreEqual(
+            HierarchyVisibilityState.Hidden,
+            window.HierarchyRowForTesting(nodes["B"].Key)!.VisibilityState);
+
+        window.RestoreHierarchyIsolationForTesting();
+
+        Assert.AreEqual(
+            HierarchyVisibilityState.Visible,
+            window.HierarchyRowForTesting(nodes["Sibling"].Key)!.VisibilityState);
+        Assert.AreEqual(
+            HierarchyVisibilityState.Hidden,
+            window.HierarchyRowForTesting(nodes["B"].Key)!.VisibilityState);
+        Assert.AreEqual(source, document.Text);
+        Assert.IsFalse(document.IsDirty);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void RawXmlIsLazyAndLargeSubtreesRequireExplicitLoading()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        string payload = new('x', (256 * 1024) + 1);
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height>" +
+            $"<Unknown>{payload}</Unknown></Properties></XuiCanvas>");
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        window.SelectNodeKeysForTesting([document.Root.Key]);
+
+        Assert.IsFalse(window.RawXmlMaterializedForTesting);
+        window.SetRawXmlExpandedForTesting(expanded: true);
+        Assert.IsFalse(window.RawXmlMaterializedForTesting);
+        StringAssert.Contains(window.RawXmlStatusForTesting, "load explicitly");
+        window.SetRawXmlExpandedForTesting(
+            expanded: true,
+            loadLarge: true);
+        Assert.IsTrue(window.RawXmlMaterializedForTesting);
+        Assert.IsFalse(document.IsDirty);
     }
 
     [TestMethod]
@@ -794,6 +1093,20 @@ public sealed class WpfSmokeTests
                     IsReadOnly = false,
                 },
             ],
+            AdditionalAssetSources =
+            [
+                new AdditionalAssetSourceSetting
+                {
+                    Path = @"D:\Definitions\hudtextures.def",
+                    Kind =
+                        XuiConfiguredAssetSourceKind.TextureDefinitionFile,
+                },
+                new AdditionalAssetSourceSetting
+                {
+                    Path = @"D:\Resources\menu_PC.rpack",
+                    Kind = XuiConfiguredAssetSourceKind.Rp6ResourcePack,
+                },
+            ],
         };
         settings.FontMappings["BOXED"] = "Segoe UI";
 
@@ -815,6 +1128,13 @@ public sealed class WpfSmokeTests
         Assert.AreEqual("hud-combat", restored.PreviewScenarioId);
         Assert.AreEqual(0.72, restored.ReferenceOverlayOpacity, 0.001);
         Assert.IsTrue(restored.AssetRoots[0].EffectiveIsReadOnly);
+        Assert.HasCount(2, restored.AdditionalAssetSources);
+        Assert.AreEqual(
+            XuiConfiguredAssetSourceKind.TextureDefinitionFile,
+            restored.AdditionalAssetSources[0].Kind);
+        Assert.AreEqual(
+            XuiConfiguredAssetSourceKind.Rp6ResourcePack,
+            restored.AdditionalAssetSources[1].Kind);
         Assert.AreEqual("Segoe UI", restored.FontMappings["BOXED"]);
     }
 
@@ -1025,6 +1345,21 @@ public sealed class WpfSmokeTests
             "<Timelines><Timeline><Id>Item02199</Id><TimelineProp>Opacity</TimelineProp>" +
             "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation><Prop>1</Prop></KeyFrame>" +
             "</Timeline></Timelines></XuiCanvas>");
+        return source.ToString();
+    }
+
+    private static string CreateScopeSelectionHierarchy(int scopes)
+    {
+        StringBuilder source = new(
+            "<XuiCanvas><Properties><Width>1280</Width><Height>720</Height></Properties>");
+        for (int index = 0; index < scopes; index++)
+        {
+            _ = source.Append(
+                CultureInfo.InvariantCulture,
+                $"<AdvGroup><Properties><Id>Group{index:000}</Id></Properties><MyImage><Properties><Id>Item{index:000}</Id><Width>10</Width><Height>10</Height></Properties></MyImage><Timelines><Timeline><Id>Item{index:000}</Id><TimelineProp>Opacity</TimelineProp><KeyFrame><Time>0</Time><Interpolation>0</Interpolation><Prop>1</Prop></KeyFrame></Timeline></Timelines></AdvGroup>");
+        }
+
+        _ = source.Append("</XuiCanvas>");
         return source.ToString();
     }
 }

@@ -1159,17 +1159,26 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         {
             cancellationToken.ThrowIfCancellationRequested();
             diagnostics.AddRange(source.Diagnostics);
-            string rootPath = source is IDyingLightInstallIndex install
-                ? install.Profile.FullPath
-                : Path.GetDirectoryName(
-                      source.Entries.Count == 0
-                          ? null
-                          : source.Entries[0].Origin.ContainerPath) ??
-                  Environment.CurrentDirectory;
-            XuiAssetRoot root = new(
-                rootPath,
-                XuiAssetRootKind.DyingLightInstall,
-                true);
+            XuiAssetRoot root;
+            if (source.AssetRoot is XuiAssetRoot configuredRoot)
+            {
+                root = configuredRoot;
+            }
+            else
+            {
+                string rootPath = source is IDyingLightInstallIndex install
+                    ? install.Profile.FullPath
+                    : source.Entries.Count == 0
+                        ? Environment.CurrentDirectory
+                        : Path.GetDirectoryName(
+                              source.Entries[0].Origin.ContainerPath) ??
+                          Environment.CurrentDirectory;
+                root = new XuiAssetRoot(
+                    rootPath,
+                    XuiAssetRootKind.DyingLightInstall,
+                    true);
+            }
+
             foreach (XuiAssetEntry entry in source.Entries.OrderBy(
                          static entry => entry.VirtualPath,
                          StringComparer.OrdinalIgnoreCase))

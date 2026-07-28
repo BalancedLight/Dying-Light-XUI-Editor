@@ -1,15 +1,22 @@
+using XuiEditor.Core.Animation;
 using XuiEditor.Core.Assets;
 using XuiEditor.Core.Documents;
+using XuiEditor.Core.Values;
 
 namespace XuiEditor.Core.Layout;
 
 internal sealed class DyingLightLayoutCompilation
 {
+    private readonly XuiDocument _document;
     private readonly IAssetResolver? _assetResolver;
+    private readonly Dictionary<string, XuiSyntaxNode> _documentNodesByKey;
     private readonly Dictionary<XuiSyntaxNode, CompiledXuiNode> _nodes =
         new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, XuiVisualTemplate?> _visuals =
         new(StringComparer.Ordinal);
+    private readonly Dictionary<XuiVisualTemplate, AnimationOverrides>
+        _visualAnimations =
+            new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<(string Material, XuiRenderKind Kind), XuiMaterialProfile>
         _materials = [];
 
@@ -17,7 +24,13 @@ internal sealed class DyingLightLayoutCompilation
         XuiDocument document,
         IAssetResolver? assetResolver)
     {
+        _document = document;
         _assetResolver = assetResolver;
+        _documentNodesByKey = document.Root
+            .DescendantsAndSelf()
+            .ToDictionary(
+                static node => node.Key,
+                StringComparer.Ordinal);
         CompileTree(document.Root, document.Text);
         ControllerRuntimeProfile =
             XuiControllerRuntimeProfileCatalog.Resolve(
@@ -76,6 +89,24 @@ internal sealed class DyingLightLayoutCompilation
         return visual;
     }
 
+    public AnimationOverrides ResolveVisualAnimation(
+        XuiVisualTemplate visualTemplate)
+    {
+        ArgumentNullException.ThrowIfNull(visualTemplate);
+        if (_visualAnimations.TryGetValue(
+                visualTemplate,
+                out AnimationOverrides? animation))
+        {
+            return animation;
+        }
+
+        animation = new AnimationOverrides(
+            visualTemplate.Timelines,
+            XuiTimelineEvaluationState.Initial);
+        _visualAnimations.Add(visualTemplate, animation);
+        return animation;
+    }
+
     public XuiMaterialProfile ResolveMaterial(
         string material,
         XuiRenderKind kind)
@@ -91,6 +122,34 @@ internal sealed class DyingLightLayoutCompilation
         profile = XuiMaterialCatalog.Resolve(material, kind);
         _materials.Add(key, profile);
         return profile;
+    }
+
+    public XuiSyntaxNode? DocumentNode(string key) =>
+        _documentNodesByKey.GetValueOrDefault(key);
+
+    public bool HasAuthoredProperty(string key, string property) =>
+        DocumentNode(key) is XuiSyntaxNode syntax &&
+        Node(syntax, _document.Text).Properties.ContainsKey(property);
+
+    public string? TimelineRecursionBarrier(string key)
+    {
+        XuiSyntaxNode? current = DocumentNode(key)?.Parent;
+        while (current is not null)
+        {
+            CompiledXuiNode compiled = Node(current, _document.Text);
+            if (compiled.Properties.TryGetValue(
+                    "DisableTimelineRecursion",
+                    out string? raw) &&
+                XuiValueParser.TryBoolean(raw, out bool disabled) &&
+                disabled)
+            {
+                return current.Key;
+            }
+
+            current = current.Parent;
+        }
+
+        return null;
     }
 
     public static XuiRenderKind Classify(

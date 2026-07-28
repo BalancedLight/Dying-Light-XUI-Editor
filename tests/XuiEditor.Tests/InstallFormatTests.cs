@@ -28,6 +28,63 @@ public sealed class InstallFormatTests
     }
 
     [TestMethod]
+    public async Task ConfiguredDefinitionAndRpackSourcesResolveTogether()
+    {
+        using TestDirectory directory = new();
+        string definition = directory.File("custom.def");
+        string rpack = directory.File("custom_PC.rpack");
+        await File.WriteAllTextAsync(
+            definition,
+            """
+            Texture("custom_hud.dds",4,4)
+            {
+                Whole("custom_hud")
+            }
+            """);
+        byte[] textureResource = new byte[151 + 8];
+        BinaryPrimitives.WriteUInt16LittleEndian(textureResource, 4);
+        BinaryPrimitives.WriteUInt16LittleEndian(
+            textureResource.AsSpan(2),
+            4);
+        BinaryPrimitives.WriteUInt16LittleEndian(
+            textureResource.AsSpan(8),
+            1);
+        BinaryPrimitives.WriteInt32LittleEndian(
+            textureResource.AsSpan(12),
+            17);
+        textureResource.AsSpan(151).Fill(0x5a);
+        await File.WriteAllBytesAsync(
+            rpack,
+            BuildRp6(textureResource, "custom_hud"));
+        ConfiguredAssetSource definitionSource = new(
+            definition,
+            XuiConfiguredAssetSourceKind.TextureDefinitionFile);
+        ConfiguredAssetSource rpackSource = new(
+            rpack,
+            XuiConfiguredAssetSourceKind.Rp6ResourcePack);
+        DyingLightAssetResolver resolver = new(
+            [],
+            directory.File("cache"),
+            sources: [definitionSource, rpackSource]);
+
+        await resolver.RebuildAsync();
+        ResolvedTexture? texture =
+            await resolver.ResolveTextureAsync("custom_hud");
+
+        Assert.IsNotNull(texture);
+        Assert.AreEqual(4, texture.Width);
+        Assert.AreEqual(4, texture.Height);
+        Assert.AreEqual(
+            XuiAssetContainerKind.Rp6Resource,
+            resolver.ResolveFile("custom_hud.dds")!.Entry!.Origin.Kind);
+        Assert.AreEqual(
+            Path.GetDirectoryName(definition),
+            resolver.ResolveTextureDefinition("custom_hud")!
+                .DefinitionRoot!.FullPath);
+        StringAssert.Contains(texture.SourcePath, "custom_PC.rpack");
+    }
+
+    [TestMethod]
     public void DyingLightTextureMetadataBecomesAStandardDds()
     {
         byte[] resource = new byte[151 + 8];

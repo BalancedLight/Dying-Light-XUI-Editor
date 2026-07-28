@@ -37,6 +37,12 @@ game output:
   diagnosed.
 - **Unknown timeline commands/properties.** They are preserved losslessly and
   diagnosed; they are not executed speculatively.
+- **Composed first view.** The editor initially positions each independent
+  timeline owner at the earliest key tick that maximizes sampled visibility
+  (`Show`, `Opacity`, `Scale`, and color alpha). This is a deterministic
+  editor-only inspection pose, not a claim about which controller event the
+  game will fire. The header labels it `composed`, and stopping a scope returns
+  that scope to authored tick 0.
 
 These limitations do not make saving lossy. Unknown XML and unimplemented
 properties remain intact unless the user explicitly edits them.

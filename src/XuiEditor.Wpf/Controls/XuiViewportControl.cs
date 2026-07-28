@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using XuiEditor.Core.Assets;
 using XuiEditor.Core.Diagnostics;
 using XuiEditor.Core.Layout;
@@ -93,7 +94,9 @@ public sealed class XuiTextureDiagnosticsEventArgs : EventArgs
 public sealed class XuiViewportControl : FrameworkElement
 {
     private const double RulerSize = 22;
-    private static readonly SemaphoreSlim TextureLoadGate = new(4);
+    private const int MaximumConcurrentTextureLoads = 4;
+    private const int SelectedTexturePriority = 0;
+    private const int VisibleTexturePriority = 10;
     [Flags]
     private enum ResizeHandle
     {
@@ -126,11 +129,15 @@ public sealed class XuiViewportControl : FrameworkElement
         new(StringComparer.Ordinal);
     private readonly Dictionary<string, BitmapSource> _tintedBitmaps =
         new(StringComparer.Ordinal);
-    private readonly HashSet<string> _requestedTextures =
-        new(StringComparer.Ordinal);
+    private readonly object _textureQueueGate = new();
+    private readonly Dictionary<TextureLoadKey, int> _pendingTextureLoads = [];
+    private readonly HashSet<TextureLoadKey> _activeTextureLoads = [];
+    private int _activeTextureLoadCount;
     private readonly Dictionary<string, LoadedBitmapFont> _bitmapFonts =
         new(StringComparer.Ordinal);
     private readonly HashSet<string> _requestedBitmapFonts =
+        new(StringComparer.Ordinal);
+    private readonly HashSet<string> _deferredResourceRedrawKeys =
         new(StringComparer.Ordinal);
     private readonly HashSet<string> _selectedKeys =
         new(StringComparer.Ordinal);
@@ -158,11 +165,18 @@ public sealed class XuiViewportControl : FrameworkElement
         new(StringComparer.Ordinal);
     private readonly Dictionary<string, XuiVector2> _dragPositionDeltas =
         new(StringComparer.Ordinal);
+    private readonly BitmapCache _navigationBitmapCache = new()
+    {
+        EnableClearType = false,
+        RenderAtScale = 1,
+    };
+    private readonly DispatcherTimer _navigationCacheTimer;
     private bool _showGrid = true;
     private bool _showSafeArea = true;
     private bool _showUnknownBounds = true;
     private bool _finishingTransform;
     private long _nodeContentRedrawCount;
+    private long _nodePresentationUpdateCount;
     private long _cameraUpdateCount;
 
     public XuiViewportControl()
@@ -171,6 +185,14 @@ public sealed class XuiViewportControl : FrameworkElement
         ClipToBounds = true;
         _cameraLayer.Children.Add(_canvas);
         _cameraLayer.Children.Add(_nodeLayer);
+        _navigationCacheTimer = new DispatcherTimer(
+            TimeSpan.FromMilliseconds(180),
+            DispatcherPriority.Background,
+            (_, _) => EndNavigationCache(),
+            Dispatcher)
+        {
+            IsEnabled = false,
+        };
         _visuals = new VisualCollection(this)
         {
             _background,
@@ -254,10 +276,25 @@ public sealed class XuiViewportControl : FrameworkElement
 
     internal int RetainedNodeVisualCountForTesting => _nodeVisuals.Count;
 
+    internal XuiRenderFrame? FrameForTesting => _frame;
+
     internal long NodeContentRedrawCountForTesting =>
         _nodeContentRedrawCount;
 
+    internal long NodePresentationUpdateCountForTesting =>
+        _nodePresentationUpdateCount;
+
     internal long CameraUpdateCountForTesting => _cameraUpdateCount;
+
+    internal bool NavigationCacheActiveForTesting =>
+        ReferenceEquals(_nodeLayer.CacheMode, _navigationBitmapCache);
+
+    internal bool TextureLoadedForTesting(string imagePath) =>
+        _textureBitmaps.ContainsKey(imagePath);
+
+    internal bool RetainedNodeHasImageDrawingForTesting(string nodeKey) =>
+        _nodeVisuals.TryGetValue(nodeKey, out NodeVisual? visual) &&
+        ContainsImageDrawing(visual.Content.Drawing);
 
     internal bool RetainedContainerHasClipForTesting(string nodeKey) =>
         _nodeVisuals[nodeKey].Container.Clip is not null;
@@ -305,9 +342,14 @@ public sealed class XuiViewportControl : FrameworkElement
         _assetResolverGeneration++;
         _textureBitmaps.Clear();
         _tintedBitmaps.Clear();
-        _requestedTextures.Clear();
+        lock (_textureQueueGate)
+        {
+            _pendingTextureLoads.Clear();
+        }
+
         _bitmapFonts.Clear();
         _requestedBitmapFonts.Clear();
+        RequestSelectedTextures();
         RedrawAllNodeContent();
     }
 
@@ -339,33 +381,94 @@ public sealed class XuiViewportControl : FrameworkElement
 
     public void SetFrame(XuiRenderFrame? frame)
     {
+        EndNavigationCache();
+        XuiRenderFrame? previous = _frame;
         _frame = frame;
         SynchronizeNodeVisuals();
-        ResizePresentation();
+        if (previous is null ||
+            frame is null ||
+            previous.DesignSize != frame.DesignSize ||
+            previous.Viewport != frame.Viewport)
+        {
+            ResizePresentation();
+        }
+        else
+        {
+            RedrawOverlay();
+        }
+    }
+
+    public void SetSample(XuiRenderSample sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        if (sample.FullEvaluationRequired ||
+            sample.ChangedRenderNodeKeys.Count > 0)
+        {
+            EndNavigationCache();
+        }
+
+        XuiRenderFrame? previous = _frame;
+        _frame = sample.Frame;
+        if (sample.FullEvaluationRequired)
+        {
+            SynchronizeNodeVisuals();
+        }
+        else
+        {
+            SynchronizeChangedNodeVisuals(
+                sample.ChangedRenderNodeKeys);
+        }
+
+        if (previous is null ||
+            previous.DesignSize != sample.Frame.DesignSize ||
+            previous.Viewport != sample.Frame.Viewport)
+        {
+            ResizePresentation();
+        }
+        else
+        {
+            RedrawOverlay();
+        }
     }
 
     public void SetSelectedKeys(IEnumerable<string> keys)
     {
         ArgumentNullException.ThrowIfNull(keys);
+        HashSet<string> replacement = new(keys, StringComparer.Ordinal);
+        if (_selectedKeys.SetEquals(replacement))
+        {
+            return;
+        }
+
         _selectedKeys.Clear();
-        _selectedKeys.UnionWith(keys);
+        _selectedKeys.UnionWith(replacement);
+        RequestSelectedTextures();
         RedrawOverlay();
     }
 
     public void SetHiddenKeys(IEnumerable<string> keys)
     {
         ArgumentNullException.ThrowIfNull(keys);
+        HashSet<string> replacement = new(keys, StringComparer.Ordinal);
+        if (_hiddenKeys.SetEquals(replacement))
+        {
+            return;
+        }
+
+        EndNavigationCache();
         _hiddenKeys.Clear();
-        _hiddenKeys.UnionWith(keys);
+        _hiddenKeys.UnionWith(replacement);
         UpdateNodeVisibility();
         RedrawOverlay();
     }
 
     public void Fit()
     {
+        BeginNavigationCache();
         _zoom = 1;
         _pan = default;
         UpdateCamera();
+        ScheduleNavigationCacheRelease();
     }
 
     public void ActualPixels()
@@ -376,16 +479,20 @@ public sealed class XuiViewportControl : FrameworkElement
             return;
         }
 
+        BeginNavigationCache();
         double fitScale = CalculateFitScale(frame);
         _zoom = fitScale <= 0 ? 1 : 1 / fitScale;
         _pan = default;
         UpdateCamera();
+        ScheduleNavigationCacheRelease();
     }
 
     public void ZoomBy(double factor)
     {
+        BeginNavigationCache();
         _zoom = Math.Clamp(_zoom * factor, 0.05, 32);
         UpdateCamera();
+        ScheduleNavigationCacheRelease();
     }
 
     protected override void OnMouseDown(MouseButtonEventArgs e)
@@ -395,6 +502,7 @@ public sealed class XuiViewportControl : FrameworkElement
         _pointerStart = e.GetPosition(this);
         if (e.ChangedButton == MouseButton.Middle)
         {
+            BeginNavigationCache();
             _panning = true;
             CaptureMouse();
             Cursor = Cursors.ScrollAll;
@@ -493,6 +601,7 @@ public sealed class XuiViewportControl : FrameworkElement
             _panning = false;
             Cursor = Cursors.Arrow;
             ReleaseMouseCapture();
+            ScheduleNavigationCacheRelease();
             e.Handled = true;
             return;
         }
@@ -565,6 +674,7 @@ public sealed class XuiViewportControl : FrameworkElement
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
         base.OnMouseWheel(e);
+        BeginNavigationCache();
         Point pointer = e.GetPosition(this);
         XuiVector2 before = ControlToLogical(pointer);
         _zoom = Math.Clamp(
@@ -575,6 +685,7 @@ public sealed class XuiViewportControl : FrameworkElement
         Point after = camera.Transform(new Point(before.X, before.Y));
         _pan += pointer - after;
         UpdateCamera();
+        ScheduleNavigationCacheRelease();
         e.Handled = true;
     }
 
@@ -606,6 +717,7 @@ public sealed class XuiViewportControl : FrameworkElement
         }
 
         _panning = false;
+        ScheduleNavigationCacheRelease();
     }
 
     private void DrawBackgroundLayer()
@@ -666,17 +778,86 @@ public sealed class XuiViewportControl : FrameworkElement
             return;
         }
 
-        RebuildResourceUsers(frame.Nodes);
+        bool resourcesChanged = false;
         foreach (XuiRenderNode node in frame.Nodes)
         {
             NodeVisual visual = _nodeVisuals[node.Key];
             bool repaint = !PaintEquivalent(visual.Node, node);
+            bool presentationChanged =
+                !PresentationEquivalent(visual.Node, node);
+            resourcesChanged |=
+                !ResourceEquivalent(visual.Node, node);
             visual.Node = node;
-            UpdateNodePresentation(visual);
+            if (presentationChanged)
+            {
+                UpdateNodePresentation(visual);
+            }
+
             if (repaint)
             {
                 DrawNodeContent(visual);
             }
+        }
+
+        if (resourcesChanged)
+        {
+            RebuildResourceUsers(frame.Nodes);
+        }
+    }
+
+    private void SynchronizeChangedNodeVisuals(
+        IReadOnlyList<string> changedKeys)
+    {
+        XuiRenderFrame? frame = _frame;
+        if (frame is null)
+        {
+            SynchronizeNodeVisuals();
+            return;
+        }
+
+        bool resourcesChanged = false;
+        foreach (string key in changedKeys)
+        {
+            if (!_nodeVisuals.TryGetValue(
+                    key,
+                    out NodeVisual? visual))
+            {
+                SynchronizeNodeVisuals();
+                return;
+            }
+
+            int index = visual.Node.DeclarationOrder;
+            if (index < 0 ||
+                index >= frame.Nodes.Count ||
+                !frame.Nodes[index].Key.Equals(
+                    key,
+                    StringComparison.Ordinal))
+            {
+                SynchronizeNodeVisuals();
+                return;
+            }
+
+            XuiRenderNode node = frame.Nodes[index];
+            bool repaint = !PaintEquivalent(visual.Node, node);
+            bool presentationChanged =
+                !PresentationEquivalent(visual.Node, node);
+            resourcesChanged |=
+                !ResourceEquivalent(visual.Node, node);
+            visual.Node = node;
+            if (presentationChanged)
+            {
+                UpdateNodePresentation(visual);
+            }
+
+            if (repaint)
+            {
+                DrawNodeContent(visual);
+            }
+        }
+
+        if (resourcesChanged)
+        {
+            RebuildResourceUsers(frame.Nodes);
         }
     }
 
@@ -754,11 +935,30 @@ public sealed class XuiViewportControl : FrameworkElement
 
     private void UpdateNodePresentation(NodeVisual visual)
     {
+        _nodePresentationUpdateCount++;
         XuiRenderNode node = visual.Node;
+        bool wasVisible = visual.Content.Opacity > 0;
         visual.Container.Transform =
             new MatrixTransform(ToMatrix(node.LocalTransform));
         visual.Content.Opacity = EffectiveNodeOpacity(node);
         visual.Container.Clip = CreateLocalClip(node);
+        if (visual.Content.Opacity <= 0)
+        {
+            return;
+        }
+
+        if (!wasVisible && !visual.HasContent)
+        {
+            DrawNodeContent(visual);
+        }
+        else if (node.PaintKind == XuiPaintKind.Texture)
+        {
+            RequestTexture(
+                node.ImagePath,
+                _selectedKeys.Contains(node.SelectionKey)
+                    ? SelectedTexturePriority
+                    : VisibleTexturePriority);
+        }
     }
 
     private double EffectiveNodeOpacity(XuiRenderNode node) =>
@@ -834,11 +1034,36 @@ public sealed class XuiViewportControl : FrameworkElement
         left.ShadowOffset.Equals(right.ShadowOffset) &&
         left.ShadowColor == right.ShadowColor;
 
+    private static bool PresentationEquivalent(
+        XuiRenderNode left,
+        XuiRenderNode right) =>
+        left.LocalTransform == right.LocalTransform &&
+        left.IsShown == right.IsShown &&
+        left.Opacity.Equals(right.Opacity) &&
+        left.SelectionKey == right.SelectionKey &&
+        left.ClipBounds == right.ClipBounds &&
+        (left.ClipBounds is null ||
+         left.WorldTransform == right.WorldTransform);
+
+    private static bool ResourceEquivalent(
+        XuiRenderNode left,
+        XuiRenderNode right) =>
+        left.PaintKind == right.PaintKind &&
+        left.ImagePath == right.ImagePath &&
+        left.Kind == right.Kind &&
+        left.Font == right.Font;
+
     private void DrawNodeContent(NodeVisual visual)
     {
         _nodeContentRedrawCount++;
         using DrawingContext drawing = visual.Content.RenderOpen();
-        DrawNode(drawing, visual.Node);
+        bool visible = EffectiveNodeOpacity(visual.Node) > 0;
+        if (visible)
+        {
+            DrawNode(drawing, visual.Node);
+        }
+
+        visual.HasContent = visible;
     }
 
     private void RedrawAllNodeContent()
@@ -858,9 +1083,28 @@ public sealed class XuiViewportControl : FrameworkElement
             return;
         }
 
+        if (NavigationCacheActiveForTesting)
+        {
+            foreach (string key in keys)
+            {
+                if (_nodeVisuals.TryGetValue(key, out NodeVisual? visual) &&
+                    EffectiveNodeOpacity(visual.Node) > 0)
+                {
+                    _deferredResourceRedrawKeys.Add(key);
+                }
+                else if (visual is not null)
+                {
+                    visual.HasContent = false;
+                }
+            }
+
+            return;
+        }
+
         foreach (string key in keys)
         {
-            if (_nodeVisuals.TryGetValue(key, out NodeVisual? visual))
+            if (_nodeVisuals.TryGetValue(key, out NodeVisual? visual) &&
+                EffectiveNodeOpacity(visual.Node) > 0)
             {
                 DrawNodeContent(visual);
             }
@@ -871,7 +1115,23 @@ public sealed class XuiViewportControl : FrameworkElement
     {
         foreach (NodeVisual visual in _nodeVisuals.Values)
         {
+            bool wasVisible = visual.Content.Opacity > 0;
             visual.Content.Opacity = EffectiveNodeOpacity(visual.Node);
+            if (!wasVisible &&
+                visual.Content.Opacity > 0 &&
+                !visual.HasContent)
+            {
+                DrawNodeContent(visual);
+            }
+            else if (visual.Content.Opacity > 0 &&
+                visual.Node.PaintKind == XuiPaintKind.Texture)
+            {
+                RequestTexture(
+                    visual.Node.ImagePath,
+                    _selectedKeys.Contains(visual.Node.SelectionKey)
+                        ? SelectedTexturePriority
+                        : VisibleTexturePriority);
+            }
         }
     }
 
@@ -999,7 +1259,14 @@ public sealed class XuiViewportControl : FrameworkElement
                 }
                 else if (node.PaintKind == XuiPaintKind.Texture)
                 {
-                    RequestTexture(node.ImagePath);
+                    if (EffectiveNodeOpacity(node) > 0)
+                    {
+                        RequestTexture(
+                            node.ImagePath,
+                            _selectedKeys.Contains(node.SelectionKey)
+                                ? SelectedTexturePriority
+                                : VisibleTexturePriority);
+                    }
                 }
 
                 if (node.MaterialProfile.RequiresRuntimeData &&
@@ -1712,10 +1979,17 @@ public sealed class XuiViewportControl : FrameworkElement
             new SolidColorBrush(Color.FromRgb(242, 140, 40)),
             1.5 / Math.Max(camera.M11, 0.001));
         double handleSize = 7 / Math.Max(camera.M11, 0.001);
-        foreach (XuiRenderNode node in frame.Nodes.Where(node =>
-                     _selectedKeys.Contains(node.Key) &&
-                     !_hiddenKeys.Contains(node.SelectionKey)))
+        foreach (string selectedKey in _selectedKeys)
         {
+            if (!_nodeVisuals.TryGetValue(
+                    selectedKey,
+                    out NodeVisual? selectedVisual) ||
+                _hiddenKeys.Contains(selectedVisual.Node.SelectionKey))
+            {
+                continue;
+            }
+
+            XuiRenderNode node = selectedVisual.Node;
             XuiRect world = PreviewBounds(node);
             if (_dragNodeKey == node.Key)
             {
@@ -1819,21 +2093,50 @@ public sealed class XuiViewportControl : FrameworkElement
         return TransformBounds(node.LocalBounds, WorldFor(node));
     }
 
-    private void RequestTexture(string imagePath)
+    private void RequestSelectedTextures()
+    {
+        foreach (XuiRenderNode node in _nodeVisuals.Values
+                     .Select(static visual => visual.Node)
+                     .Where(node =>
+                         _selectedKeys.Contains(node.SelectionKey) &&
+                         node.PaintKind == XuiPaintKind.Texture &&
+                         EffectiveNodeOpacity(node) > 0))
+        {
+            RequestTexture(node.ImagePath, SelectedTexturePriority);
+        }
+    }
+
+    private void RequestTexture(
+        string imagePath,
+        int priority = VisibleTexturePriority)
     {
         IAssetResolver? resolver = _assetResolver;
         if (string.IsNullOrWhiteSpace(imagePath) ||
             resolver is null ||
-            !_requestedTextures.Add(imagePath))
+            _textureBitmaps.ContainsKey(imagePath))
         {
             return;
         }
 
-        _ = LoadTextureAsync(
-            imagePath,
-            resolver,
-            resolver.Revision,
-            _assetResolverGeneration);
+        TextureLoadKey key = new(_assetResolverGeneration, imagePath);
+        lock (_textureQueueGate)
+        {
+            if (_activeTextureLoads.Contains(key))
+            {
+                return;
+            }
+
+            if (_pendingTextureLoads.TryGetValue(key, out int current))
+            {
+                _pendingTextureLoads[key] = Math.Min(current, priority);
+            }
+            else
+            {
+                _pendingTextureLoads.Add(key, priority);
+            }
+        }
+
+        StartPendingTextureLoads();
     }
 
     private void RequestBitmapFont(string fontId)
@@ -1907,12 +2210,12 @@ public sealed class XuiViewportControl : FrameworkElement
     }
 
     private async Task LoadTextureAsync(
+        TextureLoadKey loadKey,
         string imagePath,
         IAssetResolver resolver,
         long resolverRevision,
         long resolverGeneration)
     {
-        await TextureLoadGate.WaitAsync().ConfigureAwait(false);
         try
         {
             ResolvedTexture? texture = await resolver
@@ -1968,8 +2271,113 @@ public sealed class XuiViewportControl : FrameworkElement
         }
         finally
         {
-            TextureLoadGate.Release();
+            CompleteTextureLoad(loadKey);
         }
+    }
+
+    private void StartPendingTextureLoads()
+    {
+        List<(TextureLoadKey Key, IAssetResolver Resolver, long Revision)> start =
+            [];
+        lock (_textureQueueGate)
+        {
+            while (_activeTextureLoadCount <
+                   MaximumConcurrentTextureLoads &&
+                   _pendingTextureLoads.Count > 0)
+            {
+                KeyValuePair<TextureLoadKey, int> next =
+                    _pendingTextureLoads.MinBy(static pair => pair.Value);
+                _pendingTextureLoads.Remove(next.Key);
+                if (next.Key.Generation != _assetResolverGeneration ||
+                    _assetResolver is null)
+                {
+                    continue;
+                }
+
+                _activeTextureLoads.Add(next.Key);
+                _activeTextureLoadCount++;
+                start.Add((
+                    next.Key,
+                    _assetResolver,
+                    _assetResolver.Revision));
+            }
+        }
+
+        foreach ((TextureLoadKey key, IAssetResolver resolver, long revision)
+                 in start)
+        {
+            _ = LoadTextureAsync(
+                key,
+                key.ImagePath,
+                resolver,
+                revision,
+                key.Generation);
+        }
+    }
+
+    private void CompleteTextureLoad(TextureLoadKey key)
+    {
+        lock (_textureQueueGate)
+        {
+            if (_activeTextureLoads.Remove(key))
+            {
+                _activeTextureLoadCount--;
+            }
+        }
+
+        StartPendingTextureLoads();
+    }
+
+    private void BeginNavigationCache()
+    {
+        _navigationCacheTimer.Stop();
+        _nodeLayer.CacheMode = _navigationBitmapCache;
+    }
+
+    private void ScheduleNavigationCacheRelease()
+    {
+        _navigationCacheTimer.Stop();
+        _navigationCacheTimer.Start();
+    }
+
+    private void EndNavigationCache()
+    {
+        _navigationCacheTimer.Stop();
+        if (ReferenceEquals(_nodeLayer.CacheMode, _navigationBitmapCache))
+        {
+            _nodeLayer.CacheMode = null;
+        }
+
+        if (_deferredResourceRedrawKeys.Count == 0)
+        {
+            return;
+        }
+
+        string[] keys = _deferredResourceRedrawKeys.ToArray();
+        _deferredResourceRedrawKeys.Clear();
+        foreach (string key in keys)
+        {
+            if (_nodeVisuals.TryGetValue(key, out NodeVisual? visual) &&
+                EffectiveNodeOpacity(visual.Node) > 0)
+            {
+                DrawNodeContent(visual);
+            }
+            else if (visual is not null)
+            {
+                visual.HasContent = false;
+            }
+        }
+    }
+
+    private static bool ContainsImageDrawing(Drawing? drawing)
+    {
+        if (drawing is ImageDrawing)
+        {
+            return true;
+        }
+
+        return drawing is DrawingGroup group &&
+               group.Children.Any(ContainsImageDrawing);
     }
 
     private bool IsCurrentResolver(
@@ -2624,6 +3032,8 @@ public sealed class XuiViewportControl : FrameworkElement
         public DrawingVisual Content { get; }
 
         public XuiRenderNode Node { get; set; }
+
+        public bool HasContent { get; set; }
     }
 
     private void DrawOverlayLabel(
@@ -2739,6 +3149,10 @@ public sealed class XuiViewportControl : FrameworkElement
         BitmapSource Bitmap,
         ResolvedTexture Resolved,
         IReadOnlyDictionary<XuiTileRole, LoadedTilePart> TileParts);
+
+    private readonly record struct TextureLoadKey(
+        long Generation,
+        string ImagePath);
 
     private sealed record LoadedTilePart(
         BitmapSource Bitmap,

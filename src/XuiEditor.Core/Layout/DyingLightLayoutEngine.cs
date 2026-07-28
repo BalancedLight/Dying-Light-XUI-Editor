@@ -23,16 +23,28 @@ public sealed class DyingLightLayoutEngine
             .Compile(document, assetResolver)
             .Sample(viewport, tick, renderContext);
 
+    public static XuiRenderFrame Evaluate(
+        XuiDocument document,
+        XuiViewport viewport,
+        XuiTimelineEvaluationState timelineState,
+        IAssetResolver? assetResolver = null,
+        XuiRenderContext? renderContext = null) =>
+        DyingLightLayoutSession
+            .Compile(document, assetResolver)
+            .Sample(viewport, timelineState, renderContext);
+
     internal static XuiRenderFrame EvaluateCompiled(
         XuiDocument document,
         XuiViewport viewport,
-        int tick,
+        XuiTimelineEvaluationState timelineState,
         XuiTimelineSet timelineSet,
+        TimelineAnimationCache timelineAnimationCache,
         DyingLightLayoutCompilation compilation,
         IAssetResolver? assetResolver = null,
         XuiRenderContext? renderContext = null)
     {
         ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(timelineState);
         ArgumentNullException.ThrowIfNull(timelineSet);
         if (viewport.Width <= 0 ||
             viewport.Height <= 0 ||
@@ -45,9 +57,9 @@ public sealed class DyingLightLayoutEngine
 
         List<XuiDiagnostic> diagnostics = [];
         diagnostics.AddRange(timelineSet.Diagnostics);
-        AnimationOverrides animation = BuildAnimationOverrides(
-            timelineSet,
-            tick);
+        AnimationOverrides animation = new(
+            timelineAnimationCache,
+            timelineState);
 
         XuiRenderContext context = renderContext ?? new XuiRenderContext();
         if (context.ControllerRuntimeProfile is null &&
@@ -119,7 +131,6 @@ public sealed class DyingLightLayoutEngine
             ids,
             assetResolver,
             context,
-            tick,
             keyPrefix: string.Empty,
             selectionKey: null,
             isVisualTemplatePart: false,
@@ -151,7 +162,6 @@ public sealed class DyingLightLayoutEngine
         HashSet<string> ids,
         IAssetResolver? assetResolver,
         XuiRenderContext renderContext,
-        int tick,
         string keyPrefix,
         string? selectionKey,
         bool isVisualTemplatePart,
@@ -713,6 +723,10 @@ public sealed class DyingLightLayoutEngine
             visualTemplate is not null)
         {
             AuthoredSize = new XuiVector2(authoredWidth, authoredHeight),
+            LocalOpacity = forceShown ? 1 : opacity,
+            LocalIsShown = forceShown || shown,
+            ForceShown = forceShown,
+            EstablishesClip = clipChildren || useMask,
             PaintKind = paintKind,
             MaterialProfile = materialProfile,
             PointSize = pointSize,
@@ -776,7 +790,6 @@ public sealed class DyingLightLayoutEngine
                 assetResolver!,
                 compilation,
                 renderContext,
-                tick,
                 resolution,
                 diagnostics,
                 result,
@@ -807,7 +820,6 @@ public sealed class DyingLightLayoutEngine
                 ids,
                 assetResolver,
                 renderContext,
-                tick,
                 keyPrefix,
                 selectionKey,
                 isVisualTemplatePart,
@@ -831,7 +843,6 @@ public sealed class DyingLightLayoutEngine
         IAssetResolver assetResolver,
         DyingLightLayoutCompilation compilation,
         XuiRenderContext renderContext,
-        int tick,
         ResolutionContext resolution,
         List<XuiDiagnostic> diagnostics,
         List<XuiRenderNode> result,
@@ -865,7 +876,7 @@ public sealed class DyingLightLayoutEngine
         try
         {
             AnimationOverrides animation =
-                BuildAnimationOverrides(visualTemplate.Timelines, tick);
+                compilation.ResolveVisualAnimation(visualTemplate);
             string prefix =
                 $"{instance.Key}::$visual[{visualTemplate.Id}]";
             PropertyBag visualRootProperties = new(
@@ -913,7 +924,6 @@ public sealed class DyingLightLayoutEngine
                     ids,
                     assetResolver,
                     renderContext,
-                    tick,
                     prefix,
                     instance.SelectionKey,
                     isVisualTemplatePart: true,
@@ -932,39 +942,6 @@ public sealed class DyingLightLayoutEngine
         {
             visualStack.Remove(visualTemplate.Id);
         }
-    }
-
-    private static AnimationOverrides
-        BuildAnimationOverrides(XuiTimelineSet timelineSet, int tick)
-    {
-        Dictionary<
-            (string ScopeKey, string TargetId),
-            Dictionary<string, XuiAnimatedValue>> scoped = [];
-        foreach (XuiTimeline timeline in timelineSet.Timelines)
-        {
-            (string ScopeKey, string TargetId) key = (
-                timeline.ScopeKey,
-                timeline.TargetId);
-            if (!scoped.TryGetValue(
-                    key,
-                    out Dictionary<string, XuiAnimatedValue>? values))
-            {
-                values = new Dictionary<string, XuiAnimatedValue>(
-                    StringComparer.Ordinal);
-                scoped.Add(key, values);
-            }
-
-            foreach (XuiTrack track in timeline.Tracks)
-            {
-                XuiAnimatedValue? value = TimelineEvaluator.Sample(track, tick);
-                if (value is not null)
-                {
-                    values[track.Property.ToString()] = value;
-                }
-            }
-        }
-
-        return new AnimationOverrides(scoped);
     }
 
     private static XuiVector2? MeasureParentToTextChildren(
@@ -1900,7 +1877,7 @@ public sealed class DyingLightLayoutEngine
         return usedResolutionFlag;
     }
 
-    private static Matrix3x2 CreateLocalTransform(
+    internal static Matrix3x2 CreateLocalTransform(
         XuiVector3 position,
         XuiVector3 pivot,
         XuiVector3 scale,
@@ -1934,7 +1911,9 @@ public sealed class DyingLightLayoutEngine
                Matrix3x2.CreateTranslation((float)x, (float)y);
     }
 
-    private static XuiRect TransformBounds(XuiRect bounds, Matrix3x2 transform)
+    internal static XuiRect TransformBounds(
+        XuiRect bounds,
+        Matrix3x2 transform)
     {
         Span<XuiVector2> points =
         [
@@ -2057,7 +2036,7 @@ public sealed class DyingLightLayoutEngine
     private static XuiRect? ParentClip(XuiRenderNode? parent) =>
         parent?.ClipBounds;
 
-    private static XuiRect? Intersect(XuiRect? existing, XuiRect added)
+    internal static XuiRect? Intersect(XuiRect? existing, XuiRect added)
     {
         if (existing is null)
         {
@@ -2853,87 +2832,6 @@ public sealed class DyingLightLayoutEngine
             Math.Abs(YScale - 1) > 0.000001;
     }
 
-    private sealed class AnimationOverrides
-    {
-        private readonly Dictionary<string, IReadOnlyList<ScopedAnimation>>
-            _byTarget;
-
-        public AnimationOverrides(
-            IReadOnlyDictionary<
-                (string ScopeKey, string TargetId),
-                Dictionary<string, XuiAnimatedValue>> scoped)
-        {
-            _byTarget = scoped
-                .GroupBy(
-                    static pair => pair.Key.TargetId,
-                    StringComparer.Ordinal)
-                .ToDictionary(
-                    static group => group.Key,
-                    static group =>
-                        (IReadOnlyList<ScopedAnimation>)group
-                            .Select(static pair => new ScopedAnimation(
-                                pair.Key.ScopeKey,
-                                pair.Value))
-                            .OrderBy(static entry => entry.ScopeKey.Length)
-                            .ToArray(),
-                    StringComparer.Ordinal);
-        }
-
-        public IReadOnlyDictionary<string, XuiAnimatedValue>? ForNode(
-            string targetId,
-            string nodeKey,
-            string? recursionBarrier)
-        {
-            if (targetId.Length == 0 ||
-                !_byTarget.TryGetValue(
-                    targetId,
-                    out IReadOnlyList<ScopedAnimation>? entries))
-            {
-                return null;
-            }
-
-            ScopedAnimation[] applicable = entries
-                .Where(entry =>
-                    IsAncestorOrSelf(entry.ScopeKey, nodeKey) &&
-                    (recursionBarrier is null ||
-                     IsAncestorOrSelf(recursionBarrier, entry.ScopeKey)))
-                .ToArray();
-            if (applicable.Length == 0)
-            {
-                return null;
-            }
-
-            if (applicable.Length == 1)
-            {
-                return applicable[0].Values;
-            }
-
-            Dictionary<string, XuiAnimatedValue> merged =
-                new(StringComparer.Ordinal);
-            foreach (ScopedAnimation entry in applicable)
-            {
-                foreach ((string property, XuiAnimatedValue value) in entry.Values)
-                {
-                    merged[property] = value;
-                }
-            }
-
-            return merged;
-        }
-
-        private static bool IsAncestorOrSelf(
-            string ancestorKey,
-            string nodeKey) =>
-            string.Equals(ancestorKey, nodeKey, StringComparison.Ordinal) ||
-            (nodeKey.StartsWith(ancestorKey, StringComparison.Ordinal) &&
-             nodeKey.Length > ancestorKey.Length &&
-             nodeKey[ancestorKey.Length] == '/');
-
-        private sealed record ScopedAnimation(
-            string ScopeKey,
-            IReadOnlyDictionary<string, XuiAnimatedValue> Values);
-    }
-
     private sealed class PropertyBag
     {
         private readonly IReadOnlyDictionary<string, string> _values;
@@ -2957,16 +2855,15 @@ public sealed class DyingLightLayoutEngine
 
         public string Text(string name, string fallback = "")
         {
+            if (TryRuntimeValue(name, out string? runtime))
+            {
+                return runtime;
+            }
+
             if (_overrides is not null &&
                 _overrides.TryGetValue(name, out XuiAnimatedValue? animated))
             {
                 return animated.Text;
-            }
-
-            if (_runtimeOverrides is not null &&
-                _runtimeOverrides.TryGetValue(name, out string? runtime))
-            {
-                return runtime;
             }
 
             return _values.GetValueOrDefault(name, fallback);
@@ -2977,6 +2874,17 @@ public sealed class DyingLightLayoutEngine
             double fallback,
             ICollection<XuiDiagnostic> diagnostics)
         {
+            if (TryRuntimeValue(name, out string? runtime))
+            {
+                if (XuiValueParser.TryNumber(runtime, out double runtimeResult))
+                {
+                    return runtimeResult;
+                }
+
+                Invalid(name, runtime, "number", diagnostics);
+                return fallback;
+            }
+
             if (_overrides is not null &&
                 _overrides.TryGetValue(name, out XuiAnimatedValue? animated) &&
                 animated.Kind == XuiTimelineValueKind.Number)
@@ -3024,6 +2932,17 @@ public sealed class DyingLightLayoutEngine
             bool fallback,
             ICollection<XuiDiagnostic> diagnostics)
         {
+            if (TryRuntimeValue(name, out string? runtime))
+            {
+                if (XuiValueParser.TryBoolean(runtime, out bool runtimeResult))
+                {
+                    return runtimeResult;
+                }
+
+                Invalid(name, runtime, "boolean", diagnostics);
+                return fallback;
+            }
+
             if (_overrides is not null &&
                 _overrides.TryGetValue(name, out XuiAnimatedValue? animated) &&
                 animated.Kind == XuiTimelineValueKind.Boolean)
@@ -3051,6 +2970,22 @@ public sealed class DyingLightLayoutEngine
             double fallback,
             ICollection<XuiDiagnostic> diagnostics)
         {
+            if (TryRuntimeValue(name, out string? runtime))
+            {
+                if (XuiValueParser.TryBoolean(runtime, out bool runtimeBoolean))
+                {
+                    return runtimeBoolean ? 1 : 0;
+                }
+
+                if (XuiValueParser.TryNumber(runtime, out double runtimeNumber))
+                {
+                    return runtimeNumber;
+                }
+
+                Invalid(name, runtime, "boolean or number", diagnostics);
+                return fallback;
+            }
+
             if (_overrides is not null &&
                 _overrides.TryGetValue(name, out XuiAnimatedValue? animated))
             {
@@ -3090,6 +3025,29 @@ public sealed class DyingLightLayoutEngine
             XuiVector3 fallback,
             ICollection<XuiDiagnostic> diagnostics)
         {
+            if (TryRuntimeValue(name, out string? runtime))
+            {
+                if (XuiValueParser.TryVector3(
+                        runtime,
+                        out XuiVector3 runtimeResult))
+                {
+                    return runtimeResult;
+                }
+
+                if (XuiValueParser.TryVector2(
+                        runtime,
+                        out XuiVector2 runtimeResult2))
+                {
+                    return new XuiVector3(
+                        runtimeResult2.X,
+                        runtimeResult2.Y,
+                        fallback.Z);
+                }
+
+                Invalid(name, runtime, "2D or 3D vector", diagnostics);
+                return fallback;
+            }
+
             if (_overrides is not null &&
                 _overrides.TryGetValue(name, out XuiAnimatedValue? animated))
             {
@@ -3132,6 +3090,17 @@ public sealed class DyingLightLayoutEngine
             XuiColor fallback,
             ICollection<XuiDiagnostic> diagnostics)
         {
+            if (TryRuntimeValue(name, out string? runtime))
+            {
+                if (XuiValueParser.TryColor(runtime, out XuiColor runtimeResult))
+                {
+                    return runtimeResult;
+                }
+
+                Invalid(name, runtime, "ARGB color", diagnostics);
+                return fallback;
+            }
+
             if (_overrides is not null &&
                 _overrides.TryGetValue(name, out XuiAnimatedValue? animated) &&
                 animated.Kind == XuiTimelineValueKind.Color)
@@ -3156,6 +3125,11 @@ public sealed class DyingLightLayoutEngine
 
         public double RotationDegrees(ICollection<XuiDiagnostic> diagnostics)
         {
+            if (TryRuntimeValue("Rotation", out string? runtime))
+            {
+                return RotationDegreesFromText(runtime, diagnostics);
+            }
+
             if (_overrides is not null &&
                 _overrides.TryGetValue("Rotation", out XuiAnimatedValue? animated))
             {
@@ -3175,6 +3149,13 @@ public sealed class DyingLightLayoutEngine
                 return 0;
             }
 
+            return RotationDegreesFromText(value, diagnostics);
+        }
+
+        private double RotationDegreesFromText(
+            string value,
+            ICollection<XuiDiagnostic> diagnostics)
+        {
             if (XuiValueParser.TryQuaternion(value, out XuiQuaternion quaternion))
             {
                 return quaternion.ZRotationDegrees;
@@ -3192,6 +3173,21 @@ public sealed class DyingLightLayoutEngine
 
             Invalid("Rotation", value, "quaternion or angle", diagnostics);
             return 0;
+        }
+
+        private bool TryRuntimeValue(
+            string name,
+            out string value)
+        {
+            if (_runtimeOverrides is not null &&
+                _runtimeOverrides.TryGetValue(name, out string? runtime))
+            {
+                value = runtime;
+                return true;
+            }
+
+            value = string.Empty;
+            return false;
         }
 
         private void Invalid(

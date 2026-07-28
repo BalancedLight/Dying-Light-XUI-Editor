@@ -23,11 +23,13 @@ bundled.
 
 On first use:
 
-1. Open **File > Dying Light Data**.
+1. Open **Settings > Dying Light Resources**.
 2. Choose the Dying Light folder containing `DyingLightGame.exe` and
    `DW\Data0.pak`.
 3. Select the preview language and keyboard/controller prompt set.
-4. Optionally choose a writable mod workspace or add loose mod roots.
+4. Optionally choose a writable mod workspace, add Dying Light project or
+   loose-resource folders, and add standalone texture definitions or RP6L
+   `.rpack` files.
 5. Use **File > Open Stock XUI** to browse the installed screens, or open a
    loose `.xui` file directly.
 
@@ -45,13 +47,20 @@ sources are always read-only. Opening an installed or extracted file requires
 - Atomic same-directory saves with one backup, external-change detection,
   undo/redo, recent files, and isolated recovery snapshots.
 - An indexed, virtualized, fixed-height hierarchy with stable expansion
-  state, debounced search, collapse/reveal commands, breadcrumbs,
-  visibility/lock switches, and synchronized selection.
+  state, debounced search, collapse/reveal commands, breadcrumbs, and
+  synchronized selection. Eye and padlock icons distinguish direct and
+  inherited editor-only visibility/lock states without modifying the XUI.
+  A row context menu can hide everything except that item and its subtree,
+  then restore the exact prior visibility state.
 - A retained `DrawingVisual` canvas with transform-only pan/zoom, fit, actual
   pixels, rulers, grid, safe-area overlay, snapping, declaration-order
-  compositing, clipping, selection bounds, and live transform handles.
+  compositing, clipping, selection bounds, and live transform handles. Camera
+  gestures temporarily flatten the retained HUD layer so a 4,000-node canvas
+  does not have to be recomposited for every pointer move.
 - Typed property groups plus a raw/unknown escape hatch. Invalid values remain
-  visible with diagnostics instead of being silently normalized.
+  visible with diagnostics instead of being silently normalized. Raw XML is
+  materialized only when expanded; subtrees over 256 KiB require an explicit
+  load action.
 - Dying Light anchors, pivots, transforms, opacity/show inheritance, keep and
   resolution flags, stack/wrap-panel layout, visual templates, stock control
   families, evidence-backed material profiles, forced-mask substitution, DDS
@@ -64,6 +73,10 @@ sources are always read-only. Opening an installed or extracted file requires
   texture definitions and nested DDS files, before configured mod,
   extraction, and install sources. Loader-owned `PakAssets\XUI` files resolve
   through the sibling `PakAssets` tree.
+- Persistent resource settings for additional Dying Light project folders,
+  loose-resource trees, extracted roots, individual `.def`/texture-definition
+  `.scr` files, and individual RP6L `.rpack` containers. Explicit sources
+  override installed game assets and remain read-only where appropriate.
 - Installed localization catalogs, `basicfonts.scr`, `fontstyles.scr`, `.fm`
   bitmap metrics, private input glyphs, and font-atlas DDS resources. Exact
   engine bitmap fonts are used when available; mappings and diagnosed
@@ -72,9 +85,16 @@ sources are always read-only. Opening an installed or extracted file requires
   per-node force-show controls, and a variable-opacity reference
   screenshot overlay. Scenario data affects only the preview and never
   rewrites the XUI.
-- Full 60 Hz timeline parsing, playback, sampling, keyframe editing,
+- Full 60 Hz timeline parsing with independent per-owner scope state,
+  scope-local playback/scrubbing, exact stepped-key transitions,
   interpolation/easing, named frames, loop diagnostics, and undoable timeline
-  commands.
+  commands. **All in scope** exposes one owner without constructing every HUD
+  track, and switching selections remembers each scope's local tick. New
+  documents open in a non-destructive composed pose that settles each scope at
+  its earliest fully visible key; **Stop** returns the active scope to authored
+  tick 0 before playback. Safe timeline-only changes update just the affected
+  retained visuals and transform/show subtrees, with a full-layout fallback
+  for layout- or resource-sensitive changes.
 - No background music, UI sounds, novelty transparency, or blocking alpha
   warning.
 
@@ -98,7 +118,7 @@ fake labels into the rendered scene.
 | Previous / next tick | `,` / `.` |
 | Copy / paste keyframe | `Ctrl+Alt+C` / `Ctrl+Alt+V` |
 
-Drag the canvas to pan, use the mouse wheel to zoom, and use Ctrl-click or
+Middle-drag the canvas to pan, use the mouse wheel to zoom, and use Ctrl-click or
 Shift-click for multi-selection.
 
 ## Build and validate
@@ -108,8 +128,10 @@ committed.
 
 ```powershell
 dotnet restore XuiEditor.slnx --locked-mode
-dotnet test XuiEditor.slnx -c Debug --no-restore
-dotnet test XuiEditor.slnx -c Release --no-restore
+dotnet test tests\XuiEditor.Tests\XuiEditor.Tests.csproj `
+  -c Debug --no-restore
+dotnet test tests\XuiEditor.Tests\XuiEditor.Tests.csproj `
+  -c Release --no-restore
 dotnet publish src\XuiEditor.Wpf\XuiEditor.Wpf.csproj `
   -c Release -r win-x64 --self-contained true --no-restore `
   -o artifacts\publish\win-x64
