@@ -56,11 +56,17 @@ sources are always read-only. Opening an installed or extracted file requires
   pixels, rulers, grid, safe-area overlay, snapping, declaration-order
   compositing, clipping, selection bounds, and live transform handles. Camera
   gestures temporarily flatten the retained HUD layer so a 4,000-node canvas
-  does not have to be recomposited for every pointer move.
+  does not have to be recomposited for every pointer move. Dragging inside an
+  already-selected element keeps that semantic XUI owner even when a visual
+  template or overlapping canvas node is painted above it; Alt-click cycles
+  overlapping owners.
 - Typed property groups plus a raw/unknown escape hatch. Invalid values remain
   visible with diagnostics instead of being silently normalized. Raw XML is
   materialized only when expanded; subtrees over 256 KiB require an explicit
-  load action.
+  load action. `IUIText` nodes expose a typed
+  `ColorControlSequenceEnabled` checkbox. The inspector and hierarchy provide
+  an undoable **Add child** workflow for groups, images, text, antialiased
+  rectangles, stock buttons, and validated custom XML.
 - Dying Light anchors, pivots, transforms, opacity/show inheritance, keep and
   resolution flags, stack/wrap-panel layout, visual templates, stock control
   families, evidence-backed material profiles, forced-mask substitution, DDS
@@ -80,11 +86,15 @@ sources are always read-only. Opening an installed or extracted file requires
 - Installed localization catalogs, `basicfonts.scr`, `fontstyles.scr`, `.fm`
   bitmap metrics, private input glyphs, and font-atlas DDS resources. Exact
   engine bitmap fonts are used when available; mappings and diagnosed
-  fallbacks remain available.
+  fallbacks remain available. Enabled `%COLOR(RRGGBB)` and
+  `%COLOR(reset)` sequences render as per-run system-font and bitmap-font
+  colors; disabled or malformed markup stays literal like the game.
 - Curated preview presets for hidden/runtime-populated HUD text and imagery,
   per-node force-show controls, and a variable-opacity reference
   screenshot overlay. Scenario data affects only the preview and never
-  rewrites the XUI.
+  rewrites the XUI. The inspector explains effective authored, animated,
+  controller, ancestor, opacity, clipping, and off-canvas visibility, with
+  one-click force-show and composed-pose recovery.
 - Full 60 Hz timeline parsing with independent per-owner scope state,
   scope-local playback/scrubbing, exact stepped-key transitions,
   interpolation/easing, named frames, loop diagnostics, and undoable timeline
@@ -109,6 +119,7 @@ fake labels into the rendered scene.
 | Open / save / save as | `Ctrl+O` / `Ctrl+S` / `Ctrl+Shift+S` |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Y` |
 | Duplicate / delete | `Ctrl+D` / `Delete` |
+| Add visual child | `Ctrl+Insert` |
 | Move before / after sibling | `Alt+Up` / `Alt+Down` |
 | Indent / outdent | `Alt+Right` / `Alt+Left` |
 | Fit / actual pixels | `F` / `0` |

@@ -1,0 +1,170 @@
+<Window x:Class="XuiEditor.Wpf.AddXuiElementWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Add XUI Child"
+        Width="590"
+        Height="700"
+        MinWidth="520"
+        MinHeight="600"
+        Background="{StaticResource WindowBrush}"
+        Foreground="{StaticResource TextBrush}"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip">
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="ParentText"
+                   Grid.Row="0"
+                   Foreground="{StaticResource MutedTextBrush}"
+                   Margin="0,0,0,10"
+                   TextWrapping="Wrap" />
+
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto">
+            <Grid Margin="0,0,6,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="145" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0"
+                           Text="Preset" VerticalAlignment="Center" />
+                <ComboBox x:Name="PresetCombo"
+                          Grid.Row="0" Grid.Column="1"
+                          SelectionChanged="PresetCombo_SelectionChanged" />
+
+                <TextBlock Grid.Row="1" Grid.Column="0"
+                           Text="Id" VerticalAlignment="Center" />
+                <TextBox x:Name="IdText"
+                         Grid.Row="1" Grid.Column="1" />
+
+                <TextBlock Grid.Row="2" Grid.Column="0"
+                           Text="Size" VerticalAlignment="Center" />
+                <Grid Grid.Row="2" Grid.Column="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="WidthText" Grid.Column="0" />
+                    <TextBlock Grid.Column="1"
+                               Text="x"
+                               Margin="7,0"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource MutedTextBrush}" />
+                    <TextBox x:Name="HeightText" Grid.Column="2" />
+                </Grid>
+
+                <TextBlock Grid.Row="3" Grid.Column="0"
+                           Text="Position" VerticalAlignment="Center" />
+                <Grid Grid.Row="3" Grid.Column="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="XText" Grid.Column="0" />
+                    <TextBlock Grid.Column="1"
+                               Text=","
+                               Margin="7,0"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource MutedTextBrush}" />
+                    <TextBox x:Name="YText" Grid.Column="2" />
+                </Grid>
+
+                <TextBlock Grid.Row="4" Grid.Column="0"
+                           Text="Text" VerticalAlignment="Center" />
+                <TextBox x:Name="ContentText"
+                         Grid.Row="4" Grid.Column="1" />
+
+                <TextBlock Grid.Row="5" Grid.Column="0"
+                           Text="Image path" VerticalAlignment="Center" />
+                <TextBox x:Name="ImagePathText"
+                         Grid.Row="5" Grid.Column="1" />
+
+                <TextBlock Grid.Row="6" Grid.Column="0"
+                           Text="Color (ARGB)" VerticalAlignment="Center" />
+                <TextBox x:Name="ColorText"
+                         Grid.Row="6" Grid.Column="1" />
+
+                <TextBlock Grid.Row="7" Grid.Column="0"
+                           Text="Font" VerticalAlignment="Center" />
+                <TextBox x:Name="FontText"
+                         Grid.Row="7" Grid.Column="1" />
+
+                <TextBlock Grid.Row="8" Grid.Column="0"
+                           Text="Visual" VerticalAlignment="Center" />
+                <TextBox x:Name="VisualText"
+                         Grid.Row="8" Grid.Column="1" />
+
+                <TextBlock x:Name="PresetHelpText"
+                           Grid.Row="9" Grid.ColumnSpan="2"
+                           Margin="0,10,0,5"
+                           Foreground="{StaticResource MutedTextBrush}"
+                           TextWrapping="Wrap" />
+
+                <Expander x:Name="AdvancedXmlExpander"
+                          Grid.Row="10"
+                          Grid.ColumnSpan="2"
+                          Header="Advanced custom XML"
+                          Margin="0,5,0,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top"
+                                   Margin="0,0,0,5"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   Text="Custom mode inserts exactly one visual element. It must contain a unique Properties/Id."
+                                   TextWrapping="Wrap" />
+                        <TextBox x:Name="RawXmlText"
+                                 MinHeight="210"
+                                 FontFamily="Consolas"
+                                 FontSize="11"
+                                 AcceptsReturn="True"
+                                 AcceptsTab="True"
+                                 HorizontalScrollBarVisibility="Auto"
+                                 VerticalScrollBarVisibility="Auto"
+                                 TextWrapping="NoWrap"
+                                 SpellCheck.IsEnabled="False" />
+                    </DockPanel>
+                </Expander>
+            </Grid>
+        </ScrollViewer>
+
+        <TextBlock x:Name="ErrorText"
+                   Grid.Row="2"
+                   Margin="0,8,0,0"
+                   Foreground="{StaticResource DangerBrush}"
+                   TextWrapping="Wrap" />
+
+        <StackPanel Grid.Row="3"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,12,0,0">
+            <Button Content="Cancel"
+                    IsCancel="True"
+                    MinWidth="85" />
+            <Button Content="Add child"
+                    IsDefault="True"
+                    MinWidth="95"
+                    Click="Add_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

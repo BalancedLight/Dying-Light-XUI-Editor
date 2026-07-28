@@ -25,6 +25,103 @@ namespace XuiEditor.Tests;
 [TestClass]
 public sealed class WpfSmokeTests
 {
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void SystemAndBitmapTextPathsUsePerRunGlyphColors()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>300</Width><Height>80</Height></Properties>" +
+            "<MyText><Properties><Id>Colored</Id><Width>300</Width><Height>80</Height>" +
+            "<Text>A%COLOR(F90F36)BC%COLOR(reset)D</Text>" +
+            "<TextColor>0xff112233</TextColor><PointSize>32</PointSize>" +
+            "<ColorControlSequenceEnabled>true</ColorControlSequenceEnabled>" +
+            "<Outline>true</Outline><OutlineColor>0xff445566</OutlineColor>" +
+            "<Shadow>true</Shadow><ShadowColor>0xff778899</ShadowColor>" +
+            "</Properties></MyText></XuiCanvas>");
+        XuiRenderFrame frame = DyingLightLayoutEngine.Evaluate(
+            document,
+            new XuiViewport(300, 80),
+            0);
+        XuiRenderNode node = frame.Nodes.Single(static candidate =>
+            candidate.Id == "Colored");
+        XuiViewportControl viewport = new()
+        {
+            Width = 500,
+            Height = 220,
+            ShowGrid = false,
+            ShowSafeArea = false,
+        };
+        viewport.SetFrame(frame);
+        viewport.Measure(new Size(500, 220));
+        viewport.Arrange(new Rect(0, 0, 500, 220));
+        viewport.UpdateLayout();
+
+        IReadOnlyList<XuiColor> drawingColors =
+            viewport.RetainedNodeBrushColorsForTesting(node.Key);
+        CollectionAssert.Contains(
+            drawingColors.ToList(),
+            new XuiColor(255, 17, 34, 51));
+        CollectionAssert.Contains(
+            drawingColors.ToList(),
+            new XuiColor(255, 249, 15, 54));
+        CollectionAssert.Contains(
+            drawingColors.ToList(),
+            new XuiColor(255, 68, 85, 102));
+        CollectionAssert.Contains(
+            drawingColors.ToList(),
+            new XuiColor(255, 119, 136, 153));
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                new XuiColor(255, 17, 34, 51),
+                new XuiColor(255, 249, 15, 54),
+                new XuiColor(255, 249, 15, 54),
+                new XuiColor(255, 17, 34, 51),
+            },
+            XuiViewportControl.BitmapGlyphColorsForTesting(node).ToArray());
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void TextInspectorOffersTypedColorControlCheckboxAndCommitsIt()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<IUIProgressText><Properties><Id>Text</Id><Width>80</Width><Height>20</Height>" +
+            "<Text>value</Text></Properties></IUIProgressText></XuiCanvas>");
+        XuiSyntaxNode textNode =
+            XuiModelReader.VisualDescendants(document.Root)
+                .Single(node =>
+                    XuiModelReader.GetId(node, document.Text) == "Text");
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        window.SelectNodeKeysForTesting([textNode.Key]);
+
+        InspectorPropertyRow row =
+            window.InspectorProperties.Single(property =>
+                property.Name == "ColorControlSequenceEnabled");
+        Assert.IsTrue(row.IsBooleanToggle);
+        Assert.AreEqual("Text / Image", row.Category);
+        Assert.AreEqual(false, row.BooleanValue);
+        Assert.IsFalse(row.IsUnknown);
+
+        window.SetInspectorBooleanForTesting(
+            "ColorControlSequenceEnabled",
+            true);
+
+        Assert.AreEqual(
+            "true",
+            XuiModelReader.GetPropertyValue(
+                document.SyntaxTree.FindByKey(textNode.Key)!,
+                document.Text,
+                "ColorControlSequenceEnabled"));
+    }
+
     [TestMethod]
     public void BitmapFontSpecialGlyphsUseRgbMaskChannel()
     {
@@ -644,6 +741,317 @@ public sealed class WpfSmokeTests
 
         document.Undo();
         Assert.AreEqual(source, document.Text);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void ViewportHitTestingPrefersSelectedHiddenBodyAndNeverCanvas()
+    {
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height>" +
+            "</Properties><MyImage><Properties><Id>Hidden</Id>" +
+            "<Width>20</Width><Height>20</Height><Position>10,10,0</Position>" +
+            "<Show>false</Show></Properties></MyImage></XuiCanvas>");
+        XuiRenderFrame frame = DyingLightLayoutEngine.Evaluate(
+            document,
+            new XuiViewport(100, 100),
+            0);
+        XuiRenderNode hidden = frame.Nodes.Single(static node =>
+            node.Id == "Hidden");
+        XuiViewportControl viewport = new();
+        viewport.SetFrame(frame);
+        viewport.SetSelectedKeys([hidden.Key]);
+
+        Assert.IsNull(viewport.HitSelectionKeyForTesting(
+            new XuiVector2(15, 15)));
+        Assert.AreEqual(
+            hidden.Key,
+            viewport.HitSelectionKeyForTesting(
+                new XuiVector2(15, 15),
+                selectedBodyFirst: true));
+        Assert.IsNull(viewport.HitSelectionKeyForTesting(
+            new XuiVector2(90, 90)));
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void AlternateHitTestingCyclesOverlappingSelectionOwners()
+    {
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height>" +
+            "</Properties><MyImage><Properties><Id>Back</Id><Width>30</Width>" +
+            "<Height>30</Height><Position>10,10,0</Position></Properties></MyImage>" +
+            "<MyImage><Properties><Id>Front</Id><Width>30</Width>" +
+            "<Height>30</Height><Position>10,10,0</Position></Properties></MyImage>" +
+            "</XuiCanvas>");
+        XuiRenderFrame frame = DyingLightLayoutEngine.Evaluate(
+            document,
+            new XuiViewport(100, 100),
+            0);
+        XuiRenderNode back = frame.Nodes.Single(static node =>
+            node.Id == "Back");
+        XuiRenderNode front = frame.Nodes.Single(static node =>
+            node.Id == "Front");
+        XuiViewportControl viewport = new();
+        viewport.SetFrame(frame);
+        viewport.SetSelectedKeys([front.Key]);
+
+        Assert.AreEqual(
+            front.Key,
+            viewport.HitSelectionKeyForTesting(new XuiVector2(15, 15)));
+        Assert.AreEqual(
+            back.Key,
+            viewport.HitSelectionKeyForTesting(
+                new XuiVector2(15, 15),
+                cycle: true));
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void CanvasRootTransformCommitIsRejectedWithoutChangingSource()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height>" +
+            "</Properties><MyImage><Properties><Id>Child</Id><Width>10</Width>" +
+            "<Height>10</Height></Properties></MyImage></XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        window.SelectNodeKeysForTesting([document.Root.Key]);
+
+        window.CommitTransformForTesting(
+            new XuiTransformCommittedEventArgs(
+                document.Root.Key,
+                XuiTransformKind.Move,
+                new XuiVector2(10, 10),
+                default,
+                0,
+                default));
+
+        Assert.AreEqual(source, document.Text);
+        Assert.IsFalse(document.History.CanUndo);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void MovingAnimatedPositionOffsetsAuthoredAndEveryKeyAsOneEdit()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height>" +
+            "</Properties><MyImage><Properties><Id>Animated</Id>" +
+            "<Width>10</Width><Height>10</Height><Position>5,6,0</Position>" +
+            "</Properties></MyImage><Timelines><Timeline><Id>Animated</Id>" +
+            "<TimelineProp>Position</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>10,20,0</Prop></KeyFrame>" +
+            "<KeyFrame><Time>10</Time><Interpolation>0</Interpolation>" +
+            "<Prop>30,40,0</Prop></KeyFrame></Timeline></Timelines></XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        XuiSyntaxNode animated =
+            XuiModelReader.VisualDescendants(document.Root).Single();
+        window.SelectNodeKeysForTesting([animated.Key]);
+
+        window.CommitTransformForTesting(
+            new XuiTransformCommittedEventArgs(
+                animated.Key,
+                XuiTransformKind.Move,
+                new XuiVector2(2, 3),
+                default,
+                0,
+                default));
+
+        XuiSyntaxNode current =
+            XuiModelReader.VisualDescendants(document.Root).Single();
+        Assert.AreEqual(
+            "7.000000,9.000000,0.000000",
+            XuiModelReader.GetPropertyValue(
+                current,
+                document.Text,
+                "Position"));
+        string[] keyPositions = document.Root
+            .FirstElement("Timelines")!
+            .FirstElement("Timeline")!
+            .Elements("KeyFrame")
+            .Select(frameNode =>
+                frameNode.Elements("Prop").Single()
+                    .GetDecodedValue(document.Text))
+            .ToArray();
+        Assert.HasCount(2, keyPositions);
+        Assert.AreEqual(
+            "12.000000,23.000000,0.000000",
+            keyPositions[0]);
+        Assert.AreEqual(
+            "32.000000,43.000000,0.000000",
+            keyPositions[1]);
+        Assert.AreEqual("Move selection", document.History.UndoDescription);
+
+        document.Undo();
+        Assert.AreEqual(source, document.Text);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void MalformedAnimatedPositionRejectsTheWholeMove()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height>" +
+            "</Properties><MyImage><Properties><Id>Animated</Id>" +
+            "<Width>10</Width><Height>10</Height><Position>5,6,0</Position>" +
+            "</Properties></MyImage><Timelines><Timeline><Id>Animated</Id>" +
+            "<TimelineProp>Show</TimelineProp><TimelineProp>Position</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>true</Prop><Prop>10,20,0</Prop></KeyFrame>" +
+            "<KeyFrame><Time>10</Time><Interpolation>0</Interpolation>" +
+            "<Prop>false</Prop></KeyFrame></Timeline></Timelines></XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        XuiSyntaxNode animated =
+            XuiModelReader.VisualDescendants(document.Root).Single();
+        window.SelectNodeKeysForTesting([animated.Key]);
+
+        window.CommitTransformForTesting(
+            new XuiTransformCommittedEventArgs(
+                animated.Key,
+                XuiTransformKind.Move,
+                new XuiVector2(2, 3),
+                default,
+                0,
+                default));
+
+        Assert.AreEqual(source, document.Text);
+        Assert.IsFalse(document.History.CanUndo);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void MovingOffsetsPositionKeysInEveryApplicableScope()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height>" +
+            "</Properties><AdvGroup><Properties><Id>Group</Id></Properties>" +
+            "<MyImage><Properties><Id>Animated</Id><Width>10</Width>" +
+            "<Height>10</Height><Position>1,2,0</Position></Properties></MyImage>" +
+            "<Timelines><Timeline><Id>Animated</Id><TimelineProp>Position</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>3,4,0</Prop></KeyFrame></Timeline></Timelines></AdvGroup>" +
+            "<Timelines><Timeline><Id>Animated</Id><TimelineProp>Position</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>5,6,0</Prop></KeyFrame></Timeline></Timelines></XuiCanvas>");
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        XuiSyntaxNode animated =
+            XuiModelReader.VisualDescendants(document.Root).Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Animated");
+
+        window.CommitTransformForTesting(
+            new XuiTransformCommittedEventArgs(
+                animated.Key,
+                XuiTransformKind.Move,
+                new XuiVector2(10, 20),
+                default,
+                0,
+                default));
+
+        string[] positionKeys = document.Root
+            .DescendantsAndSelf()
+            .Where(static node => node.Name == "Prop")
+            .Select(node => node.GetDecodedValue(document.Text))
+            .ToArray();
+        Assert.HasCount(2, positionKeys);
+        CollectionAssert.AreEquivalent(
+            new List<string>
+            {
+                "13.000000,24.000000,0.000000",
+                "15.000000,26.000000,0.000000",
+            },
+            positionKeys);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void InspectorAddChildSelectsTheNewUndoableElement()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height>" +
+            "</Properties><AdvGroup><Properties><Id>Parent</Id>" +
+            "<Width>80</Width><Height>60</Height></Properties>" +
+            "<Timelines><NamedFrames /></Timelines></AdvGroup></XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        XuiSyntaxNode parent =
+            XuiModelReader.VisualDescendants(document.Root).Single();
+
+        window.AddChildForTesting(
+            parent.Key,
+            new XuiElementCreationRequest
+            {
+                Preset = XuiElementPreset.Rectangle,
+                Id = "R_New",
+                Width = 30,
+                Height = 20,
+                Position = new XuiVector3(4, 5, 0),
+                Color = "0xff102030",
+            });
+
+        XuiSyntaxNode created =
+            XuiModelReader.VisualDescendants(document.Root).Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "R_New");
+        CollectionAssert.Contains(
+            window.SelectedKeysForTesting.ToList(),
+            created.Key);
+        Assert.IsTrue(window.ExpandedKeysForTesting.Contains(
+            created.Parent!.Key));
+        Assert.AreEqual("Add R_New", document.History.UndoDescription);
+        Assert.IsLessThan(
+            document.Text.IndexOf("<Timelines>", StringComparison.Ordinal),
+            document.Text.IndexOf("<IUIAARectangle>", StringComparison.Ordinal));
+
+        document.Undo();
+        Assert.AreEqual(source, document.Text);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void InspectorExplainsAnimatedHiddenStateWithoutSelectionEvaluation()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height>" +
+            "</Properties><MyImage><Properties><Id>Animated</Id>" +
+            "<Width>10</Width><Height>10</Height></Properties></MyImage>" +
+            "<Timelines><Timeline><Id>Animated</Id><TimelineProp>Show</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>true</Prop></KeyFrame><KeyFrame><Time>5</Time>" +
+            "<Interpolation>0</Interpolation><Prop>false</Prop></KeyFrame>" +
+            "</Timeline></Timelines></XuiCanvas>");
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        XuiSyntaxNode animated =
+            XuiModelReader.VisualDescendants(document.Root).Single();
+        window.SelectNodeKeysForTesting([animated.Key]);
+        window.SetTimelineTickForTesting(5);
+        long evaluations = window.LayoutEvaluationCountForTesting;
+
+        window.SelectNodeKeysForTesting([animated.Key]);
+
+        Assert.AreEqual(evaluations, window.LayoutEvaluationCountForTesting);
+        StringAssert.Contains(window.PreviewStateForTesting, "tick 5");
+        StringAssert.Contains(window.PreviewStateForTesting, "Show animation");
     }
 
     [STATestMethod]

@@ -14,7 +14,8 @@ public sealed class InspectorPropertyRow : INotifyPropertyChanged
         string category,
         bool isMixed,
         bool isUnknown,
-        IReadOnlyList<string>? choices = null)
+        IReadOnlyList<string>? choices = null,
+        bool isBooleanToggle = false)
     {
         Name = name;
         _value = value;
@@ -22,6 +23,7 @@ public sealed class InspectorPropertyRow : INotifyPropertyChanged
         IsMixed = isMixed;
         IsUnknown = isUnknown;
         Choices = choices ?? [];
+        IsBooleanToggle = isBooleanToggle;
     }
 
     public string Name { get; }
@@ -34,12 +36,38 @@ public sealed class InspectorPropertyRow : INotifyPropertyChanged
 
     public IReadOnlyList<string> Choices { get; }
 
-    public bool HasChoices => Choices.Count > 0;
+    public bool HasChoices => !IsBooleanToggle && Choices.Count > 0;
+
+    public bool IsBooleanToggle { get; }
+
+    public bool? BooleanValue
+    {
+        get => Value.Equals("true", StringComparison.OrdinalIgnoreCase)
+            ? true
+            : Value.Equals("false", StringComparison.OrdinalIgnoreCase)
+                ? false
+                : null;
+        set
+        {
+            if (value is bool boolean)
+            {
+                Value = boolean ? "true" : "false";
+            }
+        }
+    }
 
     public string Value
     {
         get => _value;
-        set => SetField(ref _value, value);
+        set
+        {
+            if (SetField(ref _value, value))
+            {
+                PropertyChanged?.Invoke(
+                    this,
+                    new PropertyChangedEventArgs(nameof(BooleanValue)));
+            }
+        }
     }
 
     public string? Error

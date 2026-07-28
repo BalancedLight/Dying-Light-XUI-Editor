@@ -82,6 +82,15 @@ When installed bitmap resources are present, glyph advance, atlas rectangle,
 vertical offset, special-sign scaling, wrapping, and alignment come from the
 game's `.fm` metrics rather than WPF font metrics.
 
+`IUIText` color control sequences are evaluated only when
+`ColorControlSequenceEnabled` is true. The accepted grammar is the
+case-sensitive `%COLOR(RRGGBB)` form plus case-insensitive
+`%COLOR(reset)`. Valid tags are removed after localization/preview binding
+and become cached colored glyph runs. Malformed tags, lowercase `%color`,
+non-six-digit values, and all tags on disabled nodes remain literal. System
+text uses per-range WPF brushes; bitmap fonts carry the same color into each
+glyph placement. Outline and shadow colors remain uniform.
+
 ## Layout panels
 
 Recovered `UIStackPanel` behavior defaults to reverse-child traversal,

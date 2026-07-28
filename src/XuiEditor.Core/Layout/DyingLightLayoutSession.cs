@@ -1,6 +1,7 @@
 using XuiEditor.Core.Animation;
 using XuiEditor.Core.Assets;
 using XuiEditor.Core.Documents;
+using XuiEditor.Core.Values;
 
 namespace XuiEditor.Core.Layout;
 
@@ -12,6 +13,8 @@ public sealed class DyingLightLayoutSession
     private readonly long _assetRevision;
     private readonly DyingLightLayoutCompilation _compilation;
     private readonly TimelineAnimationCache _timelineAnimationCache;
+    private readonly Dictionary<string, int> _renderNodeIndexByKey =
+        new(StringComparer.Ordinal);
     private XuiRenderFrame? _previousFrame;
     private XuiTimelineEvaluationState? _previousTimelineState;
     private XuiRenderContext? _previousRenderContext;
@@ -45,6 +48,9 @@ public sealed class DyingLightLayoutSession
 
     internal int CompiledMaterialProfileCount =>
         _compilation.MaterialProfileCount;
+
+    internal int ColorControlParseCount =>
+        _compilation.ColorControlParseCount;
 
     internal int TimelineScopeEvaluationCount =>
         _timelineAnimationCache.ScopeEvaluationCount;
@@ -116,7 +122,11 @@ public sealed class DyingLightLayoutSession
                 context,
                 out XuiRenderSample? incremental))
         {
-            Remember(incremental.Frame, timelineState, context);
+            Remember(
+                incremental.Frame,
+                timelineState,
+                context,
+                rebuildRenderIndex: false);
             return incremental;
         }
 
@@ -131,11 +141,233 @@ public sealed class DyingLightLayoutSession
             context);
         IReadOnlyList<string> changedKeys =
             ChangedKeys(_previousFrame, frame);
-        Remember(frame, timelineState, context);
+        Remember(
+            frame,
+            timelineState,
+            context,
+            rebuildRenderIndex: true);
         return new XuiRenderSample(
             frame,
             changedKeys,
             FullEvaluationRequired: true);
+    }
+
+    public XuiPreviewStateExplanation ExplainPreviewState(
+        string nodeKey,
+        XuiRenderFrame frame,
+        XuiTimelineEvaluationState timelineState,
+        XuiRenderContext? renderContext = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(nodeKey);
+        ArgumentNullException.ThrowIfNull(frame);
+        ArgumentNullException.ThrowIfNull(timelineState);
+
+        XuiSyntaxNode? syntax = _document.SyntaxTree.FindByKey(nodeKey);
+        if (syntax is null)
+        {
+            return new XuiPreviewStateExplanation(
+                false,
+                XuiPreviewStateReason.NotRendered,
+                "This element no longer exists in the document.",
+                nodeKey);
+        }
+
+        XuiRenderNode? renderNode = FindRenderNode(frame, nodeKey);
+        if (renderNode is null)
+        {
+            return new XuiPreviewStateExplanation(
+                false,
+                XuiPreviewStateReason.NotRendered,
+                "This element did not produce a preview node. It may be structural or runtime-generated.",
+                nodeKey);
+        }
+
+        XuiRenderContext context = EffectiveContext(renderContext);
+        CompiledXuiNode compiled = _compilation.Node(
+            syntax,
+            _document.Text);
+        string id = compiled.Id;
+        string display = DisplayName(renderNode);
+        if (context.IsForceShown(id, syntax.Key) &&
+            renderNode.IsShown &&
+            renderNode.Opacity > 0.000001)
+        {
+            return new XuiPreviewStateExplanation(
+                true,
+                XuiPreviewStateReason.ForceShown,
+                $"{display} is force-shown in the editor. Authored and animated visibility are temporarily overridden.",
+                syntax.Key);
+        }
+
+        IReadOnlyDictionary<string, string>? runtime =
+            context.PropertiesFor(id, syntax.Key);
+        IReadOnlyDictionary<string, XuiAnimatedValue>? animated =
+            _timelineAnimationCache.ForNode(
+                timelineState,
+                id,
+                syntax.Key,
+                _compilation.TimelineRecursionBarrier(syntax.Key));
+        XuiTimelineScope? scope =
+            TimelineScopes.ResolveForNode(syntax, _document.Text);
+        int? scopeTick = scope is null
+            ? null
+            : timelineState.TickFor(scope.ScopeKey);
+
+        if (!renderNode.LocalIsShown)
+        {
+            if (context.IsForceHidden(id, syntax.Key))
+            {
+                return Hidden(
+                    XuiPreviewStateReason.ForceHidden,
+                    $"{display} is hidden by an editor preview override.",
+                    syntax.Key,
+                    scope,
+                    scopeTick);
+            }
+
+            if (TryRuntimeBoolean(runtime, "Show", out bool runtimeShow) &&
+                !runtimeShow)
+            {
+                return Hidden(
+                    XuiPreviewStateReason.RuntimeHidden,
+                    $"{display} is hidden by the selected preview or controller runtime state.",
+                    syntax.Key,
+                    scope,
+                    scopeTick);
+            }
+
+            if (TryAnimatedBoolean(animated, "Show", out bool animatedShow) &&
+                !animatedShow)
+            {
+                return Hidden(
+                    XuiPreviewStateReason.AnimatedHidden,
+                    $"{display} is hidden by its Show animation at tick {scopeTick ?? 0}.",
+                    syntax.Key,
+                    scope,
+                    scopeTick);
+            }
+
+            if (compiled.Properties.TryGetValue(
+                    "Show",
+                    out string? authoredShowRaw) &&
+                XuiValueParser.TryBoolean(
+                    authoredShowRaw,
+                    out bool authoredShow) &&
+                !authoredShow)
+            {
+                return Hidden(
+                    XuiPreviewStateReason.AuthoredHidden,
+                    $"{display} has authored Show=false.",
+                    syntax.Key,
+                    scope,
+                    scopeTick);
+            }
+
+            return Hidden(
+                XuiPreviewStateReason.RuntimeHidden,
+                $"{display} is hidden by its effective visual or controller state.",
+                syntax.Key,
+                scope,
+                scopeTick);
+        }
+
+        if (renderNode.LocalOpacity <= 0.000001)
+        {
+            string cause;
+            if (TryRuntimeNumber(runtime, "Opacity", out double runtimeOpacity) &&
+                runtimeOpacity <= 0.000001)
+            {
+                cause =
+                    $"{display} has zero opacity in the selected preview or controller state.";
+            }
+            else if (TryAnimatedNumber(
+                         animated,
+                         "Opacity",
+                         out double animatedOpacity) &&
+                     animatedOpacity <= 0.000001)
+            {
+                cause =
+                    $"{display} has zero animated opacity at tick {scopeTick ?? 0}.";
+            }
+            else
+            {
+                cause = $"{display} has zero effective opacity.";
+            }
+
+            return Hidden(
+                XuiPreviewStateReason.ZeroOpacity,
+                cause,
+                syntax.Key,
+                scope,
+                scopeTick);
+        }
+
+        if (!renderNode.IsShown || renderNode.Opacity <= 0.000001)
+        {
+            XuiRenderNode? ancestor = renderNode.ParentKey is string parentKey
+                ? FindRenderNode(frame, parentKey)
+                : null;
+            while (ancestor is not null)
+            {
+                if (!ancestor.LocalIsShown)
+                {
+                    return Hidden(
+                        XuiPreviewStateReason.AncestorHidden,
+                        $"{display} is hidden because ancestor {DisplayName(ancestor)} is hidden.",
+                        ancestor.SelectionKey,
+                        scope,
+                        scopeTick);
+                }
+
+                if (ancestor.LocalOpacity <= 0.000001)
+                {
+                    return Hidden(
+                        XuiPreviewStateReason.AncestorOpacity,
+                        $"{display} is transparent because ancestor {DisplayName(ancestor)} has zero opacity.",
+                        ancestor.SelectionKey,
+                        scope,
+                        scopeTick);
+                }
+
+                ancestor = ancestor.ParentKey is string nextKey
+                    ? FindRenderNode(frame, nextKey)
+                    : null;
+            }
+        }
+
+        if (renderNode.ClipBounds is XuiRect clip &&
+            !Intersects(renderNode.WorldBounds, clip))
+        {
+            return Hidden(
+                XuiPreviewStateReason.Clipped,
+                $"{display} is completely outside its effective clip.",
+                syntax.Key,
+                scope,
+                scopeTick);
+        }
+
+        XuiRect canvas = new(
+            0,
+            0,
+            frame.DesignSize.X,
+            frame.DesignSize.Y);
+        if (!Intersects(renderNode.WorldBounds, canvas))
+        {
+            return Hidden(
+                XuiPreviewStateReason.OutsideCanvas,
+                $"{display} is outside the authored canvas.",
+                syntax.Key,
+                scope,
+                scopeTick);
+        }
+
+        return new XuiPreviewStateExplanation(
+            true,
+            XuiPreviewStateReason.Visible,
+            $"{display} is visible in the composed preview.",
+            syntax.Key,
+            scope?.ScopeKey,
+            scopeTick);
     }
 
     private XuiRenderContext EffectiveContext(
@@ -154,11 +386,110 @@ public sealed class DyingLightLayoutSession
             : context;
     }
 
+    private static XuiPreviewStateExplanation Hidden(
+        XuiPreviewStateReason reason,
+        string summary,
+        string responsibleKey,
+        XuiTimelineScope? scope,
+        int? scopeTick) =>
+        new(
+            false,
+            reason,
+            summary,
+            responsibleKey,
+            scope?.ScopeKey,
+            scopeTick);
+
+    private static string DisplayName(XuiRenderNode node) =>
+        string.IsNullOrWhiteSpace(node.Id)
+            ? node.ElementName
+            : node.Id;
+
+    private static bool TryRuntimeBoolean(
+        IReadOnlyDictionary<string, string>? values,
+        string property,
+        out bool value)
+    {
+        value = false;
+        return values?.TryGetValue(property, out string? raw) == true &&
+               XuiValueParser.TryBoolean(raw, out value);
+    }
+
+    private static bool TryRuntimeNumber(
+        IReadOnlyDictionary<string, string>? values,
+        string property,
+        out double value)
+    {
+        value = 0;
+        return values?.TryGetValue(property, out string? raw) == true &&
+               XuiValueParser.TryNumber(raw, out value);
+    }
+
+    private static bool TryAnimatedBoolean(
+        IReadOnlyDictionary<string, XuiAnimatedValue>? values,
+        string property,
+        out bool value)
+    {
+        value = false;
+        if (values?.TryGetValue(
+                property,
+                out XuiAnimatedValue? animated) != true ||
+            animated is null ||
+            animated.Kind != XuiTimelineValueKind.Boolean)
+        {
+            return false;
+        }
+
+        value = animated.Boolean;
+        return true;
+    }
+
+    private static bool TryAnimatedNumber(
+        IReadOnlyDictionary<string, XuiAnimatedValue>? values,
+        string property,
+        out double value)
+    {
+        value = 0;
+        if (values?.TryGetValue(
+                property,
+                out XuiAnimatedValue? animated) != true ||
+            animated is null ||
+            animated.Kind != XuiTimelineValueKind.Number)
+        {
+            return false;
+        }
+
+        value = animated.Number;
+        return true;
+    }
+
+    private static bool Intersects(XuiRect left, XuiRect right) =>
+        left.Width > 0 &&
+        left.Height > 0 &&
+        right.Width > 0 &&
+        right.Height > 0 &&
+        left.X < right.Right &&
+        left.Right > right.X &&
+        left.Y < right.Bottom &&
+        left.Bottom > right.Y;
+
     private void Remember(
         XuiRenderFrame frame,
         XuiTimelineEvaluationState timelineState,
-        XuiRenderContext context)
+        XuiRenderContext context,
+        bool rebuildRenderIndex)
     {
+        if (rebuildRenderIndex)
+        {
+            _renderNodeIndexByKey.Clear();
+            for (int index = 0; index < frame.Nodes.Count; index++)
+            {
+                _renderNodeIndexByKey.TryAdd(
+                    frame.Nodes[index].Key,
+                    index);
+            }
+        }
+
         _previousFrame = frame;
         _previousTimelineState = timelineState;
         _previousRenderContext = context with
@@ -174,6 +505,24 @@ public sealed class DyingLightLayoutSession
                     context.ForceHiddenTargets,
                     StringComparer.Ordinal),
         };
+    }
+
+    private XuiRenderNode? FindRenderNode(
+        XuiRenderFrame frame,
+        string key)
+    {
+        if (_renderNodeIndexByKey.TryGetValue(key, out int index) &&
+            index >= 0 &&
+            index < frame.Nodes.Count)
+        {
+            XuiRenderNode candidate = frame.Nodes[index];
+            if (candidate.Key.Equals(key, StringComparison.Ordinal))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     private static IReadOnlyList<string> ChangedKeys(

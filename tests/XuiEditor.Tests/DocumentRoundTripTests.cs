@@ -371,4 +371,151 @@ public sealed class DocumentRoundTripTests
             "B",
             XuiModelReader.GetId(moved.Parent!, document.Text));
     }
+
+    [TestMethod]
+    public void ElementPresetsCreateTypedDyingLightNodes()
+    {
+        Dictionary<XuiElementPreset, string> expectedNames = new()
+        {
+            [XuiElementPreset.Group] = "AdvGroup",
+            [XuiElementPreset.Image] = "MyImage",
+            [XuiElementPreset.Text] = "MyText",
+            [XuiElementPreset.Rectangle] = "IUIAARectangle",
+            [XuiElementPreset.Button] = "AdvButton",
+        };
+
+        foreach ((XuiElementPreset preset, string expectedName) in
+                 expectedNames)
+        {
+            string raw = XuiElementFactory.CreateXml(
+                new XuiElementCreationRequest
+                {
+                    Preset = preset,
+                    Id = "New_" + preset,
+                    Width = 25,
+                    Height = 15,
+                    Position = new Core.Values.XuiVector3(3, 4, 0),
+                    Text = "Hello & goodbye",
+                    ImagePath = "custom_image",
+                    Color = "0xff123456",
+                    Font = "boxed_l_10",
+                    Visual = "ButtonV",
+                },
+                "\n");
+            XuiDocument fragment = XuiDocument.FromText(raw);
+
+            Assert.AreEqual(expectedName, fragment.Root.Name);
+            Assert.AreEqual(
+                "New_" + preset,
+                XuiModelReader.GetId(fragment.Root, fragment.Text));
+            Assert.AreEqual(
+                "3.000000,4.000000,0.000000",
+                XuiModelReader.GetPropertyValue(
+                    fragment.Root,
+                    fragment.Text,
+                    "Position"));
+        }
+    }
+
+    [TestMethod]
+    public void VisualChildInsertionPrecedesTimelinesAndIsLosslesslyUndoable()
+    {
+        const string source =
+            "<XuiCanvas version='000c'>\r\n" +
+            "  <Properties><Width>100</Width><Height>100</Height></Properties>\r\n" +
+            "  <!-- retain this comment -->\r\n" +
+            "  <Timelines><NamedFrames /></Timelines>\r\n" +
+            "</XuiCanvas>\r\n";
+        XuiDocument document = XuiDocument.FromText(source);
+        string child = XuiElementFactory.CreateXml(
+            new XuiElementCreationRequest
+            {
+                Preset = XuiElementPreset.Image,
+                Id = "I_New",
+                Width = 20,
+                Height = 10,
+                Position = new Core.Values.XuiVector3(5, 6, 0),
+                ImagePath = "white",
+                Color = "0xffabcdef",
+            },
+            document.Format.NewLine);
+
+        document.Execute(XuiCommandFactory.InsertVisualChildXml(
+            document,
+            document.Root,
+            child));
+
+        int image = document.Text.IndexOf("<MyImage>", StringComparison.Ordinal);
+        int timelines = document.Text.IndexOf(
+            "<Timelines>",
+            StringComparison.Ordinal);
+        Assert.IsGreaterThan(0, image);
+        Assert.IsGreaterThan(image, timelines);
+        StringAssert.Contains(document.Text, "<!-- retain this comment -->");
+        Assert.AreEqual(
+            "I_New",
+            XuiModelReader.GetId(
+                XuiModelReader.VisualDescendants(document.Root).Single(),
+                document.Text));
+
+        document.Undo();
+        Assert.AreEqual(source, document.Text);
+        document.Redo();
+        StringAssert.Contains(document.Text, "<Id>I_New</Id>");
+    }
+
+    [TestMethod]
+    public void VisualChildInsertionExpandsSelfClosingParent()
+    {
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height>" +
+            "</Properties><AdvGroup /></XuiCanvas>");
+        XuiSyntaxNode parent =
+            XuiModelReader.VisualChildren(document.Root).Single();
+        string child = XuiElementFactory.CreateXml(
+            new XuiElementCreationRequest
+            {
+                Preset = XuiElementPreset.Text,
+                Id = "T_Child",
+                Width = 80,
+                Height = 20,
+                Position = default,
+                Text = "Child",
+            },
+            document.Format.NewLine);
+
+        document.Execute(XuiCommandFactory.InsertVisualChildXml(
+            document,
+            parent,
+            child));
+
+        XuiSyntaxNode currentParent =
+            XuiModelReader.VisualChildren(document.Root).Single();
+        Assert.IsFalse(currentParent.IsSelfClosing);
+        Assert.AreEqual(
+            "T_Child",
+            XuiModelReader.GetId(
+                XuiModelReader.VisualChildren(currentParent).Single(),
+                document.Text));
+    }
+
+    [TestMethod]
+    public void VisualChildInsertionRejectsDuplicateIdsTransactionally()
+    {
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height>" +
+            "</Properties><MyImage><Properties><Id>Existing</Id>" +
+            "</Properties></MyImage></XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        string duplicate =
+            "<AdvGroup><Properties><Id>Existing</Id></Properties></AdvGroup>";
+
+        Assert.ThrowsExactly<InvalidDataException>(() =>
+            XuiCommandFactory.InsertVisualChildXml(
+                document,
+                document.Root,
+                duplicate));
+        Assert.AreEqual(source, document.Text);
+        Assert.IsFalse(document.History.CanUndo);
+    }
 }

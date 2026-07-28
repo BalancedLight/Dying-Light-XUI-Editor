@@ -430,6 +430,147 @@ public static class XuiCommandFactory
             insertion);
     }
 
+    public static IXuiCommand InsertVisualChildXml(
+        XuiDocument document,
+        XuiSyntaxNode parent,
+        string rawXml,
+        string description = "Add XUI element")
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(parent);
+        ArgumentException.ThrowIfNullOrWhiteSpace(rawXml);
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        if (parent.Kind != XuiSyntaxKind.Element ||
+            XuiModelReader.IsStructural(parent))
+        {
+            throw new InvalidOperationException(
+                $"Element '{parent.Name}' cannot receive visual children.");
+        }
+
+        string normalized = rawXml
+            .ReplaceLineEndings(document.Format.NewLine)
+            .Trim();
+        XuiSyntaxTree fragment = new XuiSyntaxParser().Parse(
+            normalized,
+            document.Format);
+        XuiSyntaxNode child = fragment.Root;
+        if (child.Kind != XuiSyntaxKind.Element ||
+            XuiModelReader.IsStructural(child))
+        {
+            throw new InvalidDataException(
+                "A visual child must contain exactly one non-structural XUI element.");
+        }
+
+        string? rootId = XuiModelReader.GetId(child, normalized);
+        if (string.IsNullOrWhiteSpace(rootId))
+        {
+            throw new InvalidDataException(
+                "A new visual element requires a Properties/Id value.");
+        }
+
+        HashSet<string> existingIds = document.Root
+            .DescendantsAndSelf()
+            .Where(static node =>
+                node.Kind == XuiSyntaxKind.Element &&
+                !XuiModelReader.IsStructural(node))
+            .Select(node => XuiModelReader.GetId(node, document.Text))
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .Cast<string>()
+            .ToHashSet(StringComparer.Ordinal);
+        HashSet<string> fragmentIds = new(StringComparer.Ordinal);
+        foreach (XuiSyntaxNode visual in child
+                     .DescendantsAndSelf()
+                     .Where(static node =>
+                         node.Kind == XuiSyntaxKind.Element &&
+                         !XuiModelReader.IsStructural(node)))
+        {
+            string? id = XuiModelReader.GetId(visual, normalized);
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                continue;
+            }
+
+            if (!fragmentIds.Add(id))
+            {
+                throw new InvalidDataException(
+                    $"The new element contains duplicate Id '{id}'.");
+            }
+
+            if (existingIds.Contains(id))
+            {
+                throw new InvalidDataException(
+                    $"Id '{id}' already exists in this XUI document.");
+            }
+        }
+
+        string parentIndent = GetLineIndentation(
+            document.Text,
+            parent.Start);
+        string childIndent = DetectChildIndentation(
+            document.Text,
+            parent);
+        string indented = IndentFragment(
+            normalized,
+            childIndent,
+            document.Format.NewLine);
+        if (parent.IsSelfClosing)
+        {
+            string oldText = document.Text.Substring(
+                parent.Start,
+                parent.End - parent.Start);
+            int slash = oldText.LastIndexOf("/>", StringComparison.Ordinal);
+            if (slash < 0)
+            {
+                throw new InvalidDataException(
+                    $"Self-closing element '{parent.Name}' is malformed.");
+            }
+
+            string expanded = string.Concat(
+                oldText[..slash].TrimEnd(),
+                ">",
+                document.Format.NewLine,
+                indented,
+                document.Format.NewLine,
+                parentIndent,
+                "</",
+                parent.Name,
+                ">");
+            return new XuiTextEditCommand(
+                description,
+                parent.Start,
+                oldText,
+                expanded);
+        }
+
+        if (parent.EndTagStart < 0)
+        {
+            throw new InvalidOperationException(
+                $"Element '{parent.Name}' cannot receive child XML.");
+        }
+
+        XuiSyntaxNode? structuralBoundary = parent.ElementChildren
+            .FirstOrDefault(static element =>
+                element.Name is "Timelines" or "NamedFrames");
+        int boundary = structuralBoundary?.Start ?? parent.EndTagStart;
+        XuiSyntaxNode? lastVisual = XuiModelReader.VisualChildren(parent)
+            .Where(childNode => childNode.End <= boundary)
+            .LastOrDefault();
+        XuiSyntaxNode? properties = parent.FirstElement("Properties");
+        int insertionOffset = lastVisual?.End ??
+                              (properties is not null &&
+                               properties.End <= boundary
+                                  ? properties.End
+                                  : parent.StartTagEnd);
+        string insertion = string.Concat(
+            document.Format.NewLine,
+            indented);
+        return new XuiTextEditCommand(
+            description,
+            insertionOffset,
+            string.Empty,
+            insertion);
+    }
+
     public static IXuiCommand MoveSibling(
         XuiDocument document,
         XuiSyntaxNode element,
@@ -673,6 +814,19 @@ public static class XuiCommandFactory
         }
 
         return string.Join(newline, lines);
+    }
+
+    private static string IndentFragment(
+        string raw,
+        string indentation,
+        string newline)
+    {
+        string[] lines = raw
+            .ReplaceLineEndings(newline)
+            .Split(newline, StringSplitOptions.None);
+        return string.Join(
+            newline,
+            lines.Select(line => indentation + line));
     }
 
     private static SourceSpan ExpandToIndentation(string source, SourceSpan span)

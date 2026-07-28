@@ -57,6 +57,7 @@ public partial class MainWindow : Window, IDisposable
         "Strike", "CharacterSpacingAdjust", "LineSpacingAdjust",
         "AutoSizeToText", "AutoSizeParentToText",
         "MultilineAutoSizeHeight", "ClipText",
+        "ColorControlSequenceEnabled",
     };
     private static readonly HashSet<string> BooleanProperties = new(
         StringComparer.Ordinal)
@@ -75,6 +76,7 @@ public partial class MainWindow : Window, IDisposable
         "AutoAdjustHeight", "MultiLine", "VerticalAlignDown", "Bold",
         "Italic", "Underline", "Strike", "AutoSizeToText",
         "AutoSizeParentToText", "MultilineAutoSizeHeight", "ClipText",
+        "ColorControlSequenceEnabled",
     };
     private static readonly HashSet<string> NumberProperties = new(
         StringComparer.Ordinal)
@@ -227,6 +229,8 @@ public partial class MainWindow : Window, IDisposable
 
     internal string RawXmlStatusForTesting => RawXmlStatusText.Text;
 
+    internal string PreviewStateForTesting => PreviewStateText.Text;
+
     internal HierarchyRow? HierarchyRowForTesting(string nodeKey) =>
         _hierarchyIndex?.FindRow(nodeKey);
 
@@ -301,6 +305,7 @@ public partial class MainWindow : Window, IDisposable
 
         _hierarchyIndex?.UpdateEditorStates(_hiddenKeys, _lockedKeys);
         Viewport.SetHiddenKeys(EditorHiddenKeys());
+        Viewport.SetLockedKeys(EditorLockedKeys());
     }
 
     internal void IsolateHierarchyForTesting(string nodeKey) =>
@@ -321,6 +326,7 @@ public partial class MainWindow : Window, IDisposable
         }
 
         _hierarchyIndex?.UpdateEditorStates(_hiddenKeys, _lockedKeys);
+        Viewport.SetLockedKeys(EditorLockedKeys());
     }
 
     internal void SetRawXmlExpandedForTesting(
@@ -347,6 +353,19 @@ public partial class MainWindow : Window, IDisposable
         UpdateSelectionSurfaces();
     }
 
+    internal void SetInspectorBooleanForTesting(
+        string propertyName,
+        bool value)
+    {
+        InspectorPropertyRow row =
+            InspectorProperties.Single(property =>
+                property.Name.Equals(
+                    propertyName,
+                    StringComparison.Ordinal));
+        row.BooleanValue = value;
+        CommitInspectorValue(row);
+    }
+
     internal void SetAllInScopeForTesting(bool enabled)
     {
         AllTracksToggle.IsChecked = enabled;
@@ -368,6 +387,20 @@ public partial class MainWindow : Window, IDisposable
     internal void CommitTransformForTesting(
         XuiTransformCommittedEventArgs eventArgs) =>
         Viewport_TransformCommitted(this, eventArgs);
+
+    internal void AddChildForTesting(
+        string parentKey,
+        XuiElementCreationRequest request)
+    {
+        if (_document?.SyntaxTree.FindByKey(parentKey) is
+            not XuiSyntaxNode parent)
+        {
+            throw new InvalidOperationException(
+                "The requested parent does not exist.");
+        }
+
+        InsertVisualChild(parent, request);
+    }
 
     internal void ApplyTextureDiagnosticsForTesting(
         string imagePath,
@@ -550,6 +583,202 @@ public partial class MainWindow : Window, IDisposable
         });
     }
 
+    private void AddChild_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (_document is null ||
+            SelectedNodes() is not [XuiSyntaxNode parent])
+        {
+            StatusText.Text =
+                "Select exactly one hierarchy element to add a child.";
+            return;
+        }
+
+        if (IsLocked(parent.Key))
+        {
+            StatusText.Text =
+                $"{DisplayNode(parent)} is locked in the editor.";
+            return;
+        }
+
+        AddXuiElementWindow dialog = new(
+            DisplayNode(parent),
+            RenderedOrAuthoredSize(parent),
+            SuggestedUniqueId)
+        {
+            Owner = this,
+        };
+        if (dialog.ShowDialog() != true ||
+            dialog.Request is not XuiElementCreationRequest request)
+        {
+            return;
+        }
+
+        try
+        {
+            InsertVisualChild(parent, request);
+        }
+        catch (Exception exception) when (
+            exception is InvalidDataException or
+            InvalidOperationException or
+            ArgumentException)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Could not add XUI child",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            StatusText.Text = "Add child failed safely";
+        }
+    }
+
+    private void InsertVisualChild(
+        XuiSyntaxNode parent,
+        XuiElementCreationRequest request)
+    {
+        if (_document is null)
+        {
+            throw new InvalidOperationException(
+                "No XUI document is open.");
+        }
+
+        string parentKey = parent.Key;
+        string raw = XuiElementFactory.CreateXml(
+            request,
+            _document.Format.NewLine);
+        string createdId = CreatedElementId(raw);
+        _document.Execute(XuiCommandFactory.InsertVisualChildXml(
+            _document,
+            parent,
+            raw,
+            $"Add {createdId}"));
+
+        XuiSyntaxNode? created = _document.Root
+            .DescendantsAndSelf()
+            .Where(static node =>
+                node.Kind == XuiSyntaxKind.Element &&
+                !XuiModelReader.IsStructural(node))
+            .LastOrDefault(node =>
+                string.Equals(
+                    XuiModelReader.GetId(node, _document.Text),
+                    createdId,
+                    StringComparison.Ordinal));
+        _expanded.Add(parentKey);
+        if (created is not null)
+        {
+            _selectedKeys.Clear();
+            _selectedKeys.Add(created.Key);
+            EnsureSelectedAncestorsExpanded();
+        }
+
+        BuildHierarchy();
+        SelectRowsFromKeys(scrollIntoView: true);
+        UpdateSelectionSurfaces();
+        StatusText.Text = _document.Source?.IsReadOnly == true
+            ? $"Added {createdId} in memory. Use Save As to create a writable mod copy."
+            : $"Added {createdId}";
+    }
+
+    private string CreatedElementId(string raw)
+    {
+        if (_document is null)
+        {
+            throw new InvalidOperationException(
+                "No XUI document is open.");
+        }
+
+        XuiSyntaxTree fragment = new XuiSyntaxParser().Parse(
+            raw.ReplaceLineEndings(_document.Format.NewLine),
+            _document.Format);
+        string? id = XuiModelReader.GetId(
+            fragment.Root,
+            fragment.Source);
+        return string.IsNullOrWhiteSpace(id)
+            ? throw new InvalidDataException(
+                "A new visual element requires a Properties/Id value.")
+            : id;
+    }
+
+    private string SuggestedUniqueId(XuiElementPreset preset)
+    {
+        string prefix = XuiElementFactory.SuggestedIdPrefix(preset);
+        if (_document is null)
+        {
+            return prefix;
+        }
+
+        HashSet<string> ids = _document.Root
+            .DescendantsAndSelf()
+            .Select(node => XuiModelReader.GetId(node, _document.Text))
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .Cast<string>()
+            .ToHashSet(StringComparer.Ordinal);
+        if (!ids.Contains(prefix))
+        {
+            return prefix;
+        }
+
+        for (int suffix = 2; suffix < 100_000; suffix++)
+        {
+            string candidate = prefix +
+                               suffix.ToString(
+                                   CultureInfo.InvariantCulture);
+            if (!ids.Contains(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Could not allocate a unique Id beginning with {prefix}.");
+    }
+
+    private XuiVector2 RenderedOrAuthoredSize(XuiSyntaxNode parent)
+    {
+        XuiRenderNode? rendered = Viewport.FrameForTesting?.Nodes
+            .FirstOrDefault(node =>
+                node.Key.Equals(
+                    parent.Key,
+                    StringComparison.Ordinal));
+        if (rendered is not null &&
+            rendered.Size.X > 0 &&
+            rendered.Size.Y > 0)
+        {
+            return rendered.Size;
+        }
+
+        double width = 0;
+        double height = 0;
+        if (_document is not null)
+        {
+            XuiValueParser.TryNumber(
+                XuiModelReader.GetPropertyValue(
+                    parent,
+                    _document.Text,
+                    "Width"),
+                out width);
+            XuiValueParser.TryNumber(
+                XuiModelReader.GetPropertyValue(
+                    parent,
+                    _document.Text,
+                    "Height"),
+                out height);
+        }
+
+        if (width <= 0 || height <= 0)
+        {
+            return IsCanvasRoot(parent)
+                ? new XuiVector2(1280, 720)
+                : new XuiVector2(
+                    Math.Max(320, width),
+                    Math.Max(180, height));
+        }
+
+        return new XuiVector2(width, height);
+    }
+
     private void Delete_Click(object sender, RoutedEventArgs eventArgs)
     {
         if (_document is null)
@@ -656,7 +885,16 @@ public partial class MainWindow : Window, IDisposable
 
         foreach (XuiSyntaxNode node in SelectedNodes())
         {
-            _forceShownKeys.Add(node.Key);
+            XuiSyntaxNode? current = node;
+            while (current is not null)
+            {
+                if (!XuiModelReader.IsStructural(current))
+                {
+                    _forceShownKeys.Add(current.Key);
+                }
+
+                current = current.Parent;
+            }
         }
 
         RefreshEvaluation();
@@ -668,6 +906,21 @@ public partial class MainWindow : Window, IDisposable
     {
         _forceShownKeys.Clear();
         RefreshEvaluation();
+    }
+
+    private void RestoreComposedPose_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        StopPlayback();
+        if (_timelineWorkspace?.RestoreActiveComposedTick() != true)
+        {
+            return;
+        }
+
+        RefreshEvaluation();
+        UpdateTimelineData();
+        RefreshNamedFrameEditor();
     }
 
     private void LoadReferenceImage_Click(
@@ -983,6 +1236,7 @@ public partial class MainWindow : Window, IDisposable
 
         _hierarchyIndex?.UpdateEditorStates(_hiddenKeys, _lockedKeys);
         Viewport.SetHiddenKeys(EditorHiddenKeys());
+        Viewport.SetLockedKeys(EditorLockedKeys());
     }
 
     private void HierarchyContextMenu_Opened(
@@ -1063,6 +1317,7 @@ public partial class MainWindow : Window, IDisposable
     private void ApplyHierarchyVisibility()
     {
         _hierarchyIndex?.UpdateEditorStates(_hiddenKeys, _lockedKeys);
+        Viewport.SetLockedKeys(EditorLockedKeys());
         Viewport.SetHiddenKeys(EditorHiddenKeys());
     }
 
@@ -1085,6 +1340,7 @@ public partial class MainWindow : Window, IDisposable
         }
 
         _hierarchyIndex?.UpdateEditorStates(_hiddenKeys, _lockedKeys);
+        Viewport.SetLockedKeys(EditorLockedKeys());
     }
 
     private void HierarchySearch_TextChanged(
@@ -1185,6 +1441,16 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
+        XuiSyntaxNode? eventNode =
+            _document.SyntaxTree.FindByKey(eventArgs.NodeKey);
+        if (eventNode is null || IsCanvasRoot(eventNode))
+        {
+            StatusText.Text = eventNode is null
+                ? "Transform target no longer exists"
+                : "The XUI canvas cannot be transformed from the preview";
+            return;
+        }
+
         if (eventArgs.Kind == XuiTransformKind.Move)
         {
             IReadOnlyList<string> targetKeys =
@@ -1193,23 +1459,30 @@ public partial class MainWindow : Window, IDisposable
                     : [eventArgs.NodeKey];
             ExecuteBatch(() =>
             {
-                foreach (string key in targetKeys)
-                {
-                    if (IsLocked(key))
+                PositionMovePlan[] plans = targetKeys
+                    .Where(key => !IsLocked(key))
+                    .Select(key =>
                     {
-                        continue;
-                    }
+                        XuiSyntaxNode node =
+                            _document.SyntaxTree.FindByKey(key) ??
+                            throw new InvalidOperationException(
+                                "A moved element no longer exists.");
+                        if (IsCanvasRoot(node))
+                        {
+                            throw new InvalidOperationException(
+                                "The XUI canvas cannot be moved.");
+                        }
 
-                    XuiSyntaxNode? node =
-                        _document.SyntaxTree.FindByKey(key);
-                    if (node is not null)
-                    {
-                        ApplyPositionDelta(
+                        return PreparePositionMove(
                             node,
                             eventArgs.PositionDeltas.GetValueOrDefault(
                                 key,
                                 eventArgs.PositionDelta));
-                    }
+                    })
+                    .ToArray();
+                foreach (PositionMovePlan plan in plans)
+                {
+                    ApplyPositionMove(plan);
                 }
             }, "Move selection");
             return;
@@ -1217,7 +1490,8 @@ public partial class MainWindow : Window, IDisposable
 
         XuiSyntaxNode? selectedNode =
             _document.SyntaxTree.FindByKey(eventArgs.NodeKey);
-        if (selectedNode is null)
+        if (selectedNode is null ||
+            IsCanvasRoot(selectedNode))
         {
             return;
         }
@@ -1280,7 +1554,8 @@ public partial class MainWindow : Window, IDisposable
 
                     XuiSyntaxNode? node =
                         _document.SyntaxTree.FindByKey(key);
-                    if (node is not null)
+                    if (node is not null &&
+                        !IsCanvasRoot(node))
                     {
                         ApplyRotationDelta(
                             node,
@@ -1301,11 +1576,20 @@ public partial class MainWindow : Window, IDisposable
         return _selectedKeys
             .Where(key =>
             {
-                XuiSyntaxNode? parent =
-                    _document.SyntaxTree.FindByKey(key)?.Parent;
+                XuiSyntaxNode? node =
+                    _document.SyntaxTree.FindByKey(key);
+                if (node is null ||
+                    IsCanvasRoot(node) ||
+                    IsLocked(key))
+                {
+                    return false;
+                }
+
+                XuiSyntaxNode? parent = node.Parent;
                 while (parent is not null)
                 {
-                    if (_selectedKeys.Contains(parent.Key))
+                    if (_selectedKeys.Contains(parent.Key) &&
+                        !IsCanvasRoot(parent))
                     {
                         return false;
                     }
@@ -1317,6 +1601,245 @@ public partial class MainWindow : Window, IDisposable
             })
             .ToArray();
     }
+
+    private PositionMovePlan PreparePositionMove(
+        XuiSyntaxNode node,
+        XuiVector2 delta)
+    {
+        if (_document is null)
+        {
+            throw new InvalidOperationException(
+                "No XUI document is open.");
+        }
+
+        XuiPropertyEntry? positionProperty = XuiModelReader.GetProperty(
+            node,
+            _document.Text,
+            "Position");
+        XuiVector3 position = default;
+        if (positionProperty is not null &&
+            !TryPosition(
+                positionProperty.Value,
+                out position,
+                out _))
+        {
+            throw new InvalidOperationException(
+                $"{DisplayNode(node)} has an invalid authored Position value.");
+        }
+
+        string authoredValue = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{position.X + delta.X:0.000000},{position.Y + delta.Y:0.000000},{position.Z:0.000000}");
+        List<PositionKeyMove> keyMoves = [];
+        if (Math.Abs(delta.X) > 0.0001 ||
+            Math.Abs(delta.Y) > 0.0001)
+        {
+            EnsureCompiledLayout();
+            string? targetId =
+                XuiModelReader.GetId(node, _document.Text);
+            if (_layoutSession is not null &&
+                !string.IsNullOrWhiteSpace(targetId))
+            {
+                string? recursionBarrier =
+                    TimelineRecursionBarrierFor(node);
+                (
+                    XuiTimelineScope Scope,
+                    XuiTimeline Timeline,
+                    XuiTrack Track)[] positionTracks =
+                    _layoutSession.TimelineScopes.Scopes
+                        .Where(scope =>
+                            KeyIsAncestorOrSelf(
+                                scope.ScopeKey,
+                                node.Key) &&
+                            (recursionBarrier is null ||
+                             KeyIsAncestorOrSelf(
+                                 recursionBarrier,
+                                 scope.ScopeKey)))
+                        .SelectMany(scope =>
+                            scope.Timelines
+                                .Where(timeline =>
+                                    timeline.TargetId.Equals(
+                                        targetId,
+                                        StringComparison.Ordinal))
+                                .Select(timeline => (scope, timeline)))
+                        .SelectMany(timeline =>
+                            timeline.timeline.Tracks
+                                .Where(static track =>
+                                    track.Property ==
+                                    XuiTimelineProperty.Position)
+                                .Select(track => (
+                                    timeline.scope,
+                                    timeline.timeline,
+                                    track)))
+                        .ToArray();
+                HashSet<string> plannedProps =
+                    new(StringComparer.Ordinal);
+                foreach ((
+                             XuiTimelineScope scope,
+                             XuiTimeline timeline,
+                             XuiTrack track) in positionTracks)
+                {
+                    foreach (XuiSyntaxNode keyFrame in
+                             timeline.Syntax.Elements("KeyFrame"))
+                    {
+                        XuiSyntaxNode[] propNodes =
+                            keyFrame.Elements("Prop").ToArray();
+                        if (track.SourcePropertyIndex < 0 ||
+                            track.SourcePropertyIndex >= propNodes.Length)
+                        {
+                            throw new InvalidOperationException(
+                                $"{DisplayNode(node)} has a Position key " +
+                                $"with a missing Prop value in {scope.DisplayName}.");
+                        }
+
+                        XuiSyntaxNode prop =
+                            propNodes[track.SourcePropertyIndex];
+                        if (!plannedProps.Add(prop.Key))
+                        {
+                            continue;
+                        }
+
+                        string raw = prop.GetDecodedValue(_document.Text);
+                        if (!TryPosition(
+                                raw,
+                                out XuiVector3 keyPosition,
+                                out bool vector2))
+                        {
+                            throw new InvalidOperationException(
+                                $"{DisplayNode(node)} has an invalid " +
+                                $"Position key value '{raw}' in " +
+                                $"{scope.DisplayName}.");
+                        }
+
+                        string value = vector2
+                            ? string.Create(
+                                CultureInfo.InvariantCulture,
+                                $"{keyPosition.X + delta.X:0.000000},{keyPosition.Y + delta.Y:0.000000}")
+                            : string.Create(
+                                CultureInfo.InvariantCulture,
+                                $"{keyPosition.X + delta.X:0.000000},{keyPosition.Y + delta.Y:0.000000},{keyPosition.Z:0.000000}");
+                        keyMoves.Add(new PositionKeyMove(prop.Key, value));
+                    }
+                }
+            }
+        }
+
+        return new PositionMovePlan(
+            node.Key,
+            authoredValue,
+            keyMoves);
+    }
+
+    private string? TimelineRecursionBarrierFor(XuiSyntaxNode node)
+    {
+        if (_document is null)
+        {
+            return null;
+        }
+
+        XuiSyntaxNode? current = node.Parent;
+        while (current is not null)
+        {
+            string? raw = XuiModelReader.GetPropertyValue(
+                current,
+                _document.Text,
+                "DisableTimelineRecursion");
+            if (XuiValueParser.TryBoolean(raw, out bool disabled) &&
+                disabled)
+            {
+                return current.Key;
+            }
+
+            current = current.Parent;
+        }
+
+        return null;
+    }
+
+    private static bool KeyIsAncestorOrSelf(
+        string ancestorKey,
+        string nodeKey) =>
+        string.Equals(
+            ancestorKey,
+            nodeKey,
+            StringComparison.Ordinal) ||
+        (nodeKey.StartsWith(
+             ancestorKey,
+             StringComparison.Ordinal) &&
+         nodeKey.Length > ancestorKey.Length &&
+         nodeKey[ancestorKey.Length] == '/');
+
+    private void ApplyPositionMove(PositionMovePlan plan)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        XuiSyntaxNode node =
+            _document.SyntaxTree.FindByKey(plan.NodeKey) ??
+            throw new InvalidOperationException(
+                "A moved element no longer exists.");
+        SetNodeProperty(node, "Position", plan.AuthoredValue);
+        foreach (PositionKeyMove keyMove in plan.KeyMoves)
+        {
+            XuiSyntaxNode prop =
+                _document.SyntaxTree.FindByKey(keyMove.PropKey) ??
+                throw new InvalidOperationException(
+                    "A Position key changed while the move was being applied.");
+            _document.Execute(XuiCommandFactory.SetElementValue(
+                _document,
+                prop,
+                keyMove.Value));
+        }
+    }
+
+    private void HierarchyAddChild_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (sender is not MenuItem { DataContext: HierarchyRow row })
+        {
+            return;
+        }
+
+        _selectedKeys.Clear();
+        _selectedKeys.Add(row.NodeKey);
+        SelectRowsFromKeys(scrollIntoView: false);
+        UpdateSelectionSurfaces();
+        AddChild_Click(sender, eventArgs);
+    }
+
+    private static bool TryPosition(
+        string raw,
+        out XuiVector3 position,
+        out bool vector2)
+    {
+        if (XuiValueParser.TryVector3(raw, out position))
+        {
+            vector2 = false;
+            return true;
+        }
+
+        if (XuiValueParser.TryVector2(raw, out XuiVector2 value))
+        {
+            position = new XuiVector3(value.X, value.Y, 0);
+            vector2 = true;
+            return true;
+        }
+
+        position = default;
+        vector2 = false;
+        return false;
+    }
+
+    private string DisplayNode(XuiSyntaxNode node) =>
+        _document is null
+            ? node.Name
+            : XuiModelReader.GetId(node, _document.Text) is string id &&
+              id.Length > 0
+                ? id
+                : node.Name;
 
     private void ApplyPositionDelta(
         XuiSyntaxNode node,
@@ -1500,6 +2023,21 @@ public partial class MainWindow : Window, IDisposable
             BuildInspector();
             Keyboard.ClearFocus();
             eventArgs.Handled = true;
+        }
+    }
+
+    private void InspectorBoolean_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (sender is CheckBox
+            {
+                Tag: InspectorPropertyRow row,
+                IsChecked: bool value,
+            })
+        {
+            row.BooleanValue = value;
+            CommitInspectorValue(row);
         }
     }
 
@@ -1911,6 +2449,12 @@ public partial class MainWindow : Window, IDisposable
                  eventArgs.Key == Key.D)
         {
             Duplicate_Click(this, new RoutedEventArgs());
+        }
+        else if (!editingText &&
+                 modifiers == ModifierKeys.Control &&
+                 eventArgs.Key == Key.Insert)
+        {
+            AddChild_Click(this, new RoutedEventArgs());
         }
         else if (!editingText && eventArgs.Key == Key.Delete)
         {
@@ -2368,6 +2912,8 @@ public partial class MainWindow : Window, IDisposable
             Viewport.SetSample(sample);
             Viewport.SetSelectedKeys(_selectedKeys);
             Viewport.SetHiddenKeys(EditorHiddenKeys());
+            Viewport.SetLockedKeys(EditorLockedKeys());
+            RefreshPreviewState();
             UpdateTimelinePositionChrome();
             if (!_evaluationDiagnosticsInitialized ||
                 !_evaluationDiagnostics.SequenceEqual(frame.Diagnostics))
@@ -2545,6 +3091,14 @@ public partial class MainWindow : Window, IDisposable
             }
         }
 
+        if (nodes.All(IsIuiTextNode) &&
+            !propertyNames.Contains(
+                "ColorControlSequenceEnabled",
+                StringComparer.Ordinal))
+        {
+            propertyNames.Add("ColorControlSequenceEnabled");
+        }
+
         foreach (string name in propertyNames)
         {
             string?[] values = nodes
@@ -2553,15 +3107,25 @@ public partial class MainWindow : Window, IDisposable
                     _document.Text,
                     name))
                 .ToArray();
-            bool mixed = values.Any(static value => value is null) ||
-                         values.Distinct(StringComparer.Ordinal).Count() > 1;
+            bool defaultDisabledColorControl =
+                name == "ColorControlSequenceEnabled" &&
+                values.All(static value => value is null);
+            bool mixed = !defaultDisabledColorControl &&
+                         (values.Any(static value => value is null) ||
+                          values.Distinct(StringComparer.Ordinal).Count() > 1);
             InspectorPropertyRow row = new(
                 name,
-                mixed ? MixedValue : values[0] ?? string.Empty,
+                mixed
+                    ? MixedValue
+                    : defaultDisabledColorControl
+                        ? "false"
+                        : values[0] ?? string.Empty,
                 PropertyCategory(name),
                 mixed,
                 !KnownProperties.Contains(name),
-                InspectorChoices(name));
+                InspectorChoices(name),
+                isBooleanToggle:
+                    name == "ColorControlSequenceEnabled");
             row.Error = mixed ? null : ValidateProperty(name, row.Value);
             InspectorProperties.Add(row);
         }
@@ -2711,8 +3275,67 @@ public partial class MainWindow : Window, IDisposable
         SelectionSnapshot selection = CaptureSelection();
         BuildInspector(selection);
         ResolveTimelineScopeFromSelection(selection);
+        RefreshPreviewState(selection);
         UpdateTimelineData(selection);
         RefreshNamedFrameEditor();
+    }
+
+    private void RefreshPreviewState(
+        SelectionSnapshot? selection = null)
+    {
+        SelectionSnapshot snapshot = selection ?? CaptureSelection();
+        AddChildButton.IsEnabled =
+            _document is not null &&
+            snapshot.Nodes.Length == 1;
+        if (_document is null || snapshot.Nodes.Length != 1)
+        {
+            PreviewStatePanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        XuiSyntaxNode node = snapshot.Nodes[0];
+        PreviewStatePanel.Visibility = Visibility.Visible;
+        HierarchyRow? row = _hierarchyIndex?.FindRow(node.Key);
+        if (row?.VisibilityState is
+            HierarchyVisibilityState.Hidden or
+            HierarchyVisibilityState.HiddenByAncestor)
+        {
+            PreviewStateText.Text =
+                $"{row.DisplayName} is {row.VisibilityToolTip.ToLowerInvariant()}. " +
+                "This is an editor-only hierarchy override.";
+            ForceShowInspectorButton.IsEnabled = false;
+            RestoreComposedPoseButton.IsEnabled =
+                _timelineWorkspace?.ActiveScope is not null &&
+                _timelineWorkspace.ActiveTickIsComposed == false;
+            return;
+        }
+
+        XuiRenderFrame? frame = Viewport.FrameForTesting;
+        if (_layoutSession is null || frame is null)
+        {
+            PreviewStateText.Text =
+                "Preview state is not available until the document is rendered.";
+            ForceShowInspectorButton.IsEnabled = false;
+            RestoreComposedPoseButton.IsEnabled = false;
+            return;
+        }
+
+        XuiPreviewStateExplanation explanation =
+            _layoutSession.ExplainPreviewState(
+                node.Key,
+                frame,
+                _timelineWorkspace?.EvaluationState ??
+                XuiTimelineEvaluationState.Initial,
+                BuildRenderContext());
+        PreviewStateText.Text = explanation.Summary;
+        ForceShowInspectorButton.IsEnabled =
+            !explanation.IsVisible &&
+            explanation.Reason is not
+                XuiPreviewStateReason.Clipped and not
+                XuiPreviewStateReason.OutsideCanvas;
+        RestoreComposedPoseButton.IsEnabled =
+            _timelineWorkspace?.ActiveScope is not null &&
+            _timelineWorkspace.ActiveTickIsComposed == false;
     }
 
     private bool ResolveTimelineScopeFromSelection(
@@ -3732,6 +4355,12 @@ public partial class MainWindow : Window, IDisposable
         return false;
     }
 
+    private static bool IsCanvasRoot(XuiSyntaxNode node) =>
+        node.Parent is null ||
+        node.Name.Equals(
+            "XuiCanvas",
+            StringComparison.OrdinalIgnoreCase);
+
     private static bool PathIsInside(string root, string candidate)
     {
         string fullRoot = Path.TrimEndingDirectorySeparator(
@@ -3768,6 +4397,35 @@ public partial class MainWindow : Window, IDisposable
 
         HashSet<string> effective = new(_hiddenKeys, StringComparer.Ordinal);
         foreach (string key in _hiddenKeys)
+        {
+            XuiSyntaxNode? node = _document.SyntaxTree.FindByKey(key);
+            if (node is null)
+            {
+                continue;
+            }
+
+            effective.UnionWith(
+                XuiModelReader.VisualDescendants(node)
+                    .Select(static descendant => descendant.Key));
+        }
+
+        return effective;
+    }
+
+    private IReadOnlySet<string> EditorLockedKeys()
+    {
+        if (_hierarchyIndex is not null)
+        {
+            return _hierarchyIndex.EffectivelyLockedKeys;
+        }
+
+        if (_document is null || _lockedKeys.Count == 0)
+        {
+            return _lockedKeys;
+        }
+
+        HashSet<string> effective = new(_lockedKeys, StringComparer.Ordinal);
+        foreach (string key in _lockedKeys)
         {
             XuiSyntaxNode? node = _document.SyntaxTree.FindByKey(key);
             if (node is null)
@@ -3835,7 +4493,7 @@ public partial class MainWindow : Window, IDisposable
             "ShadowColor" or "DropShadowColor" or "ShadowOffset" or
             "Bold" or "Italic" or "Underline" or "Strike" or
             "SourceString" or "CharacterSpacingAdjust" or
-            "LineSpacingAdjust")
+            "LineSpacingAdjust" or "ColorControlSequenceEnabled")
         {
             return "Text / Image";
         }
@@ -3852,6 +4510,28 @@ public partial class MainWindow : Window, IDisposable
         }
 
         return "Raw / Unknown";
+    }
+
+    private bool IsIuiTextNode(XuiSyntaxNode node)
+    {
+        if (_document is null)
+        {
+            return false;
+        }
+
+        string classOverride =
+            XuiModelReader.GetPropertyValue(
+                node,
+                _document.Text,
+                "ClassOverride") ??
+            string.Empty;
+        string combined = node.Name + " " + classOverride;
+        return combined.Contains(
+                   "Text",
+                   StringComparison.OrdinalIgnoreCase) ||
+               combined.Contains(
+                   "Html",
+                   StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? ValidateProperty(string name, string value)
@@ -3987,6 +4667,15 @@ public partial class MainWindow : Window, IDisposable
         public static SelectionSnapshot Empty { get; } =
             new([], [], [], string.Empty);
     }
+
+    private sealed record PositionMovePlan(
+        string NodeKey,
+        string AuthoredValue,
+        IReadOnlyList<PositionKeyMove> KeyMoves);
+
+    private sealed record PositionKeyMove(
+        string PropKey,
+        string Value);
 
     public void Dispose()
     {

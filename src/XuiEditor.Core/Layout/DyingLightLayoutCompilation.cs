@@ -19,6 +19,9 @@ internal sealed class DyingLightLayoutCompilation
             new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<(string Material, XuiRenderKind Kind), XuiMaterialProfile>
         _materials = [];
+    private readonly Dictionary<(string Text, bool Enabled), XuiColorControlParseResult>
+        _colorControlText = [];
+    private int _colorControlParseCount;
 
     public DyingLightLayoutCompilation(
         XuiDocument document,
@@ -43,6 +46,8 @@ internal sealed class DyingLightLayoutCompilation
     public int VisualCount => _visuals.Count;
 
     public int MaterialProfileCount => _materials.Count;
+
+    public int ColorControlParseCount => _colorControlParseCount;
 
     public XuiControllerRuntimeProfile? ControllerRuntimeProfile { get; }
 
@@ -122,6 +127,24 @@ internal sealed class DyingLightLayoutCompilation
         profile = XuiMaterialCatalog.Resolve(material, kind);
         _materials.Add(key, profile);
         return profile;
+    }
+
+    public XuiColorControlParseResult ResolveColorControlText(
+        string text,
+        bool enabled)
+    {
+        (string Text, bool Enabled) key = (text, enabled);
+        if (_colorControlText.TryGetValue(
+                key,
+                out XuiColorControlParseResult? parsed))
+        {
+            return parsed;
+        }
+
+        parsed = XuiColorControlSequenceParser.Parse(text, enabled);
+        _colorControlText.Add(key, parsed);
+        _colorControlParseCount++;
+        return parsed;
     }
 
     public XuiSyntaxNode? DocumentNode(string key) =>

@@ -127,6 +127,10 @@ public sealed record XuiRenderNode(
 
     public double CharacterSpacingAdjust { get; init; }
 
+    public bool ColorControlSequenceEnabled { get; init; }
+
+    public IReadOnlyList<XuiTextColorRun> TextColorRuns { get; init; } = [];
+
     public bool Outline { get; init; }
 
     public double OutlineSize { get; init; } = 1;

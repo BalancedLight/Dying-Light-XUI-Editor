@@ -348,6 +348,12 @@ public sealed class TimelineTests
         Assert.IsFalse(workspace.ActiveTickIsComposed);
         Assert.AreEqual(0, workspace.EvaluationState.TickFor(
             groupScope.ScopeKey));
+
+        Assert.IsTrue(workspace.RestoreActiveComposedTick());
+        Assert.AreEqual(12, workspace.ActiveTick);
+        Assert.IsTrue(workspace.ActiveTickIsComposed);
+        Assert.AreEqual(0, workspace.RememberedTicks.Count);
+        Assert.IsFalse(workspace.RestoreActiveComposedTick());
     }
 
     [TestMethod]

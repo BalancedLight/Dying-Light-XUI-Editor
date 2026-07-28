@@ -375,6 +375,36 @@ public sealed class DyingLightLayoutEngine
                              "Uppercase",
                              false,
                              diagnostics);
+        bool colorControlSequenceEnabled =
+            properties.Boolean(
+                "ColorControlSequenceEnabled",
+                false,
+                diagnostics);
+        XuiColorControlParseResult colorControlText =
+            compilation.ResolveColorControlText(
+                text,
+                kind == XuiRenderKind.Text &&
+                colorControlSequenceEnabled);
+        bool routesToTextPresenter =
+            kind != XuiRenderKind.Text &&
+            colorControlText.HasMarkup &&
+            visualTemplate is not null &&
+            FindVisualPresenter(
+                visualTemplate,
+                compilation,
+                static (_, _) => true) is not null;
+        AddColorControlDiagnostics(
+            syntax,
+            kind,
+            colorControlSequenceEnabled,
+            routesToTextPresenter,
+            colorControlText,
+            diagnostics);
+        if (kind == XuiRenderKind.Text)
+        {
+            text = colorControlText.DisplayText;
+        }
+
         bool multiLine = kind == XuiRenderKind.Text &&
                          (properties.Boolean(
                               "MultiLine",
@@ -739,6 +769,12 @@ public sealed class DyingLightLayoutEngine
             VerticalTextAlignment = verticalTextAlignment,
             TextBorder = textBorder,
             CharacterSpacingAdjust = characterSpacingAdjust,
+            ColorControlSequenceEnabled =
+                kind == XuiRenderKind.Text &&
+                colorControlSequenceEnabled,
+            TextColorRuns = kind == XuiRenderKind.Text
+                ? colorControlText.ColorRuns
+                : [],
             Outline = outline,
             OutlineSize = outlineSize,
             OutlineColor = outlineColor,
@@ -990,6 +1026,13 @@ public sealed class DyingLightLayoutEngine
                 text = assetResolver.ResolveText(text);
             }
 
+            text = compilation.ResolveColorControlText(
+                text,
+                properties.Boolean(
+                    "ColorControlSequenceEnabled",
+                    false,
+                    diagnostics)).DisplayText;
+
             string fontId = properties.Text(
                 "Font",
                 properties.Text("DefaultFont")).Trim();
@@ -1161,6 +1204,13 @@ public sealed class DyingLightLayoutEngine
                 {
                     text = assetResolver.ResolveText(text);
                 }
+
+                text = compilation.ResolveColorControlText(
+                    text,
+                    properties.Boolean(
+                        "ColorControlSequenceEnabled",
+                        false,
+                        diagnostics)).DisplayText;
 
                 bool uppercase = properties.Boolean(
                     "Uppercase",
@@ -2364,6 +2414,7 @@ public sealed class DyingLightLayoutEngine
 
         XuiTextMeasurement textMeasurement = MeasurePresenterText(
             primaryPresenter,
+            compilation,
             assetResolver,
             text,
             diagnostics);
@@ -2403,6 +2454,7 @@ public sealed class DyingLightLayoutEngine
                 ? 0
                 : MeasurePresenterText(
                     hintPresenter,
+                    compilation,
                     assetResolver,
                     hintText,
                     diagnostics).Width;
@@ -2496,6 +2548,7 @@ public sealed class DyingLightLayoutEngine
 
     private static XuiTextMeasurement MeasurePresenterText(
         PropertyBag presenter,
+        DyingLightLayoutCompilation compilation,
         IAssetResolver assetResolver,
         string text,
         List<XuiDiagnostic> diagnostics)
@@ -2510,6 +2563,12 @@ public sealed class DyingLightLayoutEngine
             "Uppercase",
             false,
             diagnostics);
+        text = compilation.ResolveColorControlText(
+            text,
+            presenter.Boolean(
+                "ColorControlSequenceEnabled",
+                false,
+                diagnostics)).DisplayText;
         double spacing = presenter.Number(
             "CharacterSpacingAdjust",
             0,
@@ -2770,6 +2829,52 @@ public sealed class DyingLightLayoutEngine
                 XuiRenderKind.Image or XuiRenderKind.Shape => ImageMaterial,
                 _ => null,
             };
+    }
+
+    private static void AddColorControlDiagnostics(
+        XuiSyntaxNode syntax,
+        XuiRenderKind kind,
+        bool enabled,
+        bool routesToTextPresenter,
+        XuiColorControlParseResult parsed,
+        List<XuiDiagnostic> diagnostics)
+    {
+        if (!parsed.HasMarkup)
+        {
+            return;
+        }
+
+        if (kind != XuiRenderKind.Text && !routesToTextPresenter)
+        {
+            diagnostics.Add(new XuiDiagnostic(
+                "XUI-TEXT003",
+                XuiDiagnosticSeverity.Warning,
+                "Color markup is attached to an element that does not resolve to an IUIText node, so Dying Light will display or ignore it as ordinary data.",
+                syntax.Span,
+                syntax.Key));
+        }
+
+        if (parsed.HasMalformedSequences)
+        {
+            diagnostics.Add(new XuiDiagnostic(
+                "XUI-TEXT002",
+                XuiDiagnosticSeverity.Warning,
+                "Malformed or unsupported color markup is displayed literally. Accepted forms are %COLOR(RRGGBB) and %COLOR(reset); the COLOR prefix is case-sensitive.",
+                syntax.Span,
+                syntax.Key));
+        }
+
+        if (kind == XuiRenderKind.Text &&
+            parsed.HasValidSequences &&
+            !enabled)
+        {
+            diagnostics.Add(new XuiDiagnostic(
+                "XUI-TEXT001",
+                XuiDiagnosticSeverity.Warning,
+                "Color markup is present, but ColorControlSequenceEnabled is false. Dying Light will display these tags literally unless the controller enables them at runtime.",
+                syntax.Span,
+                syntax.Key));
+        }
     }
 
     private static List<XuiDiagnostic> AggregateDiagnostics(

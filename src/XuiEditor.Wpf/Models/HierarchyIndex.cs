@@ -8,6 +8,8 @@ public sealed class HierarchyIndex
     private readonly IReadOnlyList<Entry> _declarationOrder;
     private readonly HashSet<string> _effectivelyHiddenKeys =
         new(StringComparer.Ordinal);
+    private readonly HashSet<string> _effectivelyLockedKeys =
+        new(StringComparer.Ordinal);
 
     private HierarchyIndex(
         XuiDocument document,
@@ -29,6 +31,9 @@ public sealed class HierarchyIndex
 
     public IReadOnlySet<string> EffectivelyHiddenKeys =>
         _effectivelyHiddenKeys;
+
+    public IReadOnlySet<string> EffectivelyLockedKeys =>
+        _effectivelyLockedKeys;
 
     public static HierarchyIndex Build(XuiDocument document)
     {
@@ -151,6 +156,7 @@ public sealed class HierarchyIndex
         IReadOnlySet<string> locked)
     {
         _effectivelyHiddenKeys.Clear();
+        _effectivelyLockedKeys.Clear();
         Update(RootKey, hiddenBy: null, lockedBy: null);
         return;
 
@@ -177,6 +183,11 @@ public sealed class HierarchyIndex
             if (visibilityState != HierarchyVisibilityState.Visible)
             {
                 _effectivelyHiddenKeys.Add(key);
+            }
+
+            if (lockState != HierarchyLockState.Unlocked)
+            {
+                _effectivelyLockedKeys.Add(key);
             }
 
             string? descendantHiddenBy = directlyHidden

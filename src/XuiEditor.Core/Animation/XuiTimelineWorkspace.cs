@@ -203,6 +203,18 @@ public sealed class XuiTimelineWorkspace
 
     public bool ResetActiveTick() => SetActiveTick(0);
 
+    public bool RestoreActiveComposedTick()
+    {
+        if (ActiveScope is null ||
+            !_ticks.Remove(ActiveScope.ScopeKey))
+        {
+            return false;
+        }
+
+        _evaluationState = null;
+        return true;
+    }
+
     public bool IsComposed(string scopeKey)
     {
         ArgumentNullException.ThrowIfNull(scopeKey);

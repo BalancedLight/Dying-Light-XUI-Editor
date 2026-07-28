@@ -142,6 +142,21 @@ public sealed class CorpusAcceptanceTests
         Assert.IsTrue(materialDiagnostics
             .GroupBy(static diagnostic => diagnostic.Message)
             .All(static group => group.Count() == 1));
+        XuiRenderNode respawnText = frame.Nodes.Single(static node =>
+            node.Id == "T_Time" &&
+            node.Text == "Respawn in 10sec" &&
+            node.TextColorRuns.Count == 1);
+        Assert.IsTrue(respawnText.ColorControlSequenceEnabled);
+        Assert.AreEqual(11, respawnText.TextColorRuns[0].Start);
+        Assert.AreEqual(5, respawnText.TextColorRuns[0].Length);
+        Assert.AreEqual(
+            0xffdc8a1au,
+            respawnText.TextColorRuns[0].Color.Argb);
+        Assert.IsFalse(frame.Diagnostics.Any(diagnostic =>
+            diagnostic.NodeKey == respawnText.SelectionKey &&
+            diagnostic.Code.StartsWith(
+                "XUI-TEXT",
+                StringComparison.Ordinal)));
         Assert.IsFalse(timelines.Diagnostics.Any(static diagnostic =>
             diagnostic.Code == "XUI-TL005"));
         Assert.IsLessThan(TimeSpan.FromSeconds(8), parseTime);

@@ -834,6 +834,129 @@ public sealed class LayoutTests
     }
 
     [TestMethod]
+    public void PreviewStateExplainsAnimatedAndAncestorVisibility()
+    {
+        XuiDocument document = Document(
+            "<AdvGroup><Properties><Id>Parent</Id><Width>80</Width>" +
+            "<Height>80</Height></Properties>" +
+            "<MyImage><Properties><Id>Animated</Id><Width>20</Width>" +
+            "<Height>20</Height><Show>true</Show></Properties></MyImage>" +
+            "</AdvGroup><Timelines><Timeline><Id>Animated</Id>" +
+            "<TimelineProp>Show</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>true</Prop></KeyFrame>" +
+            "<KeyFrame><Time>5</Time><Interpolation>0</Interpolation>" +
+            "<Prop>false</Prop></KeyFrame></Timeline></Timelines>");
+        DyingLightLayoutSession session =
+            DyingLightLayoutSession.Compile(document);
+        XuiTimelineScope scope = session.TimelineScopes.Scopes.Single();
+        XuiSyntaxNode animatedNode =
+            XuiModelReader.VisualDescendants(document.Root).Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Animated");
+        XuiTimelineEvaluationState state =
+            XuiTimelineEvaluationState.ScopeLocal(
+                new Dictionary<string, int>(StringComparer.Ordinal)
+                {
+                    [scope.ScopeKey] = 5,
+                });
+        XuiRenderFrame frame = session.Sample(
+            XuiViewport.Default,
+            state);
+
+        XuiPreviewStateExplanation explanation =
+            session.ExplainPreviewState(
+                animatedNode.Key,
+                frame,
+                state);
+
+        Assert.IsFalse(explanation.IsVisible);
+        Assert.AreEqual(
+            XuiPreviewStateReason.AnimatedHidden,
+            explanation.Reason);
+        StringAssert.Contains(explanation.Summary, "tick 5");
+
+        XuiDocument ancestorDocument = Document(
+            "<AdvGroup><Properties><Id>HiddenParent</Id><Width>80</Width>" +
+            "<Height>80</Height><Show>false</Show></Properties>" +
+            "<MyImage><Properties><Id>Child</Id><Width>20</Width>" +
+            "<Height>20</Height></Properties></MyImage></AdvGroup>");
+        DyingLightLayoutSession ancestorSession =
+            DyingLightLayoutSession.Compile(ancestorDocument);
+        XuiRenderFrame ancestorFrame = ancestorSession.Sample(
+            XuiViewport.Default,
+            XuiTimelineEvaluationState.Initial);
+        XuiSyntaxNode child =
+            XuiModelReader.VisualDescendants(ancestorDocument.Root)
+                .Single(node =>
+                    XuiModelReader.GetId(node, ancestorDocument.Text) ==
+                    "Child");
+
+        XuiPreviewStateExplanation ancestorExplanation =
+            ancestorSession.ExplainPreviewState(
+                child.Key,
+                ancestorFrame,
+                XuiTimelineEvaluationState.Initial);
+
+        Assert.AreEqual(
+            XuiPreviewStateReason.AncestorHidden,
+            ancestorExplanation.Reason);
+        StringAssert.Contains(
+            ancestorExplanation.Summary,
+            "HiddenParent");
+    }
+
+    [TestMethod]
+    public void PreviewStateExplainsRuntimeOverridesAndForceShow()
+    {
+        XuiDocument document = Document(
+            "<MyImage><Properties><Id>Target</Id><Width>20</Width>" +
+            "<Height>20</Height></Properties></MyImage>");
+        XuiSyntaxNode target =
+            XuiModelReader.VisualDescendants(document.Root).Single();
+        XuiPreviewScenario runtimeScenario = new(
+            "hidden",
+            "Hidden",
+            "Test",
+            [new XuiPreviewProperty("Target", "Show", "false")],
+            new HashSet<string>(StringComparer.Ordinal));
+        XuiRenderContext hiddenContext = new(runtimeScenario);
+        DyingLightLayoutSession hiddenSession =
+            DyingLightLayoutSession.Compile(document);
+        XuiRenderFrame hiddenFrame = hiddenSession.Sample(
+            XuiViewport.Default,
+            XuiTimelineEvaluationState.Initial,
+            hiddenContext);
+
+        Assert.AreEqual(
+            XuiPreviewStateReason.RuntimeHidden,
+            hiddenSession.ExplainPreviewState(
+                    target.Key,
+                    hiddenFrame,
+                    XuiTimelineEvaluationState.Initial,
+                    hiddenContext)
+                .Reason);
+
+        XuiRenderContext shownContext = new(
+            runtimeScenario,
+            new HashSet<string>(["Target"], StringComparer.Ordinal));
+        DyingLightLayoutSession shownSession =
+            DyingLightLayoutSession.Compile(document);
+        XuiRenderFrame shownFrame = shownSession.Sample(
+            XuiViewport.Default,
+            XuiTimelineEvaluationState.Initial,
+            shownContext);
+        XuiPreviewStateExplanation shown =
+            shownSession.ExplainPreviewState(
+                target.Key,
+                shownFrame,
+                XuiTimelineEvaluationState.Initial,
+                shownContext);
+
+        Assert.IsTrue(shown.IsVisible);
+        Assert.AreEqual(XuiPreviewStateReason.ForceShown, shown.Reason);
+    }
+
+    [TestMethod]
     public void IncrementalScopeSampleMatchesFreshFullEvaluation()
     {
         XuiDocument document = Document(

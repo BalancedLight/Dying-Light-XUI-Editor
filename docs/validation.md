@@ -1,19 +1,21 @@
 # Validation record
 
-Validation performed on Windows x64 on 2026-07-27:
+Validation performed on Windows x64 on 2026-07-28:
 
 ```text
 dotnet restore XuiEditor.slnx --locked-mode
-dotnet test tests\XuiEditor.Tests\XuiEditor.Tests.csproj
-  --configuration Debug --no-restore
-dotnet test tests\XuiEditor.Tests\XuiEditor.Tests.csproj
-  --configuration Release --no-restore
+dotnet build XuiEditor.slnx --configuration Debug --no-restore
+dotnet test XuiEditor.slnx
+  --configuration Debug --no-restore --no-build
+dotnet build XuiEditor.slnx --configuration Release --no-restore
+dotnet test XuiEditor.slnx
+  --configuration Release --no-restore --no-build
 dotnet publish src\XuiEditor.Wpf\XuiEditor.Wpf.csproj
   -c Release -r win-x64 --self-contained true --no-restore
   -o artifacts\publish\win-x64
 ```
 
-Both test configurations passed all 125 tests with zero build warnings.
+Both test configurations passed all 156 tests with zero build warnings.
 
 Coverage includes:
 
@@ -31,6 +33,12 @@ Coverage includes:
   the common Yes/No controller branch with the alternative OK branch hidden
 - compiled revision-bound layout sessions, retained nested visuals, camera-only
   pan/zoom, and live multi-selection move/rotation previews
+- semantic canvas hit testing that excludes `XuiCanvas`, preserves a selected
+  visual-template owner during a drag, cycles overlap owners with Alt, and
+  allows selected animated-hidden bounds to remain movable
+- transactional move commits that offset authored `Position` plus every
+  applicable ancestor-scope `Position` key, reject malformed keys without a
+  partial edit, and undo as one command
 - material profiles for stock sprite/text/button/antialias/clip/tint/group
   families, recursive masked-group material substitution, solid-color white
   images, runtime-only shapes, and aggregated unsupported-material diagnostics
@@ -52,6 +60,9 @@ Coverage includes:
   `menuyesnodialog.xui`, and the large HUD
 - direct Dying Light install indexing, PAK precedence, RP6 resource lookup,
   selected-locale/English fallback, input glyphs, and exact bitmap fonts
+- exact `IUIText` `%COLOR(RRGGBB)`/`%COLOR(reset)` parsing after
+  localization, literal disabled/malformed tags, cached colored runs,
+  per-range WPF brushes, per-glyph bitmap colors, and stock HUD evidence
 - structural `data\menu`, `PakAssets\XUI`, and isolated-document asset-root
   discovery, with project definitions and DDS files taking precedence over
   configured, extracted, and installed roots
@@ -66,6 +77,12 @@ Coverage includes:
   `aggro_skull` atlas region (the similarly named `hud_dl` is not used)
 - HUD preview scenarios, runtime text placeholders, hidden-node reveal rules,
   and source-byte isolation
+- indexed effective-state explanations for authored, animated, controller,
+  ancestor, opacity, clipping, and off-canvas visibility, plus ancestor-aware
+  force-show and composed-pose recovery without selection-time layout samples
+- lossless, undoable visual-child insertion with typed group, image, text,
+  antialiased rectangle, and stock-button presets plus validated custom XML,
+  duplicate-ID rejection, and correct placement before timeline structures
 - 10,000-node hierarchy virtualization, fixed 24-pixel rows, expansion/filter
   state, selection synchronization, persistent hierarchy rows, direct and
   inherited eye/lock states, settings/pane persistence, recovery isolation,
@@ -103,8 +120,8 @@ The final `win-x64` publish contains one file and no sidecars:
 
 ```text
 DyingLightXuiEditor.exe
-65,533,841 bytes
-SHA-256 C09E204157EB2558709F918A146E689D60A3F0FCE7FBDC330FA9BEAA662EA50B
+65,556,026 bytes
+SHA-256 5AB700CFE08078F85B4807A144E31D73B101726E9B6943AE4532001A749630C8
 ```
 
 The self-contained executable was launched without Unity or an installed .NET

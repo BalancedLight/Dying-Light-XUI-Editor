@@ -143,6 +143,8 @@ public sealed class XuiViewportControl : FrameworkElement
         new(StringComparer.Ordinal);
     private readonly HashSet<string> _hiddenKeys =
         new(StringComparer.Ordinal);
+    private readonly HashSet<string> _lockedKeys =
+        new(StringComparer.Ordinal);
     private XuiRenderFrame? _frame;
     private IAssetResolver? _assetResolver;
     private long _assetResolverGeneration;
@@ -152,6 +154,7 @@ public sealed class XuiViewportControl : FrameworkElement
     private Vector _pan;
     private bool _panning;
     private Point _pointerStart;
+    private PointerGesture? _pendingPointerGesture;
     private string? _dragNodeKey;
     private XuiRenderNode? _dragNode;
     private XuiTransformKind _dragKind;
@@ -296,6 +299,53 @@ public sealed class XuiViewportControl : FrameworkElement
         _nodeVisuals.TryGetValue(nodeKey, out NodeVisual? visual) &&
         ContainsImageDrawing(visual.Content.Drawing);
 
+    internal IReadOnlyList<XuiColor> RetainedNodeBrushColorsForTesting(
+        string nodeKey)
+    {
+        if (!_nodeVisuals.TryGetValue(
+                nodeKey,
+                out NodeVisual? visual))
+        {
+            return [];
+        }
+
+        List<XuiColor> colors = [];
+        CollectDrawingColors(visual.Content.Drawing, colors);
+        return colors;
+    }
+
+    internal static IReadOnlyList<XuiColor> BitmapGlyphColorsForTesting(
+        XuiRenderNode node)
+    {
+        XuiTextPresentation presentation =
+            XuiTextColorRunFormatter.Prepare(
+                node.Text,
+                node.TextColorRuns,
+                node.Uppercase,
+                CultureInfo.CurrentUICulture);
+        List<XuiColor> colors = [];
+        int textIndex = 0;
+        int runIndex = 0;
+        foreach (Rune rune in presentation.Text.EnumerateRunes())
+        {
+            int runeStart = textIndex;
+            textIndex += rune.Utf16SequenceLength;
+            if (rune.Value is '\r' or '\n')
+            {
+                continue;
+            }
+
+            colors.Add(
+                ColorForTextIndex(
+                    presentation.ColorRuns,
+                    runeStart,
+                    ref runIndex) ??
+                node.Color);
+        }
+
+        return colors;
+    }
+
     internal bool RetainedContainerHasClipForTesting(string nodeKey) =>
         _nodeVisuals[nodeKey].Container.Clip is not null;
 
@@ -331,6 +381,18 @@ public sealed class XuiViewportControl : FrameworkElement
 
     internal void CancelTransformForTesting() =>
         CancelTransform(releaseCapture: false);
+
+    internal string? HitSelectionKeyForTesting(
+        XuiVector2 logicalPoint,
+        bool selectedBodyFirst = false,
+        bool cycle = false)
+    {
+        XuiRenderNode? selected = selectedBodyFirst
+            ? HitTestSelectedBody(logicalPoint)
+            : null;
+        return selected?.SelectionKey ??
+               HitTest(logicalPoint, cycle)?.SelectionKey;
+    }
 
     protected override int VisualChildrenCount => _visuals.Count;
 
@@ -462,6 +524,27 @@ public sealed class XuiViewportControl : FrameworkElement
         RedrawOverlay();
     }
 
+    public void SetLockedKeys(IEnumerable<string> keys)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        HashSet<string> replacement = new(keys, StringComparer.Ordinal);
+        if (_lockedKeys.SetEquals(replacement))
+        {
+            return;
+        }
+
+        _lockedKeys.Clear();
+        _lockedKeys.UnionWith(replacement);
+        if (_pendingPointerGesture is PointerGesture pending &&
+            pending.DragCandidate is XuiRenderNode candidate &&
+            IsLocked(candidate))
+        {
+            ClearPendingPointerGesture(releaseCapture: true);
+        }
+
+        RedrawOverlay();
+    }
+
     public void Fit()
     {
         BeginNavigationCache();
@@ -529,20 +612,20 @@ public sealed class XuiViewportControl : FrameworkElement
             return;
         }
 
-        XuiRenderNode? hit = HitTest(logical);
         ModifierKeys modifiers = Keyboard.Modifiers;
-        SelectionRequested?.Invoke(
-            this,
-            new XuiSelectionRequestedEventArgs(
-                hit?.SelectionKey,
-                modifiers.HasFlag(ModifierKeys.Shift),
-                modifiers.HasFlag(ModifierKeys.Control)));
-        if (hit is not null)
-        {
-            XuiRenderNode dragNode = _frame.Nodes.FirstOrDefault(node =>
-                node.Key == hit.SelectionKey) ?? hit;
-            BeginTransform(dragNode, XuiTransformKind.Move, ResizeHandle.None);
-        }
+        bool cycle = modifiers.HasFlag(ModifierKeys.Alt);
+        XuiRenderNode? ordinaryHit = HitTest(logical, cycle);
+        XuiRenderNode? selectedHit =
+            !cycle &&
+            !modifiers.HasFlag(ModifierKeys.Shift) &&
+            !modifiers.HasFlag(ModifierKeys.Control)
+                ? HitTestSelectedBody(logical)
+                : null;
+        _pendingPointerGesture = new PointerGesture(
+            selectedHit ?? ordinaryHit,
+            ordinaryHit ?? selectedHit,
+            modifiers);
+        CaptureMouse();
 
         e.Handled = true;
     }
@@ -561,10 +644,55 @@ public sealed class XuiViewportControl : FrameworkElement
             return;
         }
 
+        if (_pendingPointerGesture is PointerGesture pending &&
+            e.LeftButton == MouseButtonState.Pressed)
+        {
+            Vector controlDelta = current - _pointerStart;
+            if (Math.Abs(controlDelta.X) >=
+                    SystemParameters.MinimumHorizontalDragDistance ||
+                Math.Abs(controlDelta.Y) >=
+                    SystemParameters.MinimumVerticalDragDistance)
+            {
+                bool selectionOnly =
+                    pending.Modifiers.HasFlag(ModifierKeys.Shift) ||
+                    pending.Modifiers.HasFlag(ModifierKeys.Control);
+                XuiRenderNode? candidate = pending.DragCandidate;
+                if (!selectionOnly &&
+                    candidate is not null &&
+                    CanTransform(candidate))
+                {
+                    if (!_selectedKeys.Contains(candidate.SelectionKey))
+                    {
+                        SelectionRequested?.Invoke(
+                            this,
+                            new XuiSelectionRequestedEventArgs(
+                                candidate.SelectionKey,
+                                additive: false,
+                                toggle: false));
+                    }
+
+                    XuiRenderNode transformNode =
+                        TransformOwner(candidate);
+                    _pendingPointerGesture = null;
+                    BeginTransform(
+                        transformNode,
+                        XuiTransformKind.Move,
+                        ResizeHandle.None);
+                }
+            }
+
+            if (_dragNodeKey is null)
+            {
+                e.Handled = true;
+                return;
+            }
+        }
+
         if (_dragNodeKey is null ||
             e.LeftButton != MouseButtonState.Pressed)
         {
-            if (_dragNodeKey is null)
+            if (_dragNodeKey is null &&
+                _pendingPointerGesture is null)
             {
                 TransformHandleHit? hover = HitTestTransformHandle(
                     ControlToLogical(current));
@@ -602,6 +730,22 @@ public sealed class XuiViewportControl : FrameworkElement
             Cursor = Cursors.Arrow;
             ReleaseMouseCapture();
             ScheduleNavigationCacheRelease();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.ChangedButton == MouseButton.Left &&
+            _pendingPointerGesture is PointerGesture pending)
+        {
+            _pendingPointerGesture = null;
+            ReleasePointerCapture();
+            SelectionRequested?.Invoke(
+                this,
+                new XuiSelectionRequestedEventArgs(
+                    pending.ClickCandidate?.SelectionKey,
+                    pending.Modifiers.HasFlag(ModifierKeys.Shift),
+                    pending.Modifiers.HasFlag(ModifierKeys.Control)));
+            Cursor = Cursors.Arrow;
             e.Handled = true;
             return;
         }
@@ -698,6 +842,14 @@ public sealed class XuiViewportControl : FrameworkElement
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        if (e.Key == Key.Escape &&
+            _pendingPointerGesture is not null)
+        {
+            ClearPendingPointerGesture(releaseCapture: true);
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Escape && _dragNodeKey is not null)
         {
             CancelTransform();
@@ -716,6 +868,7 @@ public sealed class XuiViewportControl : FrameworkElement
             CancelTransform(releaseCapture: false);
         }
 
+        _pendingPointerGesture = null;
         _panning = false;
         ScheduleNavigationCacheRelease();
     }
@@ -1027,6 +1180,9 @@ public sealed class XuiViewportControl : FrameworkElement
         left.VerticalTextAlignment == right.VerticalTextAlignment &&
         left.TextBorder == right.TextBorder &&
         left.CharacterSpacingAdjust.Equals(right.CharacterSpacingAdjust) &&
+        left.ColorControlSequenceEnabled ==
+        right.ColorControlSequenceEnabled &&
+        left.TextColorRuns.SequenceEqual(right.TextColorRuns) &&
         left.Outline == right.Outline &&
         left.OutlineSize.Equals(right.OutlineSize) &&
         left.OutlineColor == right.OutlineColor &&
@@ -1551,13 +1707,24 @@ public sealed class XuiViewportControl : FrameworkElement
             return;
         }
 
+        XuiTextPresentation presentation =
+            XuiTextColorRunFormatter.Prepare(
+                node.Text,
+                node.TextColorRuns,
+                node.Uppercase,
+                CultureInfo.CurrentUICulture);
         if (!string.IsNullOrWhiteSpace(node.Font))
         {
             if (_bitmapFonts.TryGetValue(
                     node.Font,
                     out LoadedBitmapFont? bitmapFont))
             {
-                DrawBitmapText(drawing, node, bounds, bitmapFont);
+                DrawBitmapText(
+                    drawing,
+                    node,
+                    bounds,
+                    bitmapFont,
+                    presentation);
                 return;
             }
 
@@ -1579,9 +1746,7 @@ public sealed class XuiViewportControl : FrameworkElement
                 : font?.Size ?? Math.Min(20, bounds.Height * 0.75),
             1,
             256);
-        string content = node.Uppercase
-            ? node.Text.ToUpper(CultureInfo.CurrentUICulture)
-            : node.Text;
+        string content = presentation.Text;
         Rect textBounds = new(
             bounds.Left + node.TextBorder.X,
             bounds.Top + node.TextBorder.Y,
@@ -1617,6 +1782,22 @@ public sealed class XuiViewportControl : FrameworkElement
             text.SetTextDecorations(TextDecorations.Underline);
         }
 
+        foreach (XuiTextColorRun run in presentation.ColorRuns)
+        {
+            int start = Math.Clamp(run.Start, 0, content.Length);
+            int length = Math.Clamp(
+                run.Length,
+                0,
+                content.Length - start);
+            if (length > 0)
+            {
+                text.SetForegroundBrush(
+                    ToBrush(run.Color),
+                    start,
+                    length);
+            }
+        }
+
         double renderedHeight = Math.Min(text.Height, textBounds.Height);
         double y = node.VerticalTextAlignment switch
         {
@@ -1647,18 +1828,22 @@ public sealed class XuiViewportControl : FrameworkElement
             ? new Pen(ToBrush(node.OutlineColor), node.OutlineSize)
             : null;
         outlinePen?.Freeze();
-        drawing.DrawGeometry(ToBrush(node.Color), outlinePen, geometry);
+        if (outlinePen is not null)
+        {
+            drawing.DrawGeometry(null, outlinePen, geometry);
+        }
+
+        drawing.DrawText(text, origin);
     }
 
     private static void DrawBitmapText(
         DrawingContext drawing,
         XuiRenderNode node,
         Rect bounds,
-        LoadedBitmapFont font)
+        LoadedBitmapFont font,
+        XuiTextPresentation presentation)
     {
-        string content = node.Uppercase
-            ? node.Text.ToUpper(CultureInfo.CurrentUICulture)
-            : node.Text;
+        string content = presentation.Text;
         Rect textBounds = new(
             bounds.Left + node.TextBorder.X,
             bounds.Top + node.TextBorder.Y,
@@ -1677,7 +1862,8 @@ public sealed class XuiViewportControl : FrameworkElement
             baseScale,
             textBounds.Width,
             node.MultiLine,
-            node.CharacterSpacingAdjust);
+            node.CharacterSpacingAdjust,
+            presentation.ColorRuns);
         if (lines.Count == 0)
         {
             return;
@@ -1763,7 +1949,7 @@ public sealed class XuiViewportControl : FrameworkElement
             lineHeight,
             0,
             0,
-            node.Color);
+            uniformColor: null);
         drawing.Pop();
     }
 
@@ -1773,7 +1959,8 @@ public sealed class XuiViewportControl : FrameworkElement
         double baseScale,
         double maximumWidth,
         bool multiline,
-        double characterSpacingAdjust)
+        double characterSpacingAdjust,
+        IReadOnlyList<XuiTextColorRun> colorRuns)
     {
         List<BitmapTextLine> lines = [];
         List<BitmapGlyphPlacement> placements = [];
@@ -1785,8 +1972,12 @@ public sealed class XuiViewportControl : FrameworkElement
             width = 0;
         }
 
+        int textIndex = 0;
+        int colorRunIndex = 0;
         foreach (Rune rune in content.EnumerateRunes())
         {
+            int runeStart = textIndex;
+            textIndex += rune.Utf16SequenceLength;
             if (rune.Value == '\r')
             {
                 continue;
@@ -1828,10 +2019,15 @@ public sealed class XuiViewportControl : FrameworkElement
                 CommitLine();
             }
 
+            XuiColor? glyphColor = ColorForTextIndex(
+                colorRuns,
+                runeStart,
+                ref colorRunIndex);
             placements.Add(new BitmapGlyphPlacement(
                 glyph,
                 glyphScale,
-                advance));
+                advance,
+                glyphColor));
             width += advance;
         }
 
@@ -1841,6 +2037,24 @@ public sealed class XuiViewportControl : FrameworkElement
         }
 
         return lines;
+    }
+
+    private static XuiColor? ColorForTextIndex(
+        IReadOnlyList<XuiTextColorRun> colorRuns,
+        int textIndex,
+        ref int colorRunIndex)
+    {
+        while (colorRunIndex < colorRuns.Count &&
+               textIndex >= colorRuns[colorRunIndex].End)
+        {
+            colorRunIndex++;
+        }
+
+        return colorRunIndex < colorRuns.Count &&
+               textIndex >= colorRuns[colorRunIndex].Start &&
+               textIndex < colorRuns[colorRunIndex].End
+            ? colorRuns[colorRunIndex].Color
+            : null;
     }
 
     private static void DrawBitmapTextPass(
@@ -1853,9 +2067,13 @@ public sealed class XuiViewportControl : FrameworkElement
         double lineHeight,
         double offsetX,
         double offsetY,
-        XuiColor color)
+        XuiColor? uniformColor)
     {
-        Brush colorBrush = ToBrush(color);
+        Brush? uniformBrush = uniformColor is XuiColor passColor
+            ? ToBrush(passColor)
+            : null;
+        Dictionary<XuiColor, Brush>? brushes =
+            uniformBrush is null ? [] : null;
         for (int lineIndex = 0; lineIndex < lines.Count; lineIndex++)
         {
             BitmapTextLine line = lines[lineIndex];
@@ -1870,6 +2088,18 @@ public sealed class XuiViewportControl : FrameworkElement
             double y = top + (lineIndex * lineHeight);
             foreach (BitmapGlyphPlacement placement in line.Glyphs)
             {
+                XuiColor color =
+                    uniformColor ??
+                    placement.Color ??
+                    node.Color;
+                Brush? colorBrush = uniformBrush;
+                if (colorBrush is null &&
+                    !brushes!.TryGetValue(color, out colorBrush))
+                {
+                    colorBrush = ToBrush(color);
+                    brushes.Add(color, colorBrush);
+                }
+
                 XuiRect source = placement.Glyph.SourceRectangle;
                 if (source.Width > 0 && source.Height > 0)
                 {
@@ -2010,6 +2240,11 @@ public sealed class XuiViewportControl : FrameworkElement
 
             Rect rect = ToRect(world);
             drawing.DrawRectangle(null, selectionPen, rect);
+            if (!CanTransform(node))
+            {
+                continue;
+            }
+
             foreach ((ResizeHandle _, Point handle) in Handles(
                          rect,
                          20 / Math.Max(camera.M11, 0.001)))
@@ -2544,23 +2779,130 @@ public sealed class XuiViewportControl : FrameworkElement
         return new XuiVector2(logical.X, logical.Y);
     }
 
-    private XuiRenderNode? HitTest(XuiVector2 logicalPoint) =>
-        _frame?.Nodes
+    private XuiRenderNode? HitTest(
+        XuiVector2 logicalPoint,
+        bool cycle = false)
+    {
+        XuiRenderNode[] candidates = HitTestCandidates(logicalPoint)
+            .ToArray();
+        if (candidates.Length == 0)
+        {
+            return null;
+        }
+
+        if (!cycle)
+        {
+            return candidates[0];
+        }
+
+        int selectedIndex = Array.FindIndex(
+            candidates,
+            candidate =>
+                _selectedKeys.Contains(candidate.SelectionKey));
+        return selectedIndex < 0
+            ? candidates[0]
+            : candidates[(selectedIndex + 1) % candidates.Length];
+    }
+
+    private IEnumerable<XuiRenderNode> HitTestCandidates(
+        XuiVector2 logicalPoint)
+    {
+        XuiRenderFrame? frame = _frame;
+        if (frame is null)
+        {
+            yield break;
+        }
+
+        HashSet<string> returnedOwners = new(StringComparer.Ordinal);
+        foreach (XuiRenderNode node in frame.Nodes
+                     .Where(node =>
+                         !IsCanvasRoot(node) &&
+                         !_hiddenKeys.Contains(node.SelectionKey) &&
+                         node.IsShown &&
+                         node.Opacity > 0)
+                     .Reverse())
+        {
+            if (HitTestNode(node, logicalPoint) &&
+                returnedOwners.Add(node.SelectionKey))
+            {
+                yield return node;
+            }
+        }
+    }
+
+    private XuiRenderNode? HitTestSelectedBody(
+        XuiVector2 logicalPoint)
+    {
+        XuiRenderFrame? frame = _frame;
+        if (frame is null)
+        {
+            return null;
+        }
+
+        return frame.Nodes
             .Where(node =>
-                !_hiddenKeys.Contains(node.SelectionKey) &&
-                node.IsShown &&
-                node.Opacity > 0)
+                !IsCanvasRoot(node) &&
+                _selectedKeys.Contains(node.SelectionKey) &&
+                !_hiddenKeys.Contains(node.SelectionKey))
             .Reverse()
             .FirstOrDefault(node =>
-                node.WorldBounds.Contains(logicalPoint) &&
-                (node.ClipBounds is null ||
-                 node.ClipBounds.Value.Contains(logicalPoint)));
+                HitTestNode(node, logicalPoint));
+    }
+
+    private static bool HitTestNode(
+        XuiRenderNode node,
+        XuiVector2 logicalPoint)
+    {
+        if (node.ClipBounds is XuiRect clip &&
+            !clip.Contains(logicalPoint))
+        {
+            return false;
+        }
+
+        if (!Matrix3x2.Invert(
+                node.WorldTransform,
+                out Matrix3x2 inverse))
+        {
+            return node.WorldBounds.Contains(logicalPoint);
+        }
+
+        XuiVector2 local = TransformPoint(
+            logicalPoint.X,
+            logicalPoint.Y,
+            inverse);
+        return node.LocalBounds.Contains(local);
+    }
+
+    private XuiRenderNode TransformOwner(XuiRenderNode candidate) =>
+        _frame?.Nodes.FirstOrDefault(node =>
+            node.Key.Equals(
+                candidate.SelectionKey,
+                StringComparison.Ordinal)) ?? candidate;
+
+    private bool CanTransform(XuiRenderNode node) =>
+        !IsCanvasRoot(node) &&
+        !IsLocked(node);
+
+    private bool IsLocked(XuiRenderNode node) =>
+        _lockedKeys.Contains(node.SelectionKey) ||
+        _lockedKeys.Contains(node.Key);
+
+    private static bool IsCanvasRoot(XuiRenderNode node) =>
+        node.ParentKey is null ||
+        node.ElementName.Equals(
+            "XuiCanvas",
+            StringComparison.OrdinalIgnoreCase);
 
     private void BeginTransform(
         XuiRenderNode node,
         XuiTransformKind kind,
         ResizeHandle handle)
     {
+        if (!CanTransform(node))
+        {
+            return;
+        }
+
         _dragNodeKey = node.Key;
         _dragNode = node;
         _dragKind = kind;
@@ -2680,14 +3022,16 @@ public sealed class XuiViewportControl : FrameworkElement
             static node => node.Key,
             StringComparer.Ordinal);
         foreach (XuiRenderNode candidate in frame.Nodes.Where(node =>
-                     _selectedKeys.Contains(node.Key)))
+                     _selectedKeys.Contains(node.Key) &&
+                     CanTransform(node)))
         {
             string? parentKey = candidate.ParentKey;
             bool selectedAncestor = false;
             while (parentKey is not null &&
                    byKey.TryGetValue(parentKey, out XuiRenderNode? parent))
             {
-                if (_selectedKeys.Contains(parent.Key))
+                if (_selectedKeys.Contains(parent.Key) &&
+                    CanTransform(parent))
                 {
                     selectedAncestor = true;
                     break;
@@ -2749,6 +3093,29 @@ public sealed class XuiViewportControl : FrameworkElement
 
         Cursor = Cursors.Arrow;
         RedrawOverlay();
+    }
+
+    private void ClearPendingPointerGesture(bool releaseCapture)
+    {
+        _pendingPointerGesture = null;
+        if (releaseCapture)
+        {
+            ReleasePointerCapture();
+        }
+
+        Cursor = Cursors.Arrow;
+    }
+
+    private void ReleasePointerCapture()
+    {
+        if (!IsMouseCaptured)
+        {
+            return;
+        }
+
+        _finishingTransform = true;
+        ReleaseMouseCapture();
+        _finishingTransform = false;
     }
 
     private static Matrix3x2 CreateLocalTransform(
@@ -2874,7 +3241,8 @@ public sealed class XuiViewportControl : FrameworkElement
         foreach (XuiRenderNode node in frame.Nodes
                      .Where(node =>
                          _selectedKeys.Contains(node.Key) &&
-                         !_hiddenKeys.Contains(node.SelectionKey))
+                         !_hiddenKeys.Contains(node.SelectionKey) &&
+                         CanTransform(node))
                      .Reverse())
         {
             Rect bounds = ToRect(node.WorldBounds);
@@ -2979,6 +3347,45 @@ public sealed class XuiViewportControl : FrameworkElement
             Color.FromArgb(color.A, color.R, color.G, color.B));
         brush.Freeze();
         return brush;
+    }
+
+    private static void CollectDrawingColors(
+        Drawing? drawing,
+        List<XuiColor> colors)
+    {
+        switch (drawing)
+        {
+            case DrawingGroup group:
+                foreach (Drawing child in group.Children)
+                {
+                    CollectDrawingColors(child, colors);
+                }
+
+                break;
+            case GlyphRunDrawing glyph:
+                AddBrushColor(glyph.ForegroundBrush, colors);
+                break;
+            case GeometryDrawing geometry:
+                AddBrushColor(geometry.Brush, colors);
+                AddBrushColor(geometry.Pen?.Brush, colors);
+                break;
+        }
+    }
+
+    private static void AddBrushColor(
+        Brush? brush,
+        List<XuiColor> colors)
+    {
+        if (brush is not SolidColorBrush solid)
+        {
+            return;
+        }
+
+        colors.Add(new XuiColor(
+            solid.Color.A,
+            solid.Color.R,
+            solid.Color.G,
+            solid.Color.B));
     }
 
     private static IEnumerable<(ResizeHandle Handle, Point Point)> Handles(
@@ -3166,9 +3573,15 @@ public sealed class XuiViewportControl : FrameworkElement
     private sealed record BitmapGlyphPlacement(
         XuiBitmapGlyph Glyph,
         double Scale,
-        double Advance);
+        double Advance,
+        XuiColor? Color);
 
     private sealed record BitmapTextLine(
         IReadOnlyList<BitmapGlyphPlacement> Glyphs,
         double Width);
+
+    private sealed record PointerGesture(
+        XuiRenderNode? DragCandidate,
+        XuiRenderNode? ClickCandidate,
+        ModifierKeys Modifiers);
 }
