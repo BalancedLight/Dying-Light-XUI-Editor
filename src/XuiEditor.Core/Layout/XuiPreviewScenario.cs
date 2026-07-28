@@ -37,7 +37,7 @@ public sealed record XuiPreviewScenario(
     public static XuiPreviewScenario Empty { get; } = new(
         "authored",
         "Authored state",
-        "Shows only values authored in the XUI document.",
+        "Shows authored values with deterministic common controller initialization.",
         [],
         new HashSet<string>(StringComparer.Ordinal));
 
@@ -48,7 +48,9 @@ public sealed record XuiRenderContext(
     XuiPreviewScenario? Scenario = null,
     IReadOnlySet<string>? ForceShownTargets = null,
     IReadOnlySet<string>? ForceHiddenTargets = null,
-    bool ResolveLocalization = true)
+    bool ResolveLocalization = true,
+    XuiControllerRuntimeProfile? ControllerRuntimeProfile = null,
+    bool ApplyCommonControllerProfile = true)
 {
     public XuiPreviewScenario EffectiveScenario =>
         Scenario ?? XuiPreviewScenario.Empty;
@@ -62,6 +64,39 @@ public sealed record XuiRenderContext(
     public bool IsForceHidden(string id, string key) =>
         ForceHiddenTargets?.Contains(id) == true ||
         ForceHiddenTargets?.Contains(key) == true;
+
+    public IReadOnlyDictionary<string, string>? PropertiesFor(
+        string id,
+        string key)
+    {
+        IReadOnlyDictionary<string, string>? controller =
+            ControllerRuntimeProfile?.PropertiesFor(id, key);
+        IReadOnlyDictionary<string, string>? scenario =
+            EffectiveScenario.PropertiesFor(id, key);
+        if (controller is null)
+        {
+            return scenario;
+        }
+
+        if (scenario is null)
+        {
+            return controller;
+        }
+
+        Dictionary<string, string> combined =
+            new(StringComparer.Ordinal);
+        foreach ((string property, string value) in controller)
+        {
+            combined[property] = value;
+        }
+
+        foreach ((string property, string value) in scenario)
+        {
+            combined[property] = value;
+        }
+
+        return combined;
+    }
 }
 
 public static class XuiPreviewScenarioCatalog

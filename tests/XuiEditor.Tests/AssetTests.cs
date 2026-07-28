@@ -244,6 +244,162 @@ public sealed class AssetTests
     }
 
     [TestMethod]
+    public void DocumentAssetContextDiscoversWorkshopDataAndPakAssetsRoots()
+    {
+        using TestDirectory directory = new();
+        string workshopData = directory.File(
+            Path.Combine("Workshop", "Project", "data"));
+        string workshopXui = Path.Combine(
+            workshopData,
+            "menu",
+            "hud",
+            "custom.xui");
+        Directory.CreateDirectory(Path.GetDirectoryName(workshopXui)!);
+        File.WriteAllText(workshopXui, "<XuiCanvas />");
+        string pakAssets = directory.File("PakAssets");
+        string loaderXui = Path.Combine(
+            pakAssets,
+            "XUI",
+            "MenuLoader.xui");
+        Directory.CreateDirectory(Path.GetDirectoryName(loaderXui)!);
+        File.WriteAllText(loaderXui, "<XuiCanvas />");
+
+        XuiDocumentAssetContext workshop =
+            XuiDocumentAssetContext.Discover(workshopXui);
+        XuiDocumentAssetContext loader =
+            XuiDocumentAssetContext.Discover(loaderXui);
+
+        Assert.AreEqual(
+            Path.GetFullPath(workshopData),
+            workshop.Root.FullPath);
+        Assert.AreEqual(
+            Path.GetFullPath(pakAssets),
+            loader.Root.FullPath);
+    }
+
+    [TestMethod]
+    public async Task ProjectTextureDefinitionsAndDdsOverrideInstallWithProvenance()
+    {
+        using TestDirectory directory = new();
+        string projectData = directory.File(
+            Path.Combine("Workshop", "CustomProject", "data"));
+        string definitionDirectory = Path.Combine(
+            projectData,
+            "menu",
+            "texturedefs");
+        string firstTextureDirectory = Path.Combine(
+            projectData,
+            "menu",
+            "hud",
+            "a");
+        string secondTextureDirectory = Path.Combine(
+            projectData,
+            "menu",
+            "hud",
+            "b");
+        string install = directory.File("install-data");
+        Directory.CreateDirectory(definitionDirectory);
+        Directory.CreateDirectory(firstTextureDirectory);
+        Directory.CreateDirectory(secondTextureDirectory);
+        Directory.CreateDirectory(install);
+        string projectDefinition = Path.Combine(
+            definitionDirectory,
+            "custom.def");
+        await File.WriteAllTextAsync(
+            projectDefinition,
+            """
+            Texture("shared.dds",4,4)
+            {
+                Whole("project_texture")
+            }
+            Texture("fallback.dds",4,4)
+            {
+                Whole("fallback_texture")
+            }
+            Texture("missing.dds",4,4)
+            {
+                Whole("missing_texture")
+            }
+            """);
+        await File.WriteAllBytesAsync(
+            Path.Combine(firstTextureDirectory, "shared.dds"),
+            CreateUncompressedDds(30));
+        await File.WriteAllBytesAsync(
+            Path.Combine(secondTextureDirectory, "shared.dds"),
+            CreateUncompressedDds(70));
+        await File.WriteAllTextAsync(
+            Path.Combine(install, "installed.def"),
+            """
+            Texture("shared.dds",4,4)
+            {
+                Whole("project_texture")
+            }
+            """);
+        await File.WriteAllBytesAsync(
+            Path.Combine(install, "shared.dds"),
+            CreateUncompressedDds(110));
+        await File.WriteAllBytesAsync(
+            Path.Combine(install, "fallback.dds"),
+            CreateUncompressedDds(140));
+        DyingLightAssetResolver resolver = new(
+        [
+            new XuiAssetRoot(
+                projectData,
+                XuiAssetRootKind.Workspace,
+                false),
+            new XuiAssetRoot(
+                install,
+                XuiAssetRootKind.DyingLightInstall,
+                true),
+        ],
+            directory.File("cache"));
+
+        await resolver.RebuildAsync();
+        XuiTextureRegion? definition =
+            resolver.ResolveTextureDefinition("project_texture");
+        ResolvedTexture? project =
+            await resolver.ResolveTextureAsync("project_texture");
+        ResolvedTexture? fallback =
+            await resolver.ResolveTextureAsync("fallback_texture");
+        ResolvedTexture? missing =
+            await resolver.ResolveTextureAsync("missing_texture");
+
+        Assert.IsNotNull(definition);
+        Assert.IsNotNull(definition.DefinitionRoot);
+        Assert.AreEqual(
+            Path.GetFullPath(projectData),
+            definition.DefinitionRoot.FullPath);
+        Assert.AreEqual(
+            Path.Combine("menu", "texturedefs", "custom.def"),
+            definition.DefinitionRelativePath);
+        Assert.IsNotNull(project);
+        Assert.AreEqual(30, project.BgraPixels[0]);
+        Assert.AreEqual(
+            Path.Combine(firstTextureDirectory, "shared.dds"),
+            project.SourcePath);
+        Assert.HasCount(
+            1,
+            project.Diagnostics.Where(static diagnostic =>
+                diagnostic.Code == "XUI-ASSET013"));
+        StringAssert.Contains(
+            project.Diagnostics.Single(static diagnostic =>
+                diagnostic.Code == "XUI-ASSET013").Message,
+            "matched 2 files");
+        Assert.IsNotNull(fallback);
+        Assert.AreEqual(140, fallback.BgraPixels[0]);
+        Assert.AreEqual(
+            Path.Combine(install, "fallback.dds"),
+            fallback.SourcePath);
+        Assert.IsNotNull(missing);
+        Assert.IsTrue(missing.IsApproximation);
+        string missingMessage = missing.Diagnostics.Single(static diagnostic =>
+            diagnostic.Code == "XUI-ASSET005").Message;
+        StringAssert.Contains(missingMessage, projectDefinition);
+        StringAssert.Contains(missingMessage, Path.GetFullPath(projectData));
+        StringAssert.Contains(missingMessage, Path.GetFullPath(install));
+    }
+
+    [TestMethod]
     public async Task ResolverComposesAllTilesetRolesAndAppliesRotationModes()
     {
         using TestDirectory directory = new();
@@ -370,6 +526,34 @@ public sealed class AssetTests
     }
 
     [TestMethod]
+    public async Task UncompressedBgrxDdsDecodesAsOpaqueBgra()
+    {
+        using TestDirectory directory = new();
+        string root = directory.File("workspace");
+        Directory.CreateDirectory(root);
+        await File.WriteAllTextAsync(
+            Path.Combine(root, "textures.def"),
+            "Texture(\"bgrx.dds\",4,4)\n{\nWhole(\"bgrx\")\n}\n");
+        await File.WriteAllBytesAsync(
+            Path.Combine(root, "bgrx.dds"),
+            CreateUncompressedDds(25, includeAlphaMask: false));
+        DyingLightAssetResolver resolver = new(
+        [
+            new XuiAssetRoot(root, XuiAssetRootKind.Workspace, false),
+        ],
+            directory.File("cache"));
+
+        await resolver.RebuildAsync();
+        ResolvedTexture? texture = await resolver.ResolveTextureAsync("bgrx");
+
+        Assert.IsNotNull(texture);
+        CollectionAssert.AreEqual(
+            new byte[] { 25, 40, 200, 255 },
+            texture.BgraPixels[..4]);
+        Assert.IsFalse(texture.IsApproximation);
+    }
+
+    [TestMethod]
     public async Task CorruptDdsFailsToABoundedPlaceholderWithDiagnostic()
     {
         using TestDirectory directory = new();
@@ -408,7 +592,9 @@ public sealed class AssetTests
         Assert.AreEqual(0x0cfd6800u, shortValue.Argb);
     }
 
-    private static byte[] CreateUncompressedDds(byte blueOffset = 0)
+    private static byte[] CreateUncompressedDds(
+        byte blueOffset = 0,
+        bool includeAlphaMask = true)
     {
         byte[] result = new byte[128 + (4 * 4 * 4)];
         Encoding.ASCII.GetBytes("DDS ").CopyTo(result, 0);
@@ -424,7 +610,9 @@ public sealed class AssetTests
         BinaryPrimitives.WriteUInt32LittleEndian(header[88..], 0x00ff0000);
         BinaryPrimitives.WriteUInt32LittleEndian(header[92..], 0x0000ff00);
         BinaryPrimitives.WriteUInt32LittleEndian(header[96..], 0x000000ff);
-        BinaryPrimitives.WriteUInt32LittleEndian(header[100..], 0xff000000);
+        BinaryPrimitives.WriteUInt32LittleEndian(
+            header[100..],
+            includeAlphaMask ? 0xff000000 : 0);
         BinaryPrimitives.WriteUInt32LittleEndian(header[104..], 0x1000);
         for (int index = 128; index < result.Length; index += 4)
         {

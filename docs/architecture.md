@@ -9,6 +9,8 @@ fast tests:
 - `IXuiCommand` and document history
 - `DyingLightLayoutEngine`, compiled `DyingLightLayoutSession`, and
   `XuiMaterialCatalog`
+- `XuiButtonLayoutProfile`, `XuiControllerRuntimeProfile`, and
+  `XuiDocumentAssetContext`
 - `IAssetResolver` and Dying Light resource models
 - `XuiTimeline`, tracks, keyframes, named frames, and `TimelineEvaluator`
 
@@ -83,11 +85,12 @@ text, and antialiased-rectangle materials when `ForceMaterials` is enabled.
 
 Roots are indexed once and resolved in this order:
 
-1. writable workspace
-2. additional loose mod roots
-3. extracted Dying Light data
-4. selected Dying Light installation
-5. bounded placeholders
+1. the opened document's discovered project root
+2. writable workspace
+3. additional loose mod roots
+4. extracted Dying Light data
+5. selected Dying Light installation
+6. bounded placeholders
 
 The install source indexes loose `DW*\Data` overrides, every non-language
 `Data*.pak` layer (including numeric patch and DLC packs), the selected locale
@@ -99,9 +102,12 @@ entries without first extracting them.
 `ClassOverride` and `Visual` names can resolve through XUI visual libraries
 such as `menuskin.xui`. Texture definitions support `Texture`, `Whole`,
 `Rect`, `RectWithCorner`, atlas rectangles, corner/edge/tile roles, rotations,
-and flips. DDS data is decoded with pinned `BCnEncoder.Net` 2.3.0 and cached by
-content identity. RP6 type-32 texture resources are reconstructed as standard
-DDS streams before decoding; this is how stock HUD references resolve
+and flips. Texture regions retain their definition root and relative path so
+same-named project and installed resources cannot lose provenance. DDS data is
+decoded with pinned `BCnEncoder.Net` 2.3.0, plus a bounded direct decoder for
+classic uncompressed 32-bit RGB/RGBA DDS, and cached by content and definition
+identity. RP6 type-32 texture resources are reconstructed as standard DDS
+streams before decoding; this is how stock HUD references resolve
 `hud_dw.dds`.
 
 The selected installed localization catalog is parsed with declaration order

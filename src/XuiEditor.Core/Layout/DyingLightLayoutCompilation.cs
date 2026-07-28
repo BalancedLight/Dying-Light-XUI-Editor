@@ -19,6 +19,10 @@ internal sealed class DyingLightLayoutCompilation
     {
         _assetResolver = assetResolver;
         CompileTree(document.Root, document.Text);
+        ControllerRuntimeProfile =
+            XuiControllerRuntimeProfileCatalog.Resolve(
+                _nodes.Values.Select(static node =>
+                    node.ClassOverride));
     }
 
     public int NodeCount => _nodes.Count;
@@ -26,6 +30,15 @@ internal sealed class DyingLightLayoutCompilation
     public int VisualCount => _visuals.Count;
 
     public int MaterialProfileCount => _materials.Count;
+
+    public XuiControllerRuntimeProfile? ControllerRuntimeProfile { get; }
+
+    public bool IsTargetForceShown(
+        string target,
+        XuiRenderContext context) =>
+        _nodes.Any(pair =>
+            pair.Value.Id.Equals(target, StringComparison.Ordinal) &&
+            context.IsForceShown(pair.Value.Id, pair.Key.Key));
 
     public CompiledXuiNode Node(
         XuiSyntaxNode syntax,

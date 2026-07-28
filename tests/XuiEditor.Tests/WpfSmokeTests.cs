@@ -586,6 +586,55 @@ public sealed class WpfSmokeTests
 
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
+    public void MoveCommitUsesTheSamePositiveAuthoredDeltaForEveryAnchor()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<MyImage><Properties><Id>Leading</Id><Width>10</Width><Height>10</Height>" +
+            "<Position>1,2,0</Position><Anchor>3</Anchor></Properties></MyImage>" +
+            "<MyImage><Properties><Id>Trailing</Id><Width>10</Width><Height>10</Height>" +
+            "<Position>3,4,0</Position><Anchor>12</Anchor></Properties></MyImage>" +
+            "<MyImage><Properties><Id>Centered</Id><Width>10</Width><Height>10</Height>" +
+            "<Position>5,6,0</Position><Anchor>48</Anchor></Properties></MyImage>" +
+            "</XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        XuiSyntaxNode[] nodes = XuiModelReader.VisualDescendants(document.Root)
+            .ToArray();
+        window.SelectNodeKeysForTesting(nodes.Select(static node => node.Key));
+
+        window.CommitTransformForTesting(
+            new XuiTransformCommittedEventArgs(
+                nodes[0].Key,
+                XuiTransformKind.Move,
+                new XuiVector2(7, 9),
+                default,
+                0,
+                default));
+
+        Dictionary<string, string?> positions =
+            XuiModelReader.VisualDescendants(document.Root)
+                .ToDictionary(
+                    node => XuiModelReader.GetId(node, document.Text)!,
+                    node => XuiModelReader.GetPropertyValue(
+                        node,
+                        document.Text,
+                        "Position"),
+                    StringComparer.Ordinal);
+        Assert.AreEqual("8.000000,11.000000,0.000000", positions["Leading"]);
+        Assert.AreEqual("10.000000,13.000000,0.000000", positions["Trailing"]);
+        Assert.AreEqual("12.000000,15.000000,0.000000", positions["Centered"]);
+        Assert.AreEqual("Move selection", document.History.UndoDescription);
+
+        document.Undo();
+        Assert.AreEqual(source, document.Text);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
     public void TextureDiagnosticsDoNotReevaluateTheDocument()
     {
         App application = Application.Current as App ?? new App();
@@ -783,6 +832,21 @@ public sealed class WpfSmokeTests
         Assert.AreEqual(
             Path.GetFullPath(pakAssets),
             discovered);
+    }
+
+    [TestMethod]
+    public void WorkshopXuiDiscoversItsProjectDataRoot()
+    {
+        using TestDirectory directory = new();
+        string data = directory.File(
+            Path.Combine("workshop", "ExampleProject", "data"));
+        string xui = Path.Combine(data, "menu", "hud", "custom.xui");
+        Directory.CreateDirectory(Path.GetDirectoryName(xui)!);
+        File.WriteAllText(xui, "<XuiCanvas />");
+
+        string discovered = MainWindow.FindDocumentAssetRoot(xui);
+
+        Assert.AreEqual(Path.GetFullPath(data), discovered);
     }
 
     [STATestMethod]

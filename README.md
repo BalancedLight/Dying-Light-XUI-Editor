@@ -59,6 +59,11 @@ sources are always read-only. Opening an installed or extracted file requires
 - Direct install-backed resolution for PAK and RP6L/RPACK assets. In
   particular, HUD definitions referring to `hud_dw` resolve the real
   `hud_dw.dds` atlas from the installed menu packs.
+- Automatic custom-project resolution. Opening an XUI below
+  `data\menu\...` indexes that project's `data` tree first, including sibling
+  texture definitions and nested DDS files, before configured mod,
+  extraction, and install sources. Loader-owned `PakAssets\XUI` files resolve
+  through the sibling `PakAssets` tree.
 - Installed localization catalogs, `basicfonts.scr`, `fontstyles.scr`, `.fm`
   bitmap metrics, private input glyphs, and font-atlas DDS resources. Exact
   engine bitmap fonts are used when available; mappings and diagnosed

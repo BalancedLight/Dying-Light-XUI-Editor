@@ -64,7 +64,12 @@ public sealed record XuiTextureRegion(
     XuiTexturePrimitive Primitive,
     XuiVector2 CornerSize,
     IReadOnlyList<XuiTilePart> TileParts,
-    string DefinitionPath);
+    string DefinitionPath)
+{
+    public XuiAssetRoot? DefinitionRoot { get; init; }
+
+    public string DefinitionRelativePath { get; init; } = string.Empty;
+}
 
 public sealed record ResolvedTileTexturePart(
     XuiTileRole Role,

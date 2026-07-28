@@ -1140,29 +1140,11 @@ public partial class MainWindow : Window, IDisposable
             position = new XuiVector3(position2.X, position2.Y, 0);
         }
 
-        int anchor = 0;
-        _ = XuiValueParser.TryInteger(
-            XuiModelReader.GetPropertyValue(node, _document.Text, "Anchor"),
-            out anchor);
-        double deltaX = delta.X;
-        double deltaY = delta.Y;
-        bool rightOnly = (anchor & 4) != 0 && (anchor & 1) == 0;
-        bool bottomOnly = (anchor & 8) != 0 && (anchor & 2) == 0;
-        if (rightOnly || (anchor & 16) != 0)
-        {
-            deltaX = -deltaX;
-        }
-
-        if (bottomOnly || (anchor & 32) != 0)
-        {
-            deltaY = -deltaY;
-        }
-
         SetNodeProperty(
             node,
             "Position",
             FormattableString.Invariant(
-                $"{position.X + deltaX:0.000000},{position.Y + deltaY:0.000000},{position.Z:0.000000}"));
+                $"{position.X + delta.X:0.000000},{position.Y + delta.Y:0.000000},{position.Z:0.000000}"));
     }
 
     private void ApplyRotationDelta(
@@ -1892,23 +1874,39 @@ public partial class MainWindow : Window, IDisposable
 
         await EnsureInstallIndexAsync(showErrors: false).ConfigureAwait(true);
         List<XuiAssetRoot> roots = [];
-        string? documentDirectory = Path.GetDirectoryName(_document.Path);
-        string? documentAssetRoot = documentDirectory is null
-            ? null
-            : FindDocumentAssetRoot(documentDirectory);
-        bool documentAssetRootIsConfigured =
+        XuiDocumentAssetContext? documentContext =
+            _document.Path is null
+                ? null
+                : XuiDocumentAssetContext.Discover(_document.Path);
+        string? documentAssetRoot =
+            documentContext?.Root.FullPath;
+        AssetRootSetting? configuredDocumentRoot =
+            documentAssetRoot is null
+                ? null
+                : _settings.AssetRoots
+                    .Where(root =>
+                        !string.IsNullOrWhiteSpace(root.Path) &&
+                        PathIsInside(root.Path, documentAssetRoot))
+                    .OrderByDescending(static root => root.Path.Length)
+                    .FirstOrDefault();
+        bool documentIsInsideInstall =
+            _document.Path is not null &&
+            !string.IsNullOrWhiteSpace(
+                _settings.DyingLightInstallPath) &&
+            PathIsInside(
+                _settings.DyingLightInstallPath,
+                _document.Path);
+        if (documentContext is not null &&
             documentAssetRoot is not null &&
-            _settings.AssetRoots.Any(root =>
-                !string.IsNullOrWhiteSpace(root.Path) &&
-                PathIsInside(root.Path, documentAssetRoot));
-        if (documentAssetRoot is not null &&
             Directory.Exists(documentAssetRoot) &&
-            !documentAssetRootIsConfigured)
+            !documentIsInsideInstall)
         {
-            roots.Add(new XuiAssetRoot(
-                documentAssetRoot,
-                XuiAssetRootKind.Workspace,
-                false));
+            roots.Add(configuredDocumentRoot is null
+                ? documentContext.Root
+                : new XuiAssetRoot(
+                    documentAssetRoot,
+                    configuredDocumentRoot.Kind,
+                    configuredDocumentRoot.EffectiveIsReadOnly));
         }
 
         if (!string.IsNullOrWhiteSpace(_settings.WorkspaceRoot) &&
@@ -3308,22 +3306,10 @@ public partial class MainWindow : Window, IDisposable
 
     internal static string FindDocumentAssetRoot(string documentDirectory)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(documentDirectory);
-        string fallback = Path.GetFullPath(documentDirectory);
-        DirectoryInfo? current = new(fallback);
-        for (int depth = 0; current is not null && depth < 8; depth++)
-        {
-            if (Directory.Exists(Path.Combine(current.FullName, "Locale")) ||
-                Directory.Exists(
-                    Path.Combine(current.FullName, "Data", "Locale")))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        return fallback;
+        return XuiDocumentAssetContext
+            .Discover(documentDirectory)
+            .Root
+            .FullPath;
     }
 
     private HashSet<string> EditorHiddenKeys()

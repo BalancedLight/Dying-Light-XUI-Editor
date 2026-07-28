@@ -20,6 +20,13 @@ The recovered anchor bits are:
 
 The evaluator combines the authored anchor, pivot, parent-relative position,
 size, scale, and rotation before transforming the node and its clip.
+`Position` is always the authored top-left coordinate at the authored parent
+size. Anchors do not reinterpret that coordinate. They act only when the
+evaluated parent size differs from its authored size: trailing anchors move by
+the full delta, center anchors by half, opposing anchors preserve both margins,
+and leading anchors stay fixed. Keep-position and keep-size flags take
+precedence. Unanchored visual-template children retain the recovered
+proportional scaling behavior.
 
 ## Frame flags
 
@@ -86,6 +93,32 @@ flow, row wrapping, and optional inverse/right-aligned placement. Content
 auto-sizing changes the evaluated panel bounds and never rewrites descendant
 properties.
 
+Recovered `UIVerticalGroup` command strips use independent left and right
+cursors with 15 logical pixels between children. Right-anchored children are
+placed directly from the panel's right edge; their authored positions are not
+converted into inverted anchor distances.
+
+## Hinted and dialog buttons
+
+Button width measurement follows the recovered controller classes:
+
+| Class/profile | Keyboard | Controller |
+| --- | --- | --- |
+| `UIButtonWithHints` | label + hint + `29 × resolution` | label + hint + `4 × resolution` |
+| `UIDialogButton` | label + `20 × resolution` + hint + `32 × resolution` | label + `20 × resolution` + hint + `8 × resolution` |
+
+Generic hinted buttons require authored `AutoAdjustWidth`. Dialog buttons
+always apply their recovered sizing contract. Visual-library presenter offsets
+remain authored; only the root/background and active label/hint blocks resize.
+Keyboard Enter/Escape glyphs keep their self-framed artwork. The separate hint
+background uses the recovered factor `0.7` for generic hinted buttons and
+`1.0` for dialog buttons.
+
+Controller-owned mutually exclusive branches use deterministic preview
+profiles. `MenuYesNoDialogDw` defaults to the common Yes/No branch with OK
+hidden, while editor force-show can reveal the alternate branch without
+changing the document.
+
 ## Templates and resources
 
 The recovered `CUIElement::FillInstanceParameters` behavior supports scaling a
@@ -99,6 +132,18 @@ variants, the editor chooses a deterministic highest-probability variant and
 emits a diagnostic rather than producing a random preview.
 
 Colors use Dying Light's observed `0xAARRGGBB` representation.
+
+An opened XUI under `data\menu` contributes its project `data` directory as
+the highest-precedence asset root. Loader XUIs under `PakAssets\XUI` use their
+sibling `PakAssets` tree. Texture definitions retain their owning root and
+relative path, so project definitions and DDS files override installed files
+with the same names while missing project assets still fall back to configured
+and installed roots. Same-root basename collisions are selected
+deterministically and diagnosed.
+
+The DDS path supports the pinned BC1–BC7 decoder plus a bounded direct path for
+classic 32-bit RGB/RGBA DDS files, including the `B8G8R8X8_UNORM` files used by
+external Workshop HUD projects.
 
 ## Materials and masked groups
 

@@ -50,6 +50,30 @@ public sealed class DyingLightLayoutEngine
             tick);
 
         XuiRenderContext context = renderContext ?? new XuiRenderContext();
+        if (context.ControllerRuntimeProfile is null &&
+            context.ApplyCommonControllerProfile &&
+            compilation.ControllerRuntimeProfile is
+                XuiControllerRuntimeProfile controllerProfile)
+        {
+            context = context with
+            {
+                ControllerRuntimeProfile = controllerProfile,
+            };
+        }
+
+        if (context.ControllerRuntimeProfile is
+                XuiControllerRuntimeProfile activeControllerProfile &&
+            activeControllerProfile.HiddenTargets.Any(target =>
+                !compilation.IsTargetForceShown(target, context)))
+        {
+            diagnostics.Add(new XuiDiagnostic(
+                "XUI-LAYOUT014",
+                XuiDiagnosticSeverity.Info,
+                activeControllerProfile.Description,
+                document.Root.Span,
+                document.Root.Key));
+        }
+
         CompiledXuiNode compiledRoot = compilation.Node(
             document.Root,
             document.Text);
@@ -57,7 +81,7 @@ public sealed class DyingLightLayoutEngine
             document.Root,
             compiledRoot.Properties,
             overrides: null,
-            runtimeOverrides: context.EffectiveScenario.PropertiesFor(
+            runtimeOverrides: context.PropertiesFor(
                 compiledRoot.Id,
                 document.Root.Key));
         double designWidth = rootProperties.Number("Width", 1280, diagnostics);
@@ -154,7 +178,7 @@ public sealed class DyingLightLayoutEngine
                 syntax.Key,
                 timelineRecursionBarrier);
         IReadOnlyDictionary<string, string>? runtimeOverrides =
-            renderContext.EffectiveScenario.PropertiesFor(id, syntax.Key);
+            renderContext.PropertiesFor(id, syntax.Key);
         PropertyBag properties = new(
             syntax,
             compiledNode.Properties,
@@ -275,6 +299,7 @@ public sealed class DyingLightLayoutEngine
             visualGeometry?.BypassParentSizeChange != true)
         {
             ApplyParentSizeChange(
+                anchor,
                 properties,
                 parentSize,
                 authoredParentSize,
@@ -417,10 +442,7 @@ public sealed class DyingLightLayoutEngine
         if (kind == XuiRenderKind.Control &&
             visualTemplate is not null &&
             assetResolver is not null &&
-            properties.Boolean(
-                "AutoAdjustWidth",
-                false,
-                diagnostics))
+            ShouldAutoAdjustControlWidth(properties, diagnostics))
         {
             ApplyControlAutoWidth(
                 syntax,
@@ -429,6 +451,7 @@ public sealed class DyingLightLayoutEngine
                 compilation,
                 assetResolver,
                 text,
+                arrangedPositionOverride is null,
                 ref position,
                 ref width,
                 diagnostics);
@@ -491,15 +514,6 @@ public sealed class DyingLightLayoutEngine
                 height = childArrangement.ContentSize.Y;
             }
         }
-
-        ApplyAnchors(
-            anchor,
-            parentSize,
-            properties,
-            ref position,
-            ref width,
-            ref height,
-            diagnostics);
 
         if (properties.Boolean("RoundPosition", false, diagnostics))
         {
@@ -980,7 +994,7 @@ public sealed class DyingLightLayoutEngine
                 child,
                 compiledChild.Properties,
                 animation.ForNode(id, child.Key, childTimelineBarrier),
-                renderContext.EffectiveScenario.PropertiesFor(id, child.Key));
+                renderContext.PropertiesFor(id, child.Key));
             if (!properties.Boolean(
                     "AutoSizeParentToText",
                     false,
@@ -1120,7 +1134,7 @@ public sealed class DyingLightLayoutEngine
                 child,
                 compiledChild.Properties,
                 animation.ForNode(id, child.Key, childTimelineBarrier),
-                renderContext.EffectiveScenario.PropertiesFor(id, child.Key));
+                renderContext.PropertiesFor(id, child.Key));
             bool shown = properties.Boolean("Show", true, diagnostics);
             bool forceShown = renderContext.IsForceShown(id, child.Key);
             if (forceShown)
@@ -1256,9 +1270,8 @@ public sealed class DyingLightLayoutEngine
             }
             else if (assetResolver is not null &&
                      childKind == XuiRenderKind.Control &&
-                     properties.Boolean(
-                         "AutoAdjustWidth",
-                         false,
+                     ShouldAutoAdjustControlWidth(
+                         properties,
                          diagnostics))
             {
                 XuiVisualTemplate? visualTemplate =
@@ -1317,6 +1330,7 @@ public sealed class DyingLightLayoutEngine
         {
             return ArrangeVerticalGroup(
                 panelChildren,
+                panelSize,
                 skipInvisible);
         }
 
@@ -1337,14 +1351,13 @@ public sealed class DyingLightLayoutEngine
 
     private static PanelArrangement ArrangeVerticalGroup(
         IReadOnlyList<PanelChild> children,
+        XuiVector2 panelSize,
         bool skipInvisible)
     {
         // Despite its name, Dying Light's UIVerticalGroup is the horizontal
         // command strip used along the bottom of menus. Its recovered
         // ArrangeItems implementation keeps independent cursors for ordinary
-        // and right-anchored children. Right-anchored positions remain
-        // distances from the parent's right edge and are converted later by
-        // ApplyAnchors.
+        // and right-anchored children.
         const double ItemSpacing = 15;
         Dictionary<string, XuiVector3> positions =
             new(StringComparer.Ordinal);
@@ -1356,8 +1369,9 @@ public sealed class DyingLightLayoutEngine
         {
             bool anchoredRight =
                 child.Anchor.HasFlag(XuiAnchor.Right);
+            double scaledWidth = child.Width * child.ScaleX;
             double x = anchoredRight
-                ? rightCursor
+                ? panelSize.X - rightCursor - scaledWidth
                 : leftCursor;
             positions[child.Key] = child.Position with { X = x };
 
@@ -1366,7 +1380,6 @@ public sealed class DyingLightLayoutEngine
                 continue;
             }
 
-            double scaledWidth = child.Width * child.ScaleX;
             double advance =
                 scaledWidth + ItemSpacing + child.MarginRight;
             if (anchoredRight)
@@ -1585,6 +1598,7 @@ public sealed class DyingLightLayoutEngine
     }
 
     private static void ApplyParentSizeChange(
+        XuiAnchor anchor,
         PropertyBag properties,
         XuiVector2 parentSize,
         XuiVector2 authoredParentSize,
@@ -1647,21 +1661,114 @@ public sealed class DyingLightLayoutEngine
                 false,
                 diagnostics);
 
-        if (!keepWidth)
+        double parentDeltaX = parentSize.X - authoredParentSize.X;
+        double parentDeltaY = parentSize.Y - authoredParentSize.Y;
+        bool left = anchor.HasFlag(XuiAnchor.Left);
+        bool right = anchor.HasFlag(XuiAnchor.Right);
+        bool top = anchor.HasFlag(XuiAnchor.Top);
+        bool bottom = anchor.HasFlag(XuiAnchor.Bottom);
+
+        if (left && right)
         {
-            width *= widthRatio;
+            if (!keepWidth)
+            {
+                double rightMargin = properties.Number(
+                    "AnchorXRight",
+                    Math.Max(
+                        0,
+                        authoredParentSize.X - position.X - width),
+                    diagnostics);
+                width = Math.Max(
+                    0,
+                    parentSize.X - position.X - rightMargin);
+            }
+        }
+        else if (anchor.HasFlag(XuiAnchor.CenterX))
+        {
+            if (!keepPositionX)
+            {
+                position = position with
+                {
+                    X = position.X + (parentDeltaX * 0.5),
+                };
+            }
+        }
+        else if (right)
+        {
+            if (!keepPositionX)
+            {
+                position = position with
+                {
+                    X = position.X + parentDeltaX,
+                };
+            }
+        }
+        else if (!left)
+        {
+            if (!keepWidth)
+            {
+                width *= widthRatio;
+            }
+
+            if (!keepPositionX)
+            {
+                position = position with
+                {
+                    X = position.X * xRatio,
+                };
+            }
         }
 
-        if (!keepHeight)
+        if (top && bottom)
         {
-            height *= heightRatio;
+            if (!keepHeight)
+            {
+                double bottomMargin = properties.Number(
+                    "AnchorYBottom",
+                    Math.Max(
+                        0,
+                        authoredParentSize.Y - position.Y - height),
+                    diagnostics);
+                height = Math.Max(
+                    0,
+                    parentSize.Y - position.Y - bottomMargin);
+            }
         }
-
-        position = position with
+        else if (anchor.HasFlag(XuiAnchor.CenterY))
         {
-            X = keepPositionX ? position.X : position.X * xRatio,
-            Y = keepPositionY ? position.Y : position.Y * yRatio,
-        };
+            if (!keepPositionY)
+            {
+                position = position with
+                {
+                    Y = position.Y + (parentDeltaY * 0.5),
+                };
+            }
+        }
+        else if (bottom)
+        {
+            if (!keepPositionY)
+            {
+                position = position with
+                {
+                    Y = position.Y + parentDeltaY,
+                };
+            }
+        }
+        else if (!top)
+        {
+            if (!keepHeight)
+            {
+                height *= heightRatio;
+            }
+
+            if (!keepPositionY)
+            {
+                position = position with
+                {
+                    Y = position.Y * yRatio,
+                };
+            }
+        }
 
         bool holdPivot = holdAspect &&
                          properties.Boolean(
@@ -1791,71 +1898,6 @@ public sealed class DyingLightLayoutEngine
         }
 
         return usedResolutionFlag;
-    }
-
-    private static void ApplyAnchors(
-        XuiAnchor anchor,
-        XuiVector2 parentSize,
-        PropertyBag properties,
-        ref XuiVector3 position,
-        ref double width,
-        ref double height,
-        List<XuiDiagnostic> diagnostics)
-    {
-        bool left = anchor.HasFlag(XuiAnchor.Left);
-        bool right = anchor.HasFlag(XuiAnchor.Right);
-        bool top = anchor.HasFlag(XuiAnchor.Top);
-        bool bottom = anchor.HasFlag(XuiAnchor.Bottom);
-
-        if (left && right &&
-            !properties.Boolean("KeepWidthOnParentSizeChange", false, diagnostics) &&
-            !properties.Boolean("KeepWidth", false, diagnostics))
-        {
-            double rightMargin = properties.Number(
-                "AnchorXRight",
-                Math.Max(0, parentSize.X - position.X - width),
-                diagnostics);
-            width = Math.Max(0, parentSize.X - position.X - rightMargin);
-        }
-        else if (right && !left)
-        {
-            position = position with
-            {
-                X = parentSize.X - position.X - width,
-            };
-        }
-        else if (anchor.HasFlag(XuiAnchor.CenterX))
-        {
-            position = position with
-            {
-                X = (parentSize.X * 0.5) - position.X - (width * 0.5),
-            };
-        }
-
-        if (top && bottom &&
-            !properties.Boolean("KeepHeightOnParentSizeChange", false, diagnostics) &&
-            !properties.Boolean("KeepHeight", false, diagnostics))
-        {
-            double bottomMargin = properties.Number(
-                "AnchorYBottom",
-                Math.Max(0, parentSize.Y - position.Y - height),
-                diagnostics);
-            height = Math.Max(0, parentSize.Y - position.Y - bottomMargin);
-        }
-        else if (bottom && !top)
-        {
-            position = position with
-            {
-                Y = parentSize.Y - position.Y - height,
-            };
-        }
-        else if (anchor.HasFlag(XuiAnchor.CenterY))
-        {
-            position = position with
-            {
-                Y = (parentSize.Y * 0.5) - position.Y - (height * 0.5),
-            };
-        }
     }
 
     private static Matrix3x2 CreateLocalTransform(
@@ -2144,12 +2186,9 @@ public sealed class DyingLightLayoutEngine
 
         (string keyboard, string gamepad) =
             ButtonHintForPressKey(pressKey);
-        DialogButtonVisualLayout? dialogButtonLayout = null;
+        ButtonVisualLayout? buttonLayout = null;
         if (isButton &&
-            properties.Boolean(
-                "AutoAdjustWidth",
-                false,
-                diagnostics) &&
+            ShouldAutoAdjustControlWidth(properties, diagnostics) &&
             TryMeasureControlAutoWidth(
                 properties.Syntax,
                 properties,
@@ -2159,15 +2198,36 @@ public sealed class DyingLightLayoutEngine
                 instance.Text,
                 diagnostics,
                 out ControlAutoWidthMeasurement measurement) &&
-            measurement.IsDialogButton)
+            measurement.ButtonLayout is
+                XuiButtonLayoutResult measuredButtonLayout &&
+            (!properties.Boolean(
+                 "OnlyWhenTextIsWider",
+                 false,
+                 diagnostics) ||
+             measurement.DesiredWidth > instance.AuthoredSize.X))
         {
-            double hintWidth = Math.Min(
+            bool keyboardScheme =
+                assetResolver.InputGlyphScheme ==
+                XuiInputGlyphScheme.KeyboardAndMouse;
+            string activeHintId = keyboardScheme
+                ? "T_HintPC"
+                : "T_HintConsoles";
+            PropertyBag? activeHint = FindVisualPresenter(
+                visualTemplate,
+                compilation,
+                (id, _) => id.Equals(
+                    activeHintId,
+                    StringComparison.OrdinalIgnoreCase));
+            XuiVector3 activeHintPosition = activeHint?.Vector3(
+                "Position",
+                default,
+                diagnostics) ?? default;
+            buttonLayout = new ButtonVisualLayout(
                 instance.Size.X,
-                measurement.HintBlockWidth);
-            dialogButtonLayout = new DialogButtonVisualLayout(
-                instance.Size.X,
-                Math.Max(0, instance.Size.X - hintWidth),
-                hintWidth);
+                measuredButtonLayout,
+                activeHintId,
+                activeHintPosition,
+                ResolutionScale: 1);
         }
 
         return new VisualInstanceBindings(
@@ -2178,7 +2238,7 @@ public sealed class DyingLightLayoutEngine
             keyboard,
             gamepad,
             KeyboardHintUsesSeparateBackground(pressKey),
-            dialogButtonLayout);
+            buttonLayout);
     }
 
     private static (string Keyboard, string Gamepad)
@@ -2207,6 +2267,21 @@ public sealed class DyingLightLayoutEngine
             22592 or
             22593);
 
+    private static bool ShouldAutoAdjustControlWidth(
+        PropertyBag properties,
+        List<XuiDiagnostic> diagnostics)
+    {
+        XuiButtonLayoutProfile? profile =
+            XuiButtonLayoutProfile.Resolve(
+                properties.Text("ClassOverride"),
+                properties.Text("Visual"));
+        return profile is { RequiresAutoAdjustWidth: false } ||
+               properties.Boolean(
+                   "AutoAdjustWidth",
+                   false,
+                   diagnostics);
+    }
+
     private static void ApplyControlAutoWidth(
         XuiSyntaxNode syntax,
         PropertyBag properties,
@@ -2214,6 +2289,7 @@ public sealed class DyingLightLayoutEngine
         DyingLightLayoutCompilation compilation,
         IAssetResolver assetResolver,
         string text,
+        bool adjustPosition,
         ref XuiVector3 position,
         ref double width,
         List<XuiDiagnostic> diagnostics)
@@ -2241,28 +2317,46 @@ public sealed class DyingLightLayoutEngine
             return;
         }
 
-        double difference = desiredWidth - width;
-        bool adjustToLeft = properties.Boolean(
-            "AdjustToLeft",
-            false,
-            diagnostics);
-        bool adjustToRight = properties.Boolean(
-            "AdjustToRight",
-            false,
-            diagnostics);
-        if (adjustToLeft)
+        if (adjustPosition)
         {
-            position = position with
+            double difference = desiredWidth - width;
+            bool adjustToLeft = properties.Boolean(
+                "AdjustToLeft",
+                false,
+                diagnostics);
+            bool adjustToRight = properties.Boolean(
+                "AdjustToRight",
+                false,
+                diagnostics);
+            if (adjustToLeft)
             {
-                X = position.X - difference,
-            };
-        }
-        else if (!adjustToRight)
-        {
-            position = position with
+                position = position with
+                {
+                    X = position.X - difference,
+                };
+            }
+            else if (!adjustToRight)
             {
-                X = position.X - (difference * 0.5),
-            };
+                XuiAnchor anchor = (XuiAnchor)(
+                    properties.Integer("Anchor", 0, diagnostics) & 0x3f);
+                bool rightOnly =
+                    anchor.HasFlag(XuiAnchor.Right) &&
+                    !anchor.HasFlag(XuiAnchor.Left);
+                if (rightOnly)
+                {
+                    position = position with
+                    {
+                        X = position.X - difference,
+                    };
+                }
+                else if (anchor.HasFlag(XuiAnchor.CenterX))
+                {
+                    position = position with
+                    {
+                        X = position.X - (difference * 0.5),
+                    };
+                }
+            }
         }
 
         width = desiredWidth;
@@ -2294,17 +2388,15 @@ public sealed class DyingLightLayoutEngine
             assetResolver,
             text,
             diagnostics);
-        bool isDialogButton =
-            properties.Text("ClassOverride").Contains(
-                "DialogButton",
-                StringComparison.OrdinalIgnoreCase) ||
-            properties.Text("Visual").Contains(
-                "ButtonDialog",
-                StringComparison.OrdinalIgnoreCase);
+        XuiButtonLayoutProfile? buttonProfile =
+            XuiButtonLayoutProfile.Resolve(
+                properties.Text("ClassOverride"),
+                properties.Text("Visual"));
         double desiredWidth;
         double labelBlockWidth;
         double hintBlockWidth;
-        if (isDialogButton)
+        XuiButtonLayoutResult? buttonLayout = null;
+        if (buttonProfile is not null)
         {
             int pressKey = properties.Integer(
                 "PressKey",
@@ -2335,15 +2427,13 @@ public sealed class DyingLightLayoutEngine
                     assetResolver,
                     hintText,
                     diagnostics).Width;
-
-            // UIDialogButton::AutoAdjustSize measures association zero,
-            // adds 20 logical pixels around the label, then appends the
-            // active input hint with an 8 px keyboard or 32 px pad gutter.
-            labelBlockWidth = textMeasurement.Width + 20;
-            hintBlockWidth =
-                hintWidth + (keyboard ? 8 : 32);
-            desiredWidth =
-                labelBlockWidth + hintBlockWidth;
+            buttonLayout = buttonProfile.Measure(
+                assetResolver.InputGlyphScheme,
+                textMeasurement.Width,
+                hintWidth);
+            labelBlockWidth = buttonLayout.LabelBlockWidth;
+            hintBlockWidth = buttonLayout.HintBlockWidth;
+            desiredWidth = buttonLayout.TotalWidth;
         }
         else
         {
@@ -2367,7 +2457,7 @@ public sealed class DyingLightLayoutEngine
                 desiredWidth,
                 Math.Max(0, labelBlockWidth),
                 Math.Max(0, hintBlockWidth),
-                isDialogButton);
+                buttonLayout);
             return true;
         }
 
@@ -2487,12 +2577,14 @@ public sealed class DyingLightLayoutEngine
         double DesiredWidth,
         double LabelBlockWidth,
         double HintBlockWidth,
-        bool IsDialogButton);
+        XuiButtonLayoutResult? ButtonLayout);
 
-    private sealed record DialogButtonVisualLayout(
+    private sealed record ButtonVisualLayout(
         double TotalWidth,
-        double LabelWidth,
-        double HintWidth);
+        XuiButtonLayoutResult Measurement,
+        string ActiveHintId,
+        XuiVector3 ActiveHintPosition,
+        double ResolutionScale);
 
     private readonly record struct VisualGeometryOverride(
         double? X,
@@ -2510,7 +2602,7 @@ public sealed class DyingLightLayoutEngine
         string KeyboardHint,
         string GamepadHint,
         bool KeyboardHintHasSeparateBackground,
-        DialogButtonVisualLayout? DialogButtonLayout)
+        ButtonVisualLayout? ButtonLayout)
     {
         public string ResolveText(
             string id,
@@ -2592,24 +2684,21 @@ public sealed class DyingLightLayoutEngine
             string id,
             PropertyBag properties)
         {
-            if (DialogButtonLayout is not
-                DialogButtonVisualLayout layout)
+            if (ButtonLayout is not ButtonVisualLayout layout)
             {
                 return null;
             }
 
-            XuiAnchor verticalAnchor =
-                VerticalAnchor(properties);
             if (id.Equals(
                     "bg",
                     StringComparison.OrdinalIgnoreCase))
             {
                 return new VisualGeometryOverride(
-                    0,
+                    null,
                     null,
                     layout.TotalWidth,
                     null,
-                    XuiAnchor.Left | verticalAnchor,
+                    null,
                     true);
             }
 
@@ -2624,57 +2713,62 @@ public sealed class DyingLightLayoutEngine
                     StringComparison.OrdinalIgnoreCase))
             {
                 return new VisualGeometryOverride(
-                    layout.HintWidth,
                     null,
-                    layout.LabelWidth,
                     null,
-                    XuiAnchor.Left | verticalAnchor,
+                    layout.Measurement.LabelBlockWidth,
+                    null,
+                    null,
                     true);
             }
 
             if (id.Equals(
-                    "T_HintPC",
-                    StringComparison.OrdinalIgnoreCase) ||
-                id.Equals(
-                    "T_HintConsoles",
-                    StringComparison.OrdinalIgnoreCase) ||
-                id.Equals(
-                    "HintPrezenter",
-                    StringComparison.OrdinalIgnoreCase) ||
-                id.Equals(
+                    layout.ActiveHintId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                bool keyboard =
+                    layout.Measurement.ActiveHintScheme ==
+                    XuiInputGlyphScheme.KeyboardAndMouse;
+                return new VisualGeometryOverride(
+                    keyboard ? null : 0,
+                    null,
+                    layout.Measurement.HintElementWidth,
+                    null,
+                    null,
+                    true);
+            }
+
+            if (id.Equals(
                     "I_IconBg",
-                    StringComparison.OrdinalIgnoreCase) ||
-                id.Equals(
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                double factor =
+                    layout.Measurement.HintBackgroundScale;
+                return new VisualGeometryOverride(
+                    layout.ActiveHintPosition.X -
+                    (5.5 * factor * layout.ResolutionScale),
+                    layout.ActiveHintPosition.Y -
+                    (2 * factor * layout.ResolutionScale),
+                    layout.Measurement.MeasuredHintWidth +
+                    (21.8 * factor * layout.ResolutionScale),
+                    null,
+                    null,
+                    true);
+            }
+
+            if (id.Equals(
                     "I_BgHint",
                     StringComparison.OrdinalIgnoreCase))
             {
                 return new VisualGeometryOverride(
-                    0,
                     null,
-                    layout.HintWidth,
                     null,
-                    XuiAnchor.Left | verticalAnchor,
+                    layout.Measurement.HintBlockWidth,
+                    null,
+                    null,
                     true);
             }
 
             return null;
-        }
-
-        private static XuiAnchor VerticalAnchor(
-            PropertyBag properties)
-        {
-            string raw = properties.Text("Anchor").Trim();
-            if (!XuiValueParser.TryInteger(
-                    raw,
-                    out int anchor))
-            {
-                return XuiAnchor.None;
-            }
-
-            return (XuiAnchor)(anchor & (
-                (int)XuiAnchor.Top |
-                (int)XuiAnchor.Bottom |
-                (int)XuiAnchor.CenterY));
         }
     }
 

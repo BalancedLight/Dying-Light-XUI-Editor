@@ -11,25 +11,69 @@ namespace XuiEditor.Tests;
 public sealed class LayoutTests
 {
     [TestMethod]
-    public void RightAndBottomAnchorsUseRecoveredMargins()
+    public void RightAndBottomAnchorsPreserveAuthoredCoordinatesAtAuthoredSize()
     {
         XuiRenderNode child = EvaluateChild(
             "<Width>10</Width><Height>20</Height><Position>5,7,0</Position><Anchor>12</Anchor>");
 
-        Assert.AreEqual(85, child.WorldBounds.X, 0.001);
-        Assert.AreEqual(73, child.WorldBounds.Y, 0.001);
+        Assert.AreEqual(5, child.WorldBounds.X, 0.001);
+        Assert.AreEqual(7, child.WorldBounds.Y, 0.001);
         Assert.AreEqual(10, child.WorldBounds.Width, 0.001);
         Assert.AreEqual(20, child.WorldBounds.Height, 0.001);
     }
 
     [TestMethod]
-    public void CenterAnchorsMeasureRelativeToElementCenter()
+    public void CenterAnchorsPreserveAuthoredCoordinatesAtAuthoredSize()
     {
         XuiRenderNode child = EvaluateChild(
             "<Width>20</Width><Height>10</Height><Position>4,6,0</Position><Anchor>48</Anchor>");
 
-        Assert.AreEqual(36, child.WorldBounds.X, 0.001);
-        Assert.AreEqual(39, child.WorldBounds.Y, 0.001);
+        Assert.AreEqual(4, child.WorldBounds.X, 0.001);
+        Assert.AreEqual(6, child.WorldBounds.Y, 0.001);
+    }
+
+    [TestMethod]
+    public void AnchorsReactOnlyToParentSizeDelta()
+    {
+        XuiDocument document = Document(
+            "<AdvGroup><Properties><Id>Parent</Id><Width>100</Width><Height>100</Height>" +
+            "</Properties>" +
+            "<MyImage><Properties><Id>Leading</Id><Width>20</Width><Height>20</Height>" +
+            "<Position>5,7,0</Position><Anchor>3</Anchor></Properties></MyImage>" +
+            "<MyImage><Properties><Id>Trailing</Id><Width>20</Width><Height>20</Height>" +
+            "<Position>5,7,0</Position><Anchor>12</Anchor></Properties></MyImage>" +
+            "<MyImage><Properties><Id>Centered</Id><Width>20</Width><Height>20</Height>" +
+            "<Position>4,6,0</Position><Anchor>48</Anchor></Properties></MyImage>" +
+            "<MyImage><Properties><Id>Stretched</Id><Width>20</Width><Height>20</Height>" +
+            "<Position>5,6,0</Position><Anchor>15</Anchor></Properties></MyImage>" +
+            "<MyImage><Properties><Id>Kept</Id><Width>20</Width><Height>20</Height>" +
+            "<Position>5,7,0</Position><Anchor>12</Anchor>" +
+            "<KeepPosXOnParentSizeChange>true</KeepPosXOnParentSizeChange>" +
+            "<KeepPosYOnParentSizeChange>true</KeepPosYOnParentSizeChange>" +
+            "</Properties></MyImage></AdvGroup>" +
+            "<Timelines><Timeline><Id>Parent</Id><TimelineProp>Width</TimelineProp>" +
+            "<TimelineProp>Height</TimelineProp><KeyFrame><Time>0</Time>" +
+            "<Interpolation>0</Interpolation><Prop>200</Prop><Prop>300</Prop>" +
+            "</KeyFrame></Timeline></Timelines>");
+
+        XuiRenderFrame frame = Frame(document);
+        XuiRenderNode leading = frame.Nodes.Single(static node =>
+            node.Id == "Leading");
+        XuiRenderNode trailing = frame.Nodes.Single(static node =>
+            node.Id == "Trailing");
+        XuiRenderNode centered = frame.Nodes.Single(static node =>
+            node.Id == "Centered");
+        XuiRenderNode stretched = frame.Nodes.Single(static node =>
+            node.Id == "Stretched");
+        XuiRenderNode kept = frame.Nodes.Single(static node =>
+            node.Id == "Kept");
+
+        Assert.AreEqual(new XuiVector3(5, 7, 0), leading.Position);
+        Assert.AreEqual(new XuiVector3(105, 207, 0), trailing.Position);
+        Assert.AreEqual(new XuiVector3(54, 106, 0), centered.Position);
+        Assert.AreEqual(new XuiVector2(120, 220), stretched.Size);
+        Assert.AreEqual(new XuiVector3(5, 6, 0), stretched.Position);
+        Assert.AreEqual(new XuiVector3(5, 7, 0), kept.Position);
     }
 
     [TestMethod]
@@ -727,6 +771,108 @@ public sealed class LayoutTests
     }
 
     [TestMethod]
+    public void ButtonLayoutProfilesUseRecoveredKeyboardAndControllerFormulas()
+    {
+        XuiButtonLayoutResult genericKeyboard =
+            XuiButtonLayoutProfile.GenericWithHints.Measure(
+                XuiInputGlyphScheme.KeyboardAndMouse,
+                measuredLabelWidth: 100,
+                measuredHintWidth: 10);
+        XuiButtonLayoutResult genericController =
+            XuiButtonLayoutProfile.GenericWithHints.Measure(
+                XuiInputGlyphScheme.Xbox,
+                measuredLabelWidth: 100,
+                measuredHintWidth: 10);
+        XuiButtonLayoutResult dialogKeyboard =
+            XuiButtonLayoutProfile.Dialog.Measure(
+                XuiInputGlyphScheme.KeyboardAndMouse,
+                measuredLabelWidth: 100,
+                measuredHintWidth: 10);
+        XuiButtonLayoutResult dialogController =
+            XuiButtonLayoutProfile.Dialog.Measure(
+                XuiInputGlyphScheme.Xbox,
+                measuredLabelWidth: 100,
+                measuredHintWidth: 10);
+
+        Assert.AreEqual(139, genericKeyboard.TotalWidth, 0.001);
+        Assert.AreEqual(114, genericController.TotalWidth, 0.001);
+        Assert.AreEqual(162, dialogKeyboard.TotalWidth, 0.001);
+        Assert.AreEqual(138, dialogController.TotalWidth, 0.001);
+        Assert.AreEqual(10, genericKeyboard.HintElementWidth, 0.001);
+        Assert.AreEqual(14, genericController.HintElementWidth, 0.001);
+        Assert.AreEqual(120, dialogKeyboard.LabelBlockWidth, 0.001);
+        Assert.AreEqual(18, dialogController.HintElementWidth, 0.001);
+        Assert.AreEqual(0.7, genericKeyboard.HintBackgroundScale, 0.001);
+        Assert.AreEqual(1, dialogKeyboard.HintBackgroundScale, 0.001);
+        Assert.IsTrue(
+            XuiButtonLayoutProfile.GenericWithHints.RequiresAutoAdjustWidth);
+        Assert.IsFalse(XuiButtonLayoutProfile.Dialog.RequiresAutoAdjustWidth);
+    }
+
+    [TestMethod]
+    public void YesNoDialogUsesCommonControllerBranchWithoutEditingTheDocument()
+    {
+        XuiDocument document = Document(
+            "<XuiScene><Properties><Id>Dialog</Id>" +
+            "<ClassOverride>MenuYesNoDialogDw</ClassOverride></Properties>" +
+            "<AdvButton><Properties><Id>ButtonYes</Id><Width>100</Width>" +
+            "<Height>30</Height><Show>false</Show></Properties></AdvButton>" +
+            "<AdvButton><Properties><Id>ButtonNo</Id><Width>100</Width>" +
+            "<Height>30</Height><Show>false</Show></Properties></AdvButton>" +
+            "<AdvButton><Properties><Id>ButtonOk</Id><Width>100</Width>" +
+            "<Height>30</Height><Show>true</Show></Properties></AdvButton>" +
+            "</XuiScene>");
+        string original = document.Text;
+
+        XuiRenderFrame commonFrame = Frame(document);
+
+        Assert.IsTrue(commonFrame.Nodes.Single(static node =>
+            node.Id == "ButtonYes").IsShown);
+        Assert.IsTrue(commonFrame.Nodes.Single(static node =>
+            node.Id == "ButtonNo").IsShown);
+        Assert.IsFalse(commonFrame.Nodes.Single(static node =>
+            node.Id == "ButtonOk").IsShown);
+        Assert.HasCount(
+            1,
+            commonFrame.Diagnostics.Where(static diagnostic =>
+                diagnostic.Code == "XUI-LAYOUT014"));
+        Assert.AreEqual(original, document.Text);
+
+        XuiSyntaxNode okSyntax = XuiModelReader.VisualDescendants(
+                document.Root)
+            .Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "ButtonOk");
+        XuiRenderContext forceShow = new(
+            ForceShownTargets: new HashSet<string>(
+                [okSyntax.Key],
+                StringComparer.Ordinal));
+        XuiRenderFrame alternateFrame = DyingLightLayoutEngine.Evaluate(
+            document,
+            new XuiViewport(100, 100),
+            0,
+            renderContext: forceShow);
+        Assert.IsTrue(alternateFrame.Nodes.Single(static node =>
+            node.Id == "ButtonOk").IsShown);
+        Assert.IsFalse(alternateFrame.Diagnostics.Any(static diagnostic =>
+            diagnostic.Code == "XUI-LAYOUT014"));
+
+        XuiRenderFrame authoredFrame = DyingLightLayoutEngine.Evaluate(
+            document,
+            new XuiViewport(100, 100),
+            0,
+            renderContext: new XuiRenderContext(
+                ApplyCommonControllerProfile: false));
+        Assert.IsFalse(authoredFrame.Nodes.Single(static node =>
+            node.Id == "ButtonYes").IsShown);
+        Assert.IsFalse(authoredFrame.Nodes.Single(static node =>
+            node.Id == "ButtonNo").IsShown);
+        Assert.IsTrue(authoredFrame.Nodes.Single(static node =>
+            node.Id == "ButtonOk").IsShown);
+        Assert.IsFalse(authoredFrame.Diagnostics.Any(static diagnostic =>
+            diagnostic.Code == "XUI-LAYOUT014"));
+    }
+
+    [TestMethod]
     public async Task ButtonVisualKeepsLabelAndInputAssociationsSeparate()
     {
         using TestDirectory directory = new();
@@ -760,10 +906,31 @@ public sealed class LayoutTests
                   <Properties><Id>I_IconBg</Id><Width>32</Width><Height>28</Height><ImagePath>button_frame_bg</ImagePath></Properties>
                 </MyImage>
                 <MyTextPresenter>
-                  <Properties><Id>T_HintPC</Id><Width>10</Width><Height>21</Height>
+                  <Properties><Id>T_HintPC</Id><Width>10</Width><Height>21</Height><Position>11,5,0</Position>
                   <Anchor>32</Anchor><KeepWidthOnParentSizeChange>true</KeepWidthOnParentSizeChange>
                   <KeepPosX>true</KeepPosX><PointSize>16</PointSize>
                   <DataAssociation>1</DataAssociation><Text>F</Text></Properties>
+                </MyTextPresenter>
+              </XuiVisual>
+              <XuiVisual>
+                <Properties><Id>ButtonWithHintV</Id><Width>200</Width><Height>34</Height></Properties>
+                <IUIAARectangle>
+                  <Properties><Id>bg</Id><Width>200</Width><Height>34</Height><ImagePath>white</ImagePath></Properties>
+                </IUIAARectangle>
+                <MyTextPresenter>
+                  <Properties><Id>TextPrezenter</Id><Width>163</Width><Height>34</Height><Position>37,0,0</Position>
+                  <PointSize>16</PointSize><DataAssociation>0</DataAssociation></Properties>
+                </MyTextPresenter>
+                <MyTextPresenter>
+                  <Properties><Id>T_HintConsoles</Id><Width>32</Width><Height>25</Height><Show>false</Show>
+                  <PointSize>16</PointSize><DataAssociation>1</DataAssociation></Properties>
+                </MyTextPresenter>
+                <MyImage>
+                  <Properties><Id>I_IconBg</Id><Width>32</Width><Height>28</Height><ImagePath>button_frame_bg</ImagePath></Properties>
+                </MyImage>
+                <MyTextPresenter>
+                  <Properties><Id>T_HintPC</Id><Width>10</Width><Height>21</Height><Position>11,5,0</Position>
+                  <PointSize>16</PointSize><DataAssociation>1</DataAssociation></Properties>
                 </MyTextPresenter>
               </XuiVisual>
             </XuiCanvas>
@@ -786,7 +953,7 @@ public sealed class LayoutTests
             <AdvButton><Properties><Id>Browse</Id><Width>40</Width><Height>34</Height>
             <Position>145,0,0</Position><ClassOverride>UIDialogButton</ClassOverride>
             <Visual>ButtonDialogV</Visual><Text>BROWSE WORKSHOP</Text><PressKey>22531</PressKey>
-            <AutoAdjustWidth>true</AutoAdjustWidth><AdjustToRight>true</AdjustToRight>
+            <AdjustToRight>true</AdjustToRight>
             </Properties></AdvButton>
             """);
 
@@ -825,18 +992,19 @@ public sealed class LayoutTests
             keyboardBackground.Size.X,
             0.001);
         Assert.AreEqual(0, keyboardBackground.Position.X, 0.001);
-        Assert.AreEqual(0, keyboardHint.Position.X, 0.001);
-        Assert.AreEqual(
-            keyboardHint.Size.X,
-            keyboardLabel.Position.X,
-            0.001);
+        Assert.AreEqual(11, keyboardHint.Position.X, 0.001);
+        Assert.AreEqual(37, keyboardLabel.Position.X, 0.001);
         Assert.AreEqual(
             keyboardButton.Size.X,
-            keyboardHint.Size.X + keyboardLabel.Size.X,
+            keyboardHint.Size.X + keyboardLabel.Size.X + 32,
             0.001);
         Assert.AreEqual(
-            keyboardHint.Size.X,
+            keyboardHint.Size.X + 21.8,
             iconBackground.Size.X,
+            0.001);
+        Assert.AreEqual(
+            keyboardHint.Position.X - 5.5,
+            iconBackground.Position.X,
             0.001);
 
         XuiRenderFrame xboxFrame = DyingLightLayoutEngine.Evaluate(
@@ -855,6 +1023,68 @@ public sealed class LayoutTests
         Assert.IsTrue(xboxHint.IsShown);
         Assert.IsFalse(hiddenKeyboardHint.IsShown);
         Assert.IsFalse(hiddenKeyboardBackground.IsShown);
+        Assert.AreEqual(0, xboxHint.Position.X, 0.001);
+        XuiRenderNode xboxButton = xboxFrame.Nodes.Single(
+            static node => node.Id == "Browse");
+        XuiRenderNode xboxLabel = xboxFrame.Nodes.Single(
+            static node => node.Id == "TextPrezenter");
+        Assert.AreEqual(
+            xboxButton.Size.X,
+            xboxLabel.Size.X + xboxHint.Size.X,
+            0.001);
+
+        XuiDocument genericDocument = Document(
+            """
+            <AdvButton><Properties><Id>GenericAuthored</Id><Width>40</Width><Height>34</Height>
+            <ClassOverride>UIButtonWithHints</ClassOverride><Visual>ButtonWithHintV</Visual>
+            <Text>PLAY</Text></Properties></AdvButton>
+            <AdvButton><Properties><Id>GenericAuto</Id><Width>40</Width><Height>34</Height>
+            <Position>0,40,0</Position><ClassOverride>UIButtonWithHints</ClassOverride>
+            <Visual>ButtonWithHintV</Visual><Text>PLAY</Text>
+            <AutoAdjustWidth>true</AutoAdjustWidth></Properties></AdvButton>
+            """);
+        XuiRenderFrame genericFrame = DyingLightLayoutEngine.Evaluate(
+            genericDocument,
+            XuiViewport.Default,
+            0,
+            keyboardResolver);
+        XuiRenderNode genericAuthored = genericFrame.Nodes.Single(
+            static node => node.Id == "GenericAuthored");
+        XuiRenderNode genericAuto = genericFrame.Nodes.Single(
+            static node => node.Id == "GenericAuto");
+        Assert.AreEqual(40, genericAuthored.Size.X, 0.001);
+        Assert.IsGreaterThan(40, genericAuto.Size.X);
+
+        XuiDocument growthDocument = Document(
+            """
+            <AdvButton><Properties><Id>Leading</Id><Width>40</Width><Height>34</Height>
+            <Position>10,0,0</Position><Anchor>1</Anchor><ClassOverride>UIDialogButton</ClassOverride>
+            <Visual>ButtonDialogV</Visual><Text>PLAY</Text></Properties></AdvButton>
+            <AdvButton><Properties><Id>Trailing</Id><Width>40</Width><Height>34</Height>
+            <Position>300,40,0</Position><Anchor>4</Anchor><ClassOverride>UIDialogButton</ClassOverride>
+            <Visual>ButtonDialogV</Visual><Text>PLAY</Text></Properties></AdvButton>
+            <AdvButton><Properties><Id>Centered</Id><Width>40</Width><Height>34</Height>
+            <Position>150,80,0</Position><Anchor>16</Anchor><ClassOverride>UIDialogButton</ClassOverride>
+            <Visual>ButtonDialogV</Visual><Text>PLAY</Text></Properties></AdvButton>
+            """);
+        XuiRenderFrame growthFrame = DyingLightLayoutEngine.Evaluate(
+            growthDocument,
+            XuiViewport.Default,
+            0,
+            keyboardResolver);
+        XuiRenderNode leading = growthFrame.Nodes.Single(static node =>
+            node.Id == "Leading");
+        XuiRenderNode trailing = growthFrame.Nodes.Single(static node =>
+            node.Id == "Trailing");
+        XuiRenderNode centered = growthFrame.Nodes.Single(static node =>
+            node.Id == "Centered");
+        double widthDifference = leading.Size.X - 40;
+        Assert.AreEqual(10, leading.Position.X, 0.001);
+        Assert.AreEqual(300 - widthDifference, trailing.Position.X, 0.001);
+        Assert.AreEqual(
+            150 - (widthDifference * 0.5),
+            centered.Position.X,
+            0.001);
 
         XuiDocument specialKeyDocument = Document(
             """

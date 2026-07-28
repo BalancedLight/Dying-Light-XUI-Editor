@@ -35,6 +35,8 @@ public sealed class DyingLightAssetResolver : IAssetResolver
     private Dictionary<string, XuiResolvedFile> _files = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<XuiResolvedFile> _fileList = [];
     private Dictionary<string, XuiResolvedFile> _ddsFiles = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, IReadOnlyList<XuiResolvedFile>> _ddsCandidates =
+        new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, XuiTextureRegion> _textureRegions = new(StringComparer.Ordinal);
     private Dictionary<string, XuiFontDefinition> _fonts = new(StringComparer.Ordinal);
     private Dictionary<string, XuiFontStyle> _fontStyles = new(StringComparer.Ordinal);
@@ -143,6 +145,7 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             _files = snapshot.Files;
             _fileList = snapshot.FileList;
             _ddsFiles = snapshot.DdsFiles;
+            _ddsCandidates = snapshot.DdsCandidates;
             _textureRegions = snapshot.TextureRegions;
             _fonts = snapshot.Fonts;
             _fontStyles = snapshot.FontStyles;
@@ -227,13 +230,14 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         XuiTextureRegion region = requested;
         List<XuiDiagnostic> diagnostics = [];
 
-        XuiResolvedFile? ddsFile = FindTextureFile(region);
+        TextureFileResolution textureFile = FindTextureFile(region);
+        XuiResolvedFile? ddsFile = textureFile.File;
         if (ddsFile is null)
         {
             diagnostics.Add(new XuiDiagnostic(
                 "XUI-ASSET005",
                 XuiDiagnosticSeverity.Warning,
-                $"DDS '{region.TextureFile}' for image '{imagePath}' was not found."));
+                $"DDS '{region.TextureFile}' for image '{imagePath}' from definition '{region.DefinitionPath}' was not found. Searched {DescribeTextureRoots()}."));
             int placeholderWidth = Math.Clamp(
                 Math.Max(1, (int)region.SourceRectangle.Width),
                 1,
@@ -254,6 +258,14 @@ public sealed class DyingLightAssetResolver : IAssetResolver
                 string.Empty,
                 true,
                 diagnostics);
+        }
+
+        if (textureFile.AmbiguousCandidateCount > 1)
+        {
+            diagnostics.Add(new XuiDiagnostic(
+                "XUI-ASSET013",
+                XuiDiagnosticSeverity.Info,
+                $"DDS basename '{Path.GetFileName(region.TextureFile)}' matched {textureFile.AmbiguousCandidateCount} files in '{ddsFile.Root.FullPath}'. '{ddsFile.DisplayPath}' was selected deterministically."));
         }
 
         string sourceKey = AssetContentKey(ddsFile);
@@ -290,6 +302,7 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         }
         catch (Exception exception) when (
             exception is InvalidDataException or
+            ArgumentException or
             IOException or
             NotSupportedException or
             FormatException)
@@ -1005,6 +1018,8 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         Dictionary<string, XuiResolvedFile> files = new(StringComparer.OrdinalIgnoreCase);
         List<XuiResolvedFile> fileList = [];
         Dictionary<string, XuiResolvedFile> ddsFiles = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, List<XuiResolvedFile>> ddsCandidates =
+            new(StringComparer.OrdinalIgnoreCase);
         Dictionary<string, XuiTextureRegion> regions = new(StringComparer.Ordinal);
         Dictionary<string, XuiFontDefinition> fonts = new(StringComparer.Ordinal);
         Dictionary<string, XuiFontStyle> fontStyles = new(StringComparer.Ordinal);
@@ -1031,7 +1046,17 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             fileList.Add(resolved);
             if (extension.Equals(".dds", StringComparison.OrdinalIgnoreCase))
             {
-                ddsFiles.TryAdd(Path.GetFileName(relative), resolved);
+                string ddsName = Path.GetFileName(relative);
+                ddsFiles.TryAdd(ddsName, resolved);
+                if (!ddsCandidates.TryGetValue(
+                        ddsName,
+                        out List<XuiResolvedFile>? candidates))
+                {
+                    candidates = [];
+                    ddsCandidates.Add(ddsName, candidates);
+                }
+
+                candidates.Add(resolved);
                 return;
             }
 
@@ -1057,7 +1082,13 @@ public sealed class DyingLightAssetResolver : IAssetResolver
                 diagnostics.AddRange(parsed.Diagnostics);
                 foreach (XuiTextureRegion region in parsed.Regions)
                 {
-                    regions.TryAdd(region.Name, region);
+                    regions.TryAdd(
+                        region.Name,
+                        region with
+                        {
+                            DefinitionRoot = resolved.Root,
+                            DefinitionRelativePath = resolved.RelativePath,
+                        });
                 }
             }
 
@@ -1139,7 +1170,9 @@ public sealed class DyingLightAssetResolver : IAssetResolver
                 rootPath,
                 XuiAssetRootKind.DyingLightInstall,
                 true);
-            foreach (XuiAssetEntry entry in source.Entries)
+            foreach (XuiAssetEntry entry in source.Entries.OrderBy(
+                         static entry => entry.VirtualPath,
+                         StringComparer.OrdinalIgnoreCase))
             {
                 XuiResolvedFile resolved = new(
                     entry.Origin.DisplayPath,
@@ -1175,6 +1208,10 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             files,
             fileList,
             ddsFiles,
+            ddsCandidates.ToDictionary(
+                static pair => pair.Key,
+                static pair => (IReadOnlyList<XuiResolvedFile>)pair.Value.ToArray(),
+                StringComparer.OrdinalIgnoreCase),
             regions,
             fonts,
             fontStyles,
@@ -1272,25 +1309,124 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         }
     }
 
-    private XuiResolvedFile? FindTextureFile(XuiTextureRegion region)
+    private TextureFileResolution FindTextureFile(XuiTextureRegion region)
     {
-        string definitionDirectory = Path.GetDirectoryName(region.DefinitionPath) ?? string.Empty;
-        string adjacent = Path.Combine(definitionDirectory, region.TextureFile);
-        if (File.Exists(adjacent))
+        string fileName = Path.GetFileName(region.TextureFile);
+        if (string.IsNullOrWhiteSpace(fileName))
         {
-            XuiAssetRoot root = new(
-                definitionDirectory,
-                XuiAssetRootKind.ExtractedDyingLight,
-                true);
-            return new XuiResolvedFile(
-                adjacent,
-                root,
-                Path.GetFileName(adjacent));
+            return new TextureFileResolution(null, 0);
         }
 
+        IReadOnlyList<XuiResolvedFile> indexedCandidates;
         lock (_gate)
         {
-            return _ddsFiles.GetValueOrDefault(Path.GetFileName(region.TextureFile));
+            indexedCandidates = _ddsCandidates.GetValueOrDefault(fileName) ?? [];
+        }
+
+        string textureRelativePath = NormalizeKey(region.TextureFile);
+        string definitionRelativeDirectory = Path.GetDirectoryName(
+            NormalizeKey(region.DefinitionRelativePath)) ?? string.Empty;
+        string definitionRelativePath = NormalizeKey(
+            Path.Combine(definitionRelativeDirectory, textureRelativePath));
+        List<(string RootPath, int RootRank, int FirstIndex, XuiResolvedFile[] Files)> groups =
+            indexedCandidates
+                .Select(static (file, index) => (File: file, Index: index))
+                .GroupBy(
+                    static item => item.File.Root.FullPath,
+                    StringComparer.OrdinalIgnoreCase)
+                .Select(group => (
+                    RootPath: group.Key,
+                    RootRank: GetRootRank(group.First().File.Root),
+                    FirstIndex: group.Min(static item => item.Index),
+                    Files: group
+                        .Select(static item => item.File)
+                        .OrderBy(
+                            static file => NormalizeKey(file.RelativePath),
+                            StringComparer.OrdinalIgnoreCase)
+                        .ToArray()))
+                .OrderBy(static group => group.RootRank)
+                .ThenBy(static group => group.FirstIndex)
+                .ToList();
+
+        foreach ((string rootPath, _, _, XuiResolvedFile[] files) in groups)
+        {
+            bool ownsDefinition =
+                region.DefinitionRoot is not null &&
+                string.Equals(
+                    rootPath,
+                    region.DefinitionRoot.FullPath,
+                    StringComparison.OrdinalIgnoreCase);
+            if (ownsDefinition)
+            {
+                XuiResolvedFile[] definitionRelativeMatches = files
+                    .Where(file => string.Equals(
+                        NormalizeKey(file.RelativePath),
+                        definitionRelativePath,
+                        StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                if (definitionRelativeMatches.Length != 0)
+                {
+                    return new TextureFileResolution(
+                        definitionRelativeMatches[0],
+                        definitionRelativeMatches.Length);
+                }
+            }
+
+            XuiResolvedFile[] projectRelativeMatches = files
+                .Where(file => string.Equals(
+                    NormalizeKey(file.RelativePath),
+                    textureRelativePath,
+                    StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            if (projectRelativeMatches.Length != 0)
+            {
+                return new TextureFileResolution(
+                    projectRelativeMatches[0],
+                    projectRelativeMatches.Length);
+            }
+
+            if (files.Length != 0)
+            {
+                return new TextureFileResolution(files[0], files.Length);
+            }
+        }
+
+        if (region.DefinitionRoot is null)
+        {
+            string definitionDirectory =
+                Path.GetDirectoryName(region.DefinitionPath) ?? string.Empty;
+            string adjacent = Path.Combine(definitionDirectory, region.TextureFile);
+            if (File.Exists(adjacent))
+            {
+                XuiAssetRoot root = new(
+                    definitionDirectory,
+                    XuiAssetRootKind.ExtractedDyingLight,
+                    true);
+                return new TextureFileResolution(
+                    new XuiResolvedFile(
+                        adjacent,
+                        root,
+                        Path.GetFileName(adjacent)),
+                    1);
+            }
+        }
+
+        return new TextureFileResolution(null, 0);
+
+        int GetRootRank(XuiAssetRoot root)
+        {
+            for (int index = 0; index < Roots.Count; index++)
+            {
+                if (string.Equals(
+                    Roots[index].FullPath,
+                    root.FullPath,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    return index;
+                }
+            }
+
+            return Roots.Count + 1;
         }
     }
 
@@ -1395,6 +1531,15 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         string displayPath,
         CancellationToken cancellationToken)
     {
+        if (TryDecodeUncompressedDds(
+                bytes,
+                displayPath,
+                cancellationToken,
+                out DecodedImage? uncompressed))
+        {
+            return uncompressed!;
+        }
+
         using MemoryStream stream = new(bytes, writable: false);
         BcDecoder decoder = new();
         Memory2D<ColorRgba32> image = await decoder
@@ -1424,6 +1569,139 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         }
 
         return new DecodedImage(image.Width, image.Height, bgra);
+    }
+
+    private static bool TryDecodeUncompressedDds(
+        ReadOnlySpan<byte> bytes,
+        string displayPath,
+        CancellationToken cancellationToken,
+        out DecodedImage? decoded)
+    {
+        decoded = null;
+        const uint ddsMagic = 0x20534444;
+        const uint ddsPixelFormatRgb = 0x40;
+        if (bytes.Length < 128 ||
+            BinaryPrimitives.ReadUInt32LittleEndian(bytes) != ddsMagic ||
+            BinaryPrimitives.ReadUInt32LittleEndian(bytes[4..]) != 124)
+        {
+            return false;
+        }
+
+        uint pixelFormatFlags =
+            BinaryPrimitives.ReadUInt32LittleEndian(bytes[80..]);
+        uint bitCount = BinaryPrimitives.ReadUInt32LittleEndian(bytes[88..]);
+        if ((pixelFormatFlags & ddsPixelFormatRgb) == 0 || bitCount != 32)
+        {
+            return false;
+        }
+
+        int height = checked((int)BinaryPrimitives.ReadUInt32LittleEndian(
+            bytes[12..]));
+        int width = checked((int)BinaryPrimitives.ReadUInt32LittleEndian(
+            bytes[16..]));
+        long pixelCount = checked((long)width * height);
+        if (width <= 0 ||
+            height <= 0 ||
+            pixelCount > MaximumDecodedPixels)
+        {
+            throw new InvalidDataException(
+                $"DDS '{displayPath}' has an unsafe decoded size of {width}×{height}.");
+        }
+
+        int minimumPitch = checked(width * 4);
+        int pitch = checked((int)BinaryPrimitives.ReadUInt32LittleEndian(
+            bytes[20..]));
+        if (pitch == 0)
+        {
+            pitch = minimumPitch;
+        }
+
+        if (pitch < minimumPitch)
+        {
+            throw new InvalidDataException(
+                $"DDS '{displayPath}' has an invalid row pitch of {pitch} bytes.");
+        }
+
+        long requiredLength = checked(128L + ((long)pitch * height));
+        if (requiredLength > bytes.Length)
+        {
+            throw new InvalidDataException(
+                $"DDS '{displayPath}' is truncated: {requiredLength:N0} bytes are required for its base image.");
+        }
+
+        uint redMask = BinaryPrimitives.ReadUInt32LittleEndian(bytes[92..]);
+        uint greenMask = BinaryPrimitives.ReadUInt32LittleEndian(bytes[96..]);
+        uint blueMask = BinaryPrimitives.ReadUInt32LittleEndian(bytes[100..]);
+        uint alphaMask = BinaryPrimitives.ReadUInt32LittleEndian(bytes[104..]);
+        if (redMask == 0 || greenMask == 0 || blueMask == 0)
+        {
+            throw new InvalidDataException(
+                $"DDS '{displayPath}' has incomplete RGB channel masks.");
+        }
+
+        byte[] bgra = GC.AllocateUninitializedArray<byte>(
+            checked((int)pixelCount * 4));
+        for (int y = 0; y < height; y++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int sourceRow = checked(128 + (y * pitch));
+            int destinationRow = checked(y * minimumPitch);
+            for (int x = 0; x < width; x++)
+            {
+                uint pixel = BinaryPrimitives.ReadUInt32LittleEndian(
+                    bytes.Slice(sourceRow + (x * 4), 4));
+                int destination = destinationRow + (x * 4);
+                bgra[destination] = ExtractMaskedChannel(pixel, blueMask, 0);
+                bgra[destination + 1] =
+                    ExtractMaskedChannel(pixel, greenMask, 0);
+                bgra[destination + 2] =
+                    ExtractMaskedChannel(pixel, redMask, 0);
+                bgra[destination + 3] =
+                    ExtractMaskedChannel(pixel, alphaMask, 255);
+            }
+        }
+
+        decoded = new DecodedImage(width, height, bgra);
+        return true;
+    }
+
+    private static byte ExtractMaskedChannel(
+        uint pixel,
+        uint mask,
+        byte missingValue)
+    {
+        if (mask == 0)
+        {
+            return missingValue;
+        }
+
+        int shift = 0;
+        uint shiftedMask = mask;
+        while ((shiftedMask & 1) == 0)
+        {
+            shiftedMask >>= 1;
+            shift++;
+        }
+
+        int bits = 0;
+        uint contiguous = shiftedMask;
+        while ((contiguous & 1) != 0)
+        {
+            contiguous >>= 1;
+            bits++;
+        }
+
+        if (bits == 0 || contiguous != 0)
+        {
+            throw new InvalidDataException(
+                $"DDS uses unsupported non-contiguous channel mask 0x{mask:X8}.");
+        }
+
+        uint maximum = bits == 32
+            ? uint.MaxValue
+            : (1u << bits) - 1;
+        uint value = (pixel & mask) >> shift;
+        return (byte)(((ulong)value * 255 + (maximum / 2u)) / maximum);
     }
 
     private static byte[] Crop(
@@ -1656,7 +1934,7 @@ public sealed class DyingLightAssetResolver : IAssetResolver
     {
         string identity = string.Create(
             CultureInfo.InvariantCulture,
-            $"{sourceHash}|{region.SourceRectangle.X}|{region.SourceRectangle.Y}|{region.SourceRectangle.Width}|{region.SourceRectangle.Height}|BGRA32-v1");
+            $"{sourceHash}|{region.DefinitionRoot?.FullPath}|{region.DefinitionRelativePath}|{region.Name}|{region.TextureFile}|{region.Primitive}|{region.SourceRectangle.X}|{region.SourceRectangle.Y}|{region.SourceRectangle.Width}|{region.SourceRectangle.Height}|BGRA32-v2");
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)));
     }
 
@@ -1673,8 +1951,18 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             IEnumerable<string> files;
             try
             {
-                subdirectories = Directory.EnumerateDirectories(directory).ToArray();
-                files = Directory.EnumerateFiles(directory).ToArray();
+                subdirectories = Directory
+                    .EnumerateDirectories(directory)
+                    .OrderByDescending(
+                        static path => path,
+                        StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+                files = Directory
+                    .EnumerateFiles(directory)
+                    .OrderBy(
+                        static path => path,
+                        StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
             }
             catch (UnauthorizedAccessException)
             {
@@ -1712,6 +2000,20 @@ public sealed class DyingLightAssetResolver : IAssetResolver
                 }
             }
         }
+    }
+
+    private string DescribeTextureRoots()
+    {
+        string[] roots = Roots
+            .Select(static root => root.FullPath)
+            .Concat(_sources.Select(static source => source.DisplayName))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return roots.Length == 0
+            ? "no configured asset roots"
+            : string.Join(
+                " -> ",
+                roots.Select(static root => $"'{root}'"));
     }
 
     private static bool IsIndexedExtension(string extension) =>
@@ -2024,6 +2326,10 @@ public sealed class DyingLightAssetResolver : IAssetResolver
 
     private sealed record DecodedImage(int Width, int Height, byte[] Bgra);
 
+    private sealed record TextureFileResolution(
+        XuiResolvedFile? File,
+        int AmbiguousCandidateCount);
+
     private sealed record FontResolution(
         XuiFontDefinition? Definition,
         double Scale,
@@ -2034,6 +2340,7 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         Dictionary<string, XuiResolvedFile> Files,
         IReadOnlyList<XuiResolvedFile> FileList,
         Dictionary<string, XuiResolvedFile> DdsFiles,
+        Dictionary<string, IReadOnlyList<XuiResolvedFile>> DdsCandidates,
         Dictionary<string, XuiTextureRegion> TextureRegions,
         Dictionary<string, XuiFontDefinition> Fonts,
         Dictionary<string, XuiFontStyle> FontStyles,
