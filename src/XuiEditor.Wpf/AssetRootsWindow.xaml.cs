@@ -201,7 +201,7 @@ public partial class AssetRootsWindow : Window
         _settings.DyingLightInstallPath =
             install.Length == 0 ? null : install;
         _settings.Locale = DyingLightInstallProfile.NormalizeLocale(
-            LocaleCombo.Text);
+            LocaleCombo.SelectedItem as string);
         _settings.InputGlyphScheme =
             InputGlyphCombo.SelectedItem is XuiInputGlyphScheme scheme
                 ? scheme

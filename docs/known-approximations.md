@@ -10,9 +10,12 @@ game output:
   data when both are available. Engine IDs without an exact bitmap resource
   are mapped through `basicfonts.scr`, `fontstyles.scr`, user-supplied font
   files, or installed families and receive a visible approximation diagnostic.
-- **Localization.** The selected installed locale uses English fallback.
-  Tokens absent from both catalogs remain tokens; the editor does not invent
-  translated strings.
+- **Localization.** Stock localization binaries are read only from the
+  selected install's language PAKs and use the English PAK as fallback.
+  Extracted copies are ignored so they cannot impersonate the selected
+  language. Explicit locale folders in configured projects, workspaces,
+  loose-resource roots, and RPACKs may override stock strings. Tokens absent
+  from those catalogs remain tokens; the editor does not invent translations.
 - **Shaders and materials.** The stock sprite, text, antialias, button,
   clipping, tint, and forced-mask families have explicit editor profiles.
   Unsupported proprietary shaders use their static bounds, template, color,

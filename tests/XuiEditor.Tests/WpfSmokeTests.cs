@@ -238,6 +238,93 @@ public sealed class WpfSmokeTests
 
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
+    public void TransparentSnapshotExportsVisibleXuiAtTwoTimesDesignResolution()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>50</Height></Properties>" +
+            "<EngineRuntimeMystery><Properties><Id>Unknown</Id><Width>100</Width>" +
+            "<Height>50</Height></Properties></EngineRuntimeMystery>" +
+            "<IUIAARectangle><Properties><Id>Visible</Id><Width>20</Width>" +
+            "<Height>20</Height><Position>10,10,0</Position>" +
+            "<ImagePath>white</ImagePath><Color>0xffff0000</Color>" +
+            "<Material>menu_antialias.mat</Material></Properties></IUIAARectangle>" +
+            "<IUIAARectangle><Properties><Id>Hidden</Id><Width>20</Width>" +
+            "<Height>20</Height><Position>40,10,0</Position>" +
+            "<ImagePath>white</ImagePath><Color>0xff0000ff</Color>" +
+            "<Material>menu_antialias.mat</Material></Properties></IUIAARectangle>" +
+            "</XuiCanvas>");
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        XuiSyntaxNode hidden =
+            XuiModelReader.VisualDescendants(document.Root).Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Hidden");
+        window.SetEditorHiddenForTesting(hidden.Key, hidden: true);
+        string outputPath = Path.Combine(
+            Path.GetTempPath(),
+            $"xui-transparent-snapshot-{Guid.NewGuid():N}.png");
+
+        try
+        {
+            BitmapSource bitmap =
+                window.ExportTransparentPngForTesting(outputPath);
+
+            Assert.AreEqual(200, bitmap.PixelWidth);
+            Assert.AreEqual(100, bitmap.PixelHeight);
+            Assert.IsTrue(File.Exists(outputPath));
+            Assert.IsTrue(window.ViewportForTesting.ShowUnknownBounds);
+
+            using FileStream stream = File.OpenRead(outputPath);
+            PngBitmapDecoder decoder = new(
+                stream,
+                BitmapCreateOptions.PreservePixelFormat,
+                BitmapCacheOption.OnLoad);
+            BitmapFrame png = decoder.Frames.Single();
+            Assert.AreEqual(200, png.PixelWidth);
+            Assert.AreEqual(100, png.PixelHeight);
+
+            byte[] transparent = new byte[4];
+            png.CopyPixels(
+                new Int32Rect(4, 4, 1, 1),
+                transparent,
+                4,
+                0);
+            Assert.AreEqual(
+                0,
+                transparent[3],
+                "Canvas chrome and unknown-control bounds must not be exported.");
+
+            byte[] red = new byte[4];
+            png.CopyPixels(
+                new Int32Rect(30, 30, 1, 1),
+                red,
+                4,
+                0);
+            Assert.AreEqual(0x00, red[0], 1);
+            Assert.AreEqual(0x00, red[1], 1);
+            Assert.AreEqual(0xff, red[2], 1);
+            Assert.AreEqual(0xff, red[3], 1);
+
+            byte[] hiddenBlue = new byte[4];
+            png.CopyPixels(
+                new Int32Rect(90, 30, 1, 1),
+                hiddenBlue,
+                4,
+                0);
+            Assert.AreEqual(
+                0,
+                hiddenBlue[3],
+                "Editor-hidden nodes must stay hidden in the snapshot.");
+        }
+        finally
+        {
+            File.Delete(outputPath);
+        }
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
     public void ViewportZoomsToFivePercentAndBackWithoutRulerFailure()
     {
         App application = Application.Current as App ?? new App();
@@ -508,7 +595,7 @@ public sealed class WpfSmokeTests
 
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
-    public void PreviewPresetsRemainInToolbarWithoutManualDataGrid()
+    public void PreviewControlsAreAbsentFromToolbarAndManualDataGrid()
     {
         App application = Application.Current as App ?? new App();
         application.InitializeComponent();
@@ -518,7 +605,7 @@ public sealed class WpfSmokeTests
         content.Arrange(new Rect(0, 0, 1280, 760));
         content.UpdateLayout();
 
-        Assert.IsNotNull(window.FindName("PreviewScenarioCombo"));
+        Assert.IsNull(window.FindName("PreviewScenarioCombo"));
         Assert.IsNull(window.FindName("PreviewPropertiesGrid"));
         Assert.IsFalse(
             Descendants(content)
@@ -528,6 +615,41 @@ public sealed class WpfSmokeTests
                         tab.Header?.ToString(),
                         "Preview Data",
                         StringComparison.Ordinal)));
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void ResourceSettingsCommitSelectedInstallLanguage()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        using TestDirectory directory = new();
+        string install = directory.File("Dying Light");
+        string dw = Path.Combine(install, "DW");
+        Directory.CreateDirectory(dw);
+        File.WriteAllBytes(
+            Path.Combine(install, "DyingLightGame.exe"),
+            []);
+        File.WriteAllBytes(Path.Combine(dw, "Data0.pak"), []);
+        File.WriteAllBytes(Path.Combine(dw, "DataJp.pak"), []);
+        EditorSettings settings = new()
+        {
+            DyingLightInstallPath = install,
+            Locale = "En",
+        };
+        AssetRootsWindow window = new(settings);
+        ComboBox locale = (ComboBox)window.FindName("LocaleCombo");
+        Button accept = (Button)window.FindName("AcceptButton");
+
+        Assert.IsFalse(locale.IsEditable);
+        window.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            locale.SelectedItem = "Jp";
+            accept.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        }));
+
+        Assert.AreEqual(true, window.ShowDialog());
+        Assert.AreEqual("Jp", settings.Locale);
     }
 
     [STATestMethod]
@@ -1124,6 +1246,7 @@ public sealed class WpfSmokeTests
         using MainWindow window = new();
 
         Assert.IsTrue(window.PreviewStateIsInAnimationTabForTesting);
+        Assert.IsTrue(window.PreviewStateIsSeparatedFromTransportForTesting);
         Assert.IsTrue(window.HierarchyHeaderButtonsSeparatedForTesting);
     }
 

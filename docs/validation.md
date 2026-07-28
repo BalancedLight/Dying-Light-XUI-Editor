@@ -15,7 +15,7 @@ dotnet publish src\XuiEditor.Wpf\XuiEditor.Wpf.csproj
   -o artifacts\publish\win-x64
 ```
 
-Both test configurations passed all 161 tests with zero build warnings.
+Both test configurations passed all 164 tests with zero build warnings.
 
 Coverage includes:
 
@@ -60,7 +60,9 @@ Coverage includes:
   `menuskin.xui`, `intro.xui`, `menubountybrief.xui`,
   `menuyesnodialog.xui`, and the large HUD
 - direct Dying Light install indexing, PAK precedence, RP6 resource lookup,
-  selected-locale/English fallback, input glyphs, and exact bitmap fonts
+  selected-locale/English fallback, rejection of extracted localization
+  binaries, explicit project-locale overrides, input glyphs, and exact bitmap
+  fonts
 - exact `IUIText` `%COLOR(RRGGBB)`/`%COLOR(reset)` parsing after
   localization, literal disabled/malformed tags, cached colored runs,
   per-range WPF brushes, per-glyph bitmap colors, and stock HUD evidence
@@ -76,8 +78,8 @@ Coverage includes:
   source isolation
 - the real `hud_dw` texture definition and DDS source for the 20×20
   `aggro_skull` atlas region (the similarly named `hud_dl` is not used)
-- HUD preview scenarios, runtime text placeholders, hidden-node reveal rules,
-  and source-byte isolation
+- composed runtime text placeholders, hidden-node reveal rules, removal of the
+  toolbar preview-preset selector, and source-byte isolation
 - indexed effective-state explanations for authored, animated, controller,
   ancestor, opacity, clipping, and off-canvas visibility, plus ancestor-aware
   force-show and composed-pose recovery without selection-time layout samples
@@ -104,16 +106,23 @@ Coverage includes:
   fallbacks during selection-scoped playback
 - bounded visible-texture scheduling and temporary flattened viewport caching
   during repeated HUD pan/zoom input, with deferred resource redraws
+- transparent 2× design-resolution PNG export of the current retained XUI
+  pose, including visibility/alpha preservation and exclusion of canvas chrome,
+  reference imagery, editor overlays, and unknown-control bounds
+- independent Animation-header rows that keep transport controls at their
+  authored height when the effective preview-state explanation is visible
 - the single-file publish contract and embedded multi-resolution icon
 
 The current installation at
 `E:\SteamLibrary\steamapps\common\Dying Light` exposed 174 stock XUIs and
 8,793 install assets. With the configured optional extracted roots, the live
-editor indexed 24,735 assets and 20,098 selected-language/English-fallback
-strings. Stock `hud.xui` opened read-only with 4,061 nodes and 1,896
-timelines. The gameplay-HUD scenario resolved installed imagery, populated
-sample health/medkit/quest values, and did not produce the former false
-`XUI-TL005` Const0/Const1 diagnostics.
+editor indexed 24,735 assets. The install-only English acceptance resolver
+indexed 23,766 PAK-backed strings; extracted localization binaries no longer
+enter the catalog, while structurally identified project locale folders can
+still add explicit overrides. Stock `hud.xui` opened read-only with 4,061
+nodes and 1,896 timelines. The gameplay-HUD acceptance context resolved
+installed imagery, populated sample health/medkit/quest values, and did not
+produce the former false `XUI-TL005` Const0/Const1 diagnostics.
 
 The stock DLC file `data/menu/hud/hud_btz.xui` is malformed at its source
 (`TimelineProp` is closed as `Timeline</Prop>` near line 4255). The parser
@@ -124,8 +133,8 @@ The final `win-x64` publish contains one file and no sidecars:
 
 ```text
 DyingLightXuiEditor.exe
-65,559,390 bytes
-SHA-256 C3A089D3AB3F89D2E77D9653B980FB84FF8DAD193988D3884BEE5F3C76041AAA
+65,560,813 bytes
+SHA-256 2F5344B532420FEC442D664EA978C5675F1141139D4B906A1132DC89FE1871B0
 ```
 
 The self-contained executable was launched without Unity or an installed .NET

@@ -1112,14 +1112,15 @@ public sealed class DyingLightAssetResolver : IAssetResolver
                 }
             }
 
-            if (fileName.Equals(
-                    "common_texts_all.bin",
-                    StringComparison.OrdinalIgnoreCase) ||
-                extension.Equals(".scr", StringComparison.OrdinalIgnoreCase) &&
-                IsLocalizationSource(relative))
+            if (TryGetLocalizationLocale(
+                    resolved,
+                    fileName,
+                    extension,
+                    relative,
+                    out string localizationLocale))
             {
                 localizationSources.Add((
-                    InferLocale(resolved) ?? _locale,
+                    localizationLocale,
                     resolved));
             }
 
@@ -2281,6 +2282,43 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         }
 
         return null;
+    }
+
+    private static bool TryGetLocalizationLocale(
+        XuiResolvedFile file,
+        string fileName,
+        string extension,
+        string relativePath,
+        out string locale)
+    {
+        locale = string.Empty;
+        string? inferredLocale = InferLocale(file);
+        bool isInstallLanguagePak =
+            file.Root.Kind == XuiAssetRootKind.DyingLightInstall &&
+            file.Entry?.Origin.Kind == XuiAssetContainerKind.ZipPak &&
+            inferredLocale is not null;
+        bool isConfiguredProjectLocale =
+            (file.Root.Kind is
+                 XuiAssetRootKind.Workspace or
+                 XuiAssetRootKind.DyingLightProject or
+                 XuiAssetRootKind.LooseResources or
+                 XuiAssetRootKind.LooseMod or
+                 XuiAssetRootKind.Rp6ResourcePack) &&
+            inferredLocale is not null;
+        bool isTextBinary = fileName.EndsWith(
+            "_texts_all.bin",
+            StringComparison.OrdinalIgnoreCase);
+        bool isTextScript =
+            extension.Equals(".scr", StringComparison.OrdinalIgnoreCase) &&
+            IsLocalizationSource(relativePath);
+        if ((!isTextBinary && !isTextScript) ||
+            (!isInstallLanguagePak && !isConfiguredProjectLocale))
+        {
+            return false;
+        }
+
+        locale = inferredLocale!;
+        return true;
     }
 
     private static bool IsLocalizationSource(string relativePath)

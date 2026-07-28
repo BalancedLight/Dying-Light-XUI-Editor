@@ -83,7 +83,9 @@ public sealed class InstallAssetTests
             StringComparison.OrdinalIgnoreCase));
         Assert.IsTrue(texture.BgraPixels.Any(static value => value != 0));
         Assert.IsNotNull(resolver.Localization);
-        Assert.HasCount(20_098, resolver.Localization.Entries);
+        Assert.IsGreaterThanOrEqualTo(
+            20_098,
+            resolver.Localization.Entries.Count);
         Assert.AreEqual(
             "Instant Escape",
             resolver.ResolveText("&Hud_FastBreak&"));

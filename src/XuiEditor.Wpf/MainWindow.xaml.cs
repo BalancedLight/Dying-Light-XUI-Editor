@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using XuiEditor.Core.Animation;
@@ -25,6 +26,7 @@ public partial class MainWindow : Window, IDisposable
 {
     private const string MixedValue = "— mixed —";
     private const int AutomaticRawXmlCharacterLimit = 256 * 1024;
+    private const double SnapshotExportScale = 2;
     private static readonly HashSet<string> KnownProperties = new(
         StringComparer.Ordinal)
     {
@@ -135,6 +137,7 @@ public partial class MainWindow : Window, IDisposable
     private string? _rawXmlLoadedNodeKey;
     private long _rawXmlLoadedRevision = -1;
     private DateTime _ignoreWatcherUntilUtc;
+    private XuiPreviewScenario _previewScenario = XuiPreviewScenario.Empty;
     private bool _allowClose;
     private string? _recoverySuggestedPath;
     private RecoverySnapshot? _activeRecovery;
@@ -151,13 +154,6 @@ public partial class MainWindow : Window, IDisposable
         FilteredDiagnostics = [];
         InitializeComponent();
         DataContext = this;
-        PreviewScenarioCombo.ItemsSource = XuiPreviewScenarioCatalog.Defaults;
-        PreviewScenarioCombo.SelectedItem =
-            XuiPreviewScenarioCatalog.Defaults.FirstOrDefault(scenario =>
-                scenario.Id.Equals(
-                    _settings.PreviewScenarioId,
-                    StringComparison.Ordinal)) ??
-            XuiPreviewScenario.Empty;
         ReferenceOpacitySlider.Value = _settings.ReferenceOverlayOpacity;
 
         Viewport.TextureDiagnosticsAvailable +=
@@ -234,6 +230,12 @@ public partial class MainWindow : Window, IDisposable
     internal bool PreviewStateIsInAnimationTabForTesting =>
         HasLogicalAncestor(PreviewStatePanel, AnimationTab);
 
+    internal bool PreviewStateIsSeparatedFromTransportForTesting =>
+        Grid.GetRow(PreviewStatePanel) >
+        Grid.GetRow(TimelineTransportPanel) &&
+        TimelineTransportPanel.VerticalAlignment ==
+        VerticalAlignment.Top;
+
     internal bool HierarchyHeaderButtonsSeparatedForTesting =>
         CollapseHierarchyButton.Margin.Right >= 4;
 
@@ -263,9 +265,10 @@ public partial class MainWindow : Window, IDisposable
 
     internal void SetPreviewScenarioForTesting(string scenarioId)
     {
-        PreviewScenarioCombo.SelectedItem =
+        _previewScenario =
             XuiPreviewScenarioCatalog.Defaults.Single(scenario =>
                 scenario.Id.Equals(scenarioId, StringComparison.Ordinal));
+        RefreshEvaluation();
     }
 
     internal ListBox HierarchyListForTesting => HierarchyList;
@@ -283,6 +286,11 @@ public partial class MainWindow : Window, IDisposable
         AttachDocument(document);
         RefreshAll();
     }
+
+    internal BitmapSource ExportTransparentPngForTesting(
+        string path,
+        double scale = SnapshotExportScale) =>
+        SaveTransparentPng(path, scale);
 
     internal void SetAssetResolverForTesting(
         DyingLightAssetResolver resolver)
@@ -1118,20 +1126,6 @@ public partial class MainWindow : Window, IDisposable
         ApplyViewportSettings();
     }
 
-    private void PreviewScenario_SelectionChanged(
-        object sender,
-        SelectionChangedEventArgs eventArgs)
-    {
-        if (PreviewScenarioCombo.SelectedItem is not XuiPreviewScenario scenario)
-        {
-            return;
-        }
-
-        _settings.PreviewScenarioId = scenario.Id;
-        PreviewScenarioCombo.ToolTip = scenario.Description;
-        RefreshEvaluation();
-    }
-
     private void ForceShowSelected_Click(
         object sender,
         RoutedEventArgs eventArgs)
@@ -1221,6 +1215,105 @@ public partial class MainWindow : Window, IDisposable
     {
         Viewport.ClearReferenceImage();
         StatusText.Text = "Reference image cleared";
+    }
+
+    private void ExportPng_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (_document is null ||
+            !Viewport.HasRenderedFrame)
+        {
+            StatusText.Text =
+                "Open and render an XUI document before exporting a PNG.";
+            return;
+        }
+
+        string stem = Path.GetFileNameWithoutExtension(
+            _document.DisplayName);
+        SaveFileDialog dialog = new()
+        {
+            Title = "Export Transparent XUI Snapshot",
+            Filter = "PNG image (*.png)|*.png",
+            AddExtension = true,
+            DefaultExt = ".png",
+            FileName = $"{stem}-preview.png",
+            InitialDirectory = InitialSaveDirectory(),
+            OverwritePrompt = true,
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = "Rendering transparent 2× PNG…";
+            BitmapSource bitmap = SaveTransparentPng(
+                dialog.FileName,
+                SnapshotExportScale);
+            StatusText.Text =
+                $"Exported transparent PNG · {bitmap.PixelWidth:N0}×{bitmap.PixelHeight:N0}";
+        }
+        catch (Exception exception) when (
+            exception is IOException or
+            UnauthorizedAccessException or
+            InvalidOperationException or
+            ArgumentException or
+            OutOfMemoryException)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Could not export PNG",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            StatusText.Text = "PNG export failed safely";
+        }
+    }
+
+    private BitmapSource SaveTransparentPng(
+        string path,
+        double scale)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        BitmapSource bitmap =
+            Viewport.RenderTransparentSnapshot(scale);
+        string fullPath = Path.GetFullPath(path);
+        string directory = Path.GetDirectoryName(fullPath) ??
+            throw new InvalidOperationException(
+                "The PNG destination has no parent directory.");
+        string temporaryPath = Path.Combine(
+            directory,
+            $".{Path.GetFileName(fullPath)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            PngBitmapEncoder encoder = new();
+            encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            using (FileStream stream = new(
+                       temporaryPath,
+                       FileMode.CreateNew,
+                       FileAccess.Write,
+                       FileShare.None))
+            {
+                encoder.Save(stream);
+                stream.Flush(flushToDisk: true);
+            }
+
+            File.Move(
+                temporaryPath,
+                fullPath,
+                overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+        }
+
+        return bitmap;
     }
 
     private void ReferenceOpacitySlider_ValueChanged(
@@ -3014,6 +3107,7 @@ public partial class MainWindow : Window, IDisposable
             AssetStatusText.Text =
                 $"{_assetResolver.Files.Count:N0} assets · " +
                 $"{_assetResolver.Localization?.Entries.Count ?? 0:N0} strings · " +
+                $"{DyingLightInstallProfile.NormalizeLocale(_settings.Locale)} · " +
                 $"{diagnosticCount:N0} " +
                 (diagnosticCount == 1 ? "diagnostic" : "diagnostics");
             RefreshEvaluation();
@@ -3243,11 +3337,8 @@ public partial class MainWindow : Window, IDisposable
 
     private XuiRenderContext BuildRenderContext()
     {
-        XuiPreviewScenario selected =
-            PreviewScenarioCombo?.SelectedItem as XuiPreviewScenario ??
-            XuiPreviewScenario.Empty;
         return new XuiRenderContext(
-            selected,
+            _previewScenario,
             _forceShownKeys,
             ForceHiddenTargets: null,
             ResolveLocalization: true);
@@ -4523,6 +4614,10 @@ public partial class MainWindow : Window, IDisposable
                 : "Saved";
         UndoMenuItem.IsEnabled = _document?.History.CanUndo == true;
         RedoMenuItem.IsEnabled = _document?.History.CanRedo == true;
+        bool canExport = _document is not null &&
+                         Viewport.HasRenderedFrame;
+        ExportPngButton.IsEnabled = canExport;
+        ExportPngMenuItem.IsEnabled = canExport;
         UndoMenuItem.Header = _document?.History.UndoDescription is string undo
             ? $"_Undo {undo}"
             : "_Undo";

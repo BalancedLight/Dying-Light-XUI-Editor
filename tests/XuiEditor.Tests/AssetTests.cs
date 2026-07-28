@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.IO.Compression;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using XuiEditor.Core.Assets;
@@ -202,6 +203,106 @@ public sealed class AssetTests
     }
 
     [TestMethod]
+    public async Task LocalizationUsesInstallPaksAndExplicitProjectLocales()
+    {
+        using TestDirectory directory = new();
+        string install = directory.File("Dying Light");
+        string dw = Path.Combine(install, "DW");
+        string extracted = directory.File("extracted");
+        string project = directory.File("project");
+        string extractedTexts = Path.Combine(
+            extracted,
+            "data",
+            "maps");
+        string japaneseTexts = Path.Combine(
+            project,
+            "Locale",
+            "Jp");
+        Directory.CreateDirectory(dw);
+        Directory.CreateDirectory(extractedTexts);
+        Directory.CreateDirectory(japaneseTexts);
+        await File.WriteAllBytesAsync(
+            Path.Combine(install, "DyingLightGame.exe"),
+            []);
+        WriteBinaryPak(
+            Path.Combine(dw, "Data0.pak"),
+            ("data/menu/scr/minimal.xui", Encoding.UTF8.GetBytes(
+                "<XuiCanvas />")));
+        WriteBinaryPak(
+            Path.Combine(dw, "DataEn.pak"),
+            ("data/maps/common_texts_all.bin", BuildStringCatalog(
+            [
+                ("Language_Test", "Game English"),
+                ("Project_Test", "Game English"),
+            ])));
+        WriteBinaryPak(
+            Path.Combine(dw, "DataJp.pak"),
+            ("data/maps/common_texts_all.bin", BuildStringCatalog(
+            [
+                ("Language_Test", "Game Japanese"),
+                ("Project_Test", "Game Japanese"),
+            ])));
+        await File.WriteAllBytesAsync(
+            Path.Combine(extractedTexts, "common_texts_all.bin"),
+            BuildStringCatalog(
+            [
+                ("Language_Test", "Extracted English"),
+                ("Project_Test", "Extracted English"),
+            ]));
+        await File.WriteAllTextAsync(
+            Path.Combine(japaneseTexts, "project_texts_all.scr"),
+            """
+            !String(s, s)
+            String("Project_Test", "Project Japanese")
+            """);
+        DyingLightInstallIndex japaneseIndex = new(
+            new DyingLightInstallProfile(install, "Jp"));
+        DyingLightInstallIndex englishIndex = new(
+            new DyingLightInstallProfile(install, "En"));
+        await japaneseIndex.RebuildAsync();
+        await englishIndex.RebuildAsync();
+        XuiAssetRoot[] roots =
+        [
+            new(
+                project,
+                XuiAssetRootKind.DyingLightProject,
+                false),
+            new(
+                extracted,
+                XuiAssetRootKind.ExtractedDyingLight,
+                true),
+        ];
+        DyingLightAssetResolver japanese = new(
+            roots,
+            directory.File("cache-jp"),
+            sources: [japaneseIndex],
+            locale: "Jp");
+        DyingLightAssetResolver english = new(
+            roots,
+            directory.File("cache-en"),
+            sources: [englishIndex],
+            locale: "En");
+
+        await japanese.RebuildAsync();
+        await english.RebuildAsync();
+
+        Assert.AreEqual("Jp", japanese.Localization?.Locale);
+        Assert.AreEqual(
+            "Game Japanese",
+            japanese.ResolveText("Language_Test"));
+        Assert.AreEqual(
+            "Project Japanese",
+            japanese.ResolveText("Project_Test"));
+        Assert.AreEqual("En", english.Localization?.Locale);
+        Assert.AreEqual(
+            "Game English",
+            english.ResolveText("Language_Test"));
+        Assert.AreEqual(
+            "Game English",
+            english.ResolveText("Project_Test"));
+    }
+
+    [TestMethod]
     public async Task ResolverHonorsRootPrecedenceAndDecodesDdsCrop()
     {
         using TestDirectory directory = new();
@@ -275,6 +376,43 @@ public sealed class AssetTests
         Assert.AreEqual(
             Path.GetFullPath(pakAssets),
             loader.Root.FullPath);
+    }
+
+    private static byte[] BuildStringCatalog(
+        IReadOnlyList<(string Key, string Value)> entries)
+    {
+        using MemoryStream stream = new();
+        using BinaryWriter writer = new(
+            stream,
+            Encoding.UTF8,
+            leaveOpen: true);
+        writer.Write(1);
+        writer.Write(entries.Count);
+        foreach ((string key, string value) in entries)
+        {
+            byte[] keyBytes = Encoding.UTF8.GetBytes(key);
+            writer.Write((ushort)keyBytes.Length);
+            writer.Write(keyBytes);
+            writer.Write((ushort)value.Length);
+            writer.Write(Encoding.Unicode.GetBytes(value));
+        }
+
+        return stream.ToArray();
+    }
+
+    private static void WriteBinaryPak(
+        string path,
+        params (string Path, byte[] Content)[] entries)
+    {
+        using ZipArchive archive = ZipFile.Open(
+            path,
+            ZipArchiveMode.Create);
+        foreach ((string entryPath, byte[] content) in entries)
+        {
+            ZipArchiveEntry entry = archive.CreateEntry(entryPath);
+            using Stream stream = entry.Open();
+            stream.Write(content);
+        }
     }
 
     [TestMethod]

@@ -97,6 +97,8 @@ public sealed class XuiViewportControl : FrameworkElement
     private const int MaximumConcurrentTextureLoads = 4;
     private const int SelectedTexturePriority = 0;
     private const int VisibleTexturePriority = 10;
+    private const int MaximumSnapshotDimension = 16_384;
+    private const long MaximumSnapshotPixels = 64_000_000;
     [Flags]
     private enum ResizeHandle
     {
@@ -274,6 +276,8 @@ public sealed class XuiViewportControl : FrameworkElement
 
     public double Zoom => _zoom;
 
+    public bool HasRenderedFrame => _frame is not null;
+
     internal bool IsSelectedForTesting(string nodeKey) =>
         _selectedKeys.Contains(nodeKey);
 
@@ -439,6 +443,99 @@ public sealed class XuiViewportControl : FrameworkElement
     {
         _referenceImage = null;
         DrawCanvasLayer();
+    }
+
+    public BitmapSource RenderTransparentSnapshot(double scale = 2)
+    {
+        XuiRenderFrame frame = _frame ??
+            throw new InvalidOperationException(
+                "Open and render an XUI document before exporting a snapshot.");
+        if (!double.IsFinite(scale) || scale <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(scale),
+                "Snapshot scale must be a positive finite number.");
+        }
+
+        double scaledWidth = frame.DesignSize.X * scale;
+        double scaledHeight = frame.DesignSize.Y * scale;
+        if (!double.IsFinite(scaledWidth) ||
+            !double.IsFinite(scaledHeight) ||
+            scaledWidth <= 0 ||
+            scaledHeight <= 0 ||
+            scaledWidth > MaximumSnapshotDimension ||
+            scaledHeight > MaximumSnapshotDimension ||
+            scaledWidth * scaledHeight > MaximumSnapshotPixels)
+        {
+            throw new InvalidOperationException(
+                "The authored canvas is too large to export safely at the requested scale.");
+        }
+
+        int pixelWidth = checked((int)Math.Ceiling(scaledWidth));
+        int pixelHeight = checked((int)Math.Ceiling(scaledHeight));
+        EndNavigationCache();
+        bool restoreUnknownBounds = _showUnknownBounds;
+        if (restoreUnknownBounds)
+        {
+            _showUnknownBounds = false;
+            RedrawAllNodeContent();
+        }
+
+        try
+        {
+            Rect designBounds = new(
+                0,
+                0,
+                frame.DesignSize.X,
+                frame.DesignSize.Y);
+            VisualBrush contentBrush = new(_nodeLayer)
+            {
+                Viewbox = designBounds,
+                ViewboxUnits = BrushMappingMode.Absolute,
+                Viewport = designBounds,
+                ViewportUnits = BrushMappingMode.Absolute,
+                Stretch = Stretch.Fill,
+                TileMode = TileMode.None,
+            };
+            RenderOptions.SetBitmapScalingMode(
+                contentBrush,
+                BitmapScalingMode.HighQuality);
+            DrawingVisual exportVisual = new();
+            RenderOptions.SetBitmapScalingMode(
+                exportVisual,
+                BitmapScalingMode.HighQuality);
+            TextOptions.SetTextFormattingMode(
+                exportVisual,
+                TextFormattingMode.Display);
+            TextOptions.SetTextRenderingMode(
+                exportVisual,
+                TextRenderingMode.Grayscale);
+            using (DrawingContext drawing = exportVisual.RenderOpen())
+            {
+                drawing.DrawRectangle(
+                    contentBrush,
+                    null,
+                    designBounds);
+            }
+
+            RenderTargetBitmap bitmap = new(
+                pixelWidth,
+                pixelHeight,
+                96 * scale,
+                96 * scale,
+                PixelFormats.Pbgra32);
+            bitmap.Render(exportVisual);
+            bitmap.Freeze();
+            return bitmap;
+        }
+        finally
+        {
+            if (restoreUnknownBounds)
+            {
+                _showUnknownBounds = true;
+                RedrawAllNodeContent();
+            }
+        }
     }
 
     public void SetFrame(XuiRenderFrame? frame)

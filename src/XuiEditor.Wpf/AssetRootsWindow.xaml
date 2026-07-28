@@ -59,7 +59,7 @@
                        Margin="0,0,6,0" />
             <ComboBox x:Name="LocaleCombo"
                       Grid.Column="1"
-                      IsEditable="True"
+                      IsEditable="False"
                       ToolTip="Selected catalog with English fallback" />
             <TextBlock Grid.Column="3"
                        Text="Input prompts"
@@ -226,7 +226,8 @@
                        Text="PAKs and RPACKs are indexed read-only. The editor never modifies the game install." />
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                 <Button Content="Cancel" IsCancel="True" MinWidth="85" />
-                <Button Content="OK"
+                <Button x:Name="AcceptButton"
+                        Content="OK"
                         IsDefault="True"
                         MinWidth="85"
                         Click="Ok_Click" />

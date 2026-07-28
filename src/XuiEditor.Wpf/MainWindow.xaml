@@ -280,6 +280,10 @@
                           Click="Save_Click" />
                 <MenuItem Header="Save _As…" InputGestureText="Ctrl+Shift+S"
                           Click="SaveAs_Click" />
+                <MenuItem x:Name="ExportPngMenuItem"
+                          Header="Export Transparent _PNG…"
+                          ToolTip="Export the current visible XUI at 2× design resolution with transparency"
+                          Click="ExportPng_Click" />
                 <Separator />
                 <MenuItem Header="E_xit" Click="Exit_Click" />
             </MenuItem>
@@ -383,6 +387,11 @@
                     <Button Content="+" ToolTip="Zoom in"
                             Click="ZoomIn_Click" />
                     <Separator Margin="5,3" />
+                    <Button x:Name="ExportPngButton"
+                            Content="PNG"
+                            ToolTip="Export a transparent 2× PNG of the current visible XUI"
+                            Click="ExportPng_Click" />
+                    <Separator Margin="5,3" />
                     <ToggleButton x:Name="ToolbarSnap"
                                   Content="Snap"
                                   Padding="10,5"
@@ -390,19 +399,8 @@
                                   Checked="ToolbarSnap_Changed"
                                   Unchecked="ToolbarSnap_Changed" />
                     <Separator Margin="5,3" />
-                    <TextBlock Text="Preview"
-                               Margin="4,0"
-                               Foreground="{StaticResource MutedTextBrush}"
-                               VerticalAlignment="Center" />
-                    <ComboBox x:Name="PreviewScenarioCombo"
-                              Width="155"
-                              DisplayMemberPath="DisplayName"
-                              AutomationProperties.Name="Preview scenario"
-                              AutomationProperties.AutomationId="PreviewScenarioCombo"
-                              ToolTip="Choose representative game-supplied HUD values"
-                              SelectionChanged="PreviewScenario_SelectionChanged" />
                     <TextBlock Text="Reference"
-                               Margin="7,0,3,0"
+                               Margin="4,0,3,0"
                                Foreground="{StaticResource MutedTextBrush}"
                                VerticalAlignment="Center" />
                     <Slider x:Name="ReferenceOpacitySlider"
@@ -844,11 +842,17 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <DockPanel Grid.Row="0">
+                            <Grid Grid.Row="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
                                 <StackPanel x:Name="TimelineTransportPanel"
                                             Orientation="Horizontal"
-                                            DockPanel.Dock="Left">
+                                            Grid.Column="0"
+                                            VerticalAlignment="Top">
                                     <TextBlock x:Name="TimelineScopeText"
                                                MinWidth="150"
                                                Foreground="{StaticResource AccentBrush}"
@@ -890,60 +894,61 @@
                                     <Button Content="Copy" Click="CopyKeyFrame_Click" />
                                     <Button Content="Paste" Click="PasteKeyFrame_Click" />
                                 </StackPanel>
-                                <StackPanel HorizontalAlignment="Right">
-                                    <StackPanel Orientation="Horizontal"
-                                                HorizontalAlignment="Right">
-                                        <TextBlock x:Name="TickText"
-                                                   VerticalAlignment="Center"
-                                                   Margin="8,0"
-                                                   FontFamily="Consolas" />
-                                        <Slider x:Name="TickSlider"
-                                                Width="300"
-                                                Minimum="0"
-                                                Maximum="1"
-                                                IsSnapToTickEnabled="True"
-                                                TickFrequency="1"
-                                                ValueChanged="TickSlider_ValueChanged" />
-                                    </StackPanel>
-                                    <Border x:Name="PreviewStatePanel"
-                                            Visibility="Collapsed"
-                                            MaxWidth="440"
+                                <StackPanel Grid.Column="1"
+                                            Orientation="Horizontal"
                                             HorizontalAlignment="Right"
-                                            Margin="8,4,0,0"
-                                            Padding="6,4"
-                                            Background="{StaticResource PanelBrush}"
-                                            BorderBrush="{StaticResource BorderBrush}"
-                                            BorderThickness="1">
-                                        <DockPanel LastChildFill="True">
-                                            <StackPanel DockPanel.Dock="Right"
-                                                        Orientation="Horizontal"
-                                                        Margin="7,0,0,0">
-                                                <Button x:Name="ForceShowInspectorButton"
-                                                        Content="Force show"
-                                                        Padding="7,2"
-                                                        Margin="0,0,4,0"
-                                                        Click="ForceShowSelected_Click" />
-                                                <Button x:Name="RestoreComposedPoseButton"
-                                                        Content="Composed pose"
-                                                        Padding="7,2"
-                                                        ToolTip="Return the active animation scope to its automatically composed visible pose"
-                                                        Click="RestoreComposedPose_Click" />
-                                            </StackPanel>
-                                            <StackPanel>
-                                                <TextBlock Text="Effective preview state"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="{StaticResource AccentBrush}" />
-                                                <TextBlock x:Name="PreviewStateText"
-                                                           Margin="0,2,0,0"
-                                                           Foreground="{StaticResource MutedTextBrush}"
-                                                           TextWrapping="Wrap" />
-                                            </StackPanel>
-                                        </DockPanel>
-                                    </Border>
+                                            VerticalAlignment="Top">
+                                    <TextBlock x:Name="TickText"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0"
+                                               FontFamily="Consolas" />
+                                    <Slider x:Name="TickSlider"
+                                            Width="300"
+                                            Minimum="0"
+                                            Maximum="1"
+                                            IsSnapToTickEnabled="True"
+                                            TickFrequency="1"
+                                            ValueChanged="TickSlider_ValueChanged" />
                                 </StackPanel>
-                            </DockPanel>
+                            </Grid>
+                            <Border x:Name="PreviewStatePanel"
+                                    Grid.Row="1"
+                                    Visibility="Collapsed"
+                                    MaxWidth="440"
+                                    HorizontalAlignment="Right"
+                                    Margin="8,4,0,0"
+                                    Padding="6,4"
+                                    Background="{StaticResource PanelBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="1">
+                                <DockPanel LastChildFill="True">
+                                    <StackPanel DockPanel.Dock="Right"
+                                                Orientation="Horizontal"
+                                                Margin="7,0,0,0">
+                                        <Button x:Name="ForceShowInspectorButton"
+                                                Content="Force show"
+                                                Padding="7,2"
+                                                Margin="0,0,4,0"
+                                                Click="ForceShowSelected_Click" />
+                                        <Button x:Name="RestoreComposedPoseButton"
+                                                Content="Composed pose"
+                                                Padding="7,2"
+                                                ToolTip="Return the active animation scope to its automatically composed visible pose"
+                                                Click="RestoreComposedPose_Click" />
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Effective preview state"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource AccentBrush}" />
+                                        <TextBlock x:Name="PreviewStateText"
+                                                   Margin="0,2,0,0"
+                                                   Foreground="{StaticResource MutedTextBrush}"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
                             <WrapPanel x:Name="TimelineEditPanel"
-                                       Grid.Row="1"
+                                       Grid.Row="2"
                                        Margin="0,4,0,0">
                                 <TextBlock Text="Selected key"
                                            Foreground="{StaticResource MutedTextBrush}"

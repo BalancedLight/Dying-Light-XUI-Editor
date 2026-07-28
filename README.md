@@ -61,6 +61,11 @@ sources are always read-only. Opening an installed or extracted file requires
   template or overlapping canvas node is painted above it; Alt-click cycles
   overlapping owners. Committing a move, resize, or rotation also preserves
   the selection while the lossless document model is reparsed.
+- One-click transparent PNG export at 2× authored design resolution. The
+  lossless PNG contains the current visible XUI pose, textures, text,
+  transforms, clipping, opacity, and editor hide overrides without the editor
+  background, reference image, grid, rulers, selection handles, or
+  unknown-control bounds.
 - Typed property groups plus a raw/unknown escape hatch. Invalid values remain
   visible with diagnostics instead of being silently normalized. Raw XML is
   materialized only when expanded; subtrees over 256 KiB require an explicit
@@ -86,17 +91,20 @@ sources are always read-only. Opening an installed or extracted file requires
   loose-resource trees, extracted roots, individual `.def`/texture-definition
   `.scr` files, and individual RP6L `.rpack` containers. Explicit sources
   override installed game assets and remain read-only where appropriate.
-- Installed localization catalogs, `basicfonts.scr`, `fontstyles.scr`, `.fm`
-  bitmap metrics, private input glyphs, and font-atlas DDS resources. Exact
+- Installed localization binaries come only from the selected Dying Light
+  language PAKs, with English fallback; extracted copies cannot override the
+  chosen language. Explicit `Locale\<language>` catalogs in configured
+  projects, workspaces, loose-resource roots, or RPACKs remain supported.
+  `basicfonts.scr`, `fontstyles.scr`, `.fm` bitmap metrics, private input
+  glyphs, and font-atlas DDS resources are indexed alongside them. Exact
   engine bitmap fonts are used when available; mappings and diagnosed
   fallbacks remain available. Enabled `%COLOR(RRGGBB)` and
   `%COLOR(reset)` sequences render as per-run system-font and bitmap-font
   colors; disabled or malformed markup stays literal like the game.
-- Curated preview presets for hidden/runtime-populated HUD text and imagery,
-  per-node force-show controls, and a variable-opacity reference
-  screenshot overlay. Scenario data affects only the preview and never
-  rewrites the XUI. A compact effective-state explanation below the Animation
-  slider reports authored, animated,
+- A composed preview for hidden/runtime-populated HUD elements, per-node
+  force-show controls, and a variable-opacity reference screenshot overlay.
+  A compact effective-state explanation below the Animation slider reports
+  authored, animated,
   controller, ancestor, opacity, clipping, and off-canvas visibility, with
   one-click force-show and composed-pose recovery.
 - Full 60 Hz timeline parsing with independent per-owner scope state,
@@ -128,6 +136,7 @@ fake labels into the rendered scene.
 | Indent / outdent | `Alt+Right` / `Alt+Left` |
 | Fit / actual pixels | `F` / `0` |
 | Zoom in / out | `+` / `-` |
+| Export transparent PNG | `PNG` toolbar button or File menu |
 | Focus hierarchy search | `Ctrl+F` |
 | Play or pause | `Space` |
 | Previous / next tick | `,` / `.` |
