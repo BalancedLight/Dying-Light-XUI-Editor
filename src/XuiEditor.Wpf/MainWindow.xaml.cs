@@ -231,8 +231,32 @@ public partial class MainWindow : Window, IDisposable
 
     internal string PreviewStateForTesting => PreviewStateText.Text;
 
+    internal bool PreviewStateIsInAnimationTabForTesting =>
+        HasLogicalAncestor(PreviewStatePanel, AnimationTab);
+
+    internal bool HierarchyHeaderButtonsSeparatedForTesting =>
+        CollapseHierarchyButton.Margin.Right >= 4;
+
     internal HierarchyRow? HierarchyRowForTesting(string nodeKey) =>
         _hierarchyIndex?.FindRow(nodeKey);
+
+    private static bool HasLogicalAncestor(
+        DependencyObject descendant,
+        DependencyObject ancestor)
+    {
+        DependencyObject? current = descendant;
+        while (current is not null)
+        {
+            if (ReferenceEquals(current, ancestor))
+            {
+                return true;
+            }
+
+            current = LogicalTreeHelper.GetParent(current);
+        }
+
+        return false;
+    }
 
     internal XuiRenderContext PreviewRenderContextForTesting =>
         BuildRenderContext();
@@ -400,6 +424,35 @@ public partial class MainWindow : Window, IDisposable
         }
 
         InsertVisualChild(parent, request);
+    }
+
+    internal void AddParentForTesting(
+        string elementKey,
+        XuiElementCreationRequest request)
+    {
+        if (_document?.SyntaxTree.FindByKey(elementKey) is
+            not XuiSyntaxNode element)
+        {
+            throw new InvalidOperationException(
+                "The requested element does not exist.");
+        }
+
+        InsertVisualParent(element, request);
+    }
+
+    internal void AddPropertyForTesting(
+        string elementKey,
+        string name,
+        string value)
+    {
+        if (_document?.SyntaxTree.FindByKey(elementKey) is
+            not XuiSyntaxNode element)
+        {
+            throw new InvalidOperationException(
+                "The requested element does not exist.");
+        }
+
+        InsertProperty(element, name, value);
     }
 
     internal void ApplyTextureDiagnosticsForTesting(
@@ -634,6 +687,137 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
+    private void AddParent_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (_document is null ||
+            SelectedNodes() is not [XuiSyntaxNode element])
+        {
+            StatusText.Text =
+                "Select exactly one hierarchy element to add a parent.";
+            return;
+        }
+
+        if (IsCanvasRoot(element))
+        {
+            StatusText.Text =
+                "The XUI canvas cannot be wrapped in another parent.";
+            return;
+        }
+
+        if (IsLocked(element.Key))
+        {
+            StatusText.Text =
+                $"{DisplayNode(element)} is locked in the editor.";
+            return;
+        }
+
+        XuiSyntaxNode? currentParent = element.Parent;
+        XuiVector2 parentSize =
+            currentParent is { Kind: XuiSyntaxKind.Element }
+                ? RenderedOrAuthoredSize(currentParent)
+                : new XuiVector2(
+                    XuiViewport.Default.Width,
+                    XuiViewport.Default.Height);
+        AddXuiElementWindow dialog = new(
+            DisplayNode(element),
+            parentSize,
+            SuggestedUniqueId,
+            [
+                XuiElementPreset.Group,
+                XuiElementPreset.CustomXml,
+            ],
+            identityPlacement: true,
+            windowTitle: "Add XUI Parent",
+            actionLabel: "Wrap element",
+            instruction:
+                $"Wrap {DisplayNode(element)} in a new visual parent. " +
+                "The default group has an identity transform and the old parent size, so the child does not jump.")
+        {
+            Owner = this,
+        };
+        if (dialog.ShowDialog() != true ||
+            dialog.Request is not XuiElementCreationRequest request)
+        {
+            return;
+        }
+
+        try
+        {
+            InsertVisualParent(element, request);
+        }
+        catch (Exception exception) when (
+            exception is InvalidDataException or
+            InvalidOperationException or
+            ArgumentException)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Could not add XUI parent",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            StatusText.Text = "Add parent failed safely";
+        }
+    }
+
+    private void AddProperty_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (_document is null ||
+            SelectedNodes() is not [XuiSyntaxNode element])
+        {
+            StatusText.Text =
+                "Select exactly one hierarchy element to add a property.";
+            return;
+        }
+
+        if (IsLocked(element.Key))
+        {
+            StatusText.Text =
+                $"{DisplayNode(element)} is locked in the editor.";
+            return;
+        }
+
+        if (element.FirstElement("Properties") is null)
+        {
+            StatusText.Text =
+                $"{DisplayNode(element)} has no editable Properties block.";
+            return;
+        }
+
+        AddXuiPropertyWindow dialog = new(DisplayNode(element))
+        {
+            Owner = this,
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        try
+        {
+            InsertProperty(
+                element,
+                dialog.PropertyName,
+                dialog.PropertyValue);
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or
+            ArgumentException)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Could not add XUI property",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            StatusText.Text = "Add property failed safely";
+        }
+    }
+
     private void InsertVisualChild(
         XuiSyntaxNode parent,
         XuiElementCreationRequest request)
@@ -679,6 +863,80 @@ public partial class MainWindow : Window, IDisposable
         StatusText.Text = _document.Source?.IsReadOnly == true
             ? $"Added {createdId} in memory. Use Save As to create a writable mod copy."
             : $"Added {createdId}";
+    }
+
+    private void InsertVisualParent(
+        XuiSyntaxNode element,
+        XuiElementCreationRequest request)
+    {
+        if (_document is null)
+        {
+            throw new InvalidOperationException(
+                "No XUI document is open.");
+        }
+
+        string raw = XuiElementFactory.CreateXml(
+            request,
+            _document.Format.NewLine);
+        string createdId = CreatedElementId(raw);
+        _document.Execute(XuiCommandFactory.WrapWithVisualParentXml(
+            _document,
+            element,
+            raw,
+            $"Add parent {createdId}"));
+
+        XuiSyntaxNode? created = _document.Root
+            .DescendantsAndSelf()
+            .Where(static node =>
+                node.Kind == XuiSyntaxKind.Element &&
+                !XuiModelReader.IsStructural(node))
+            .SingleOrDefault(node =>
+                string.Equals(
+                    XuiModelReader.GetId(node, _document.Text),
+                    createdId,
+                    StringComparison.Ordinal));
+        if (created is not null)
+        {
+            _expanded.Add(created.Key);
+            _selectedKeys.Clear();
+            _selectedKeys.Add(created.Key);
+            EnsureSelectedAncestorsExpanded();
+        }
+
+        BuildHierarchy();
+        SelectRowsFromKeys(scrollIntoView: true);
+        UpdateSelectionSurfaces();
+        StatusText.Text = _document.Source?.IsReadOnly == true
+            ? $"Added parent {createdId} in memory. Use Save As to create a writable mod copy."
+            : $"Added parent {createdId}";
+    }
+
+    private void InsertProperty(
+        XuiSyntaxNode element,
+        string name,
+        string value)
+    {
+        if (_document is null)
+        {
+            throw new InvalidOperationException(
+                "No XUI document is open.");
+        }
+
+        if (XuiModelReader.GetProperty(
+                element,
+                _document.Text,
+                name) is not null)
+        {
+            throw new InvalidOperationException(
+                $"{DisplayNode(element)} already has a {name} property.");
+        }
+
+        _document.Execute(XuiCommandFactory.AddProperty(
+            _document,
+            element,
+            name,
+            value));
+        StatusText.Text = $"Added {name} to {DisplayNode(element)}";
     }
 
     private string CreatedElementId(string raw)
@@ -3013,41 +3271,50 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
-        bool rebuiltIndex = false;
-        if (_hierarchyIndex?.IsCurrent(_document) != true)
+        bool priorSelectionSync = _syncingSelection;
+        _syncingSelection = true;
+        try
         {
-            _hierarchyIndex = HierarchyIndex.Build(_document);
-            rebuiltIndex = true;
-        }
+            bool rebuiltIndex = false;
+            if (_hierarchyIndex?.IsCurrent(_document) != true)
+            {
+                _hierarchyIndex = HierarchyIndex.Build(_document);
+                rebuiltIndex = true;
+            }
 
-        _hierarchyIndex.UpdateEditorStates(_hiddenKeys, _lockedKeys);
-        string filter = HierarchySearch?.Text.Trim() ?? string.Empty;
-        IReadOnlyList<HierarchyRow> rows = _hierarchyIndex.Flatten(
-            filter,
-            _expanded);
-        if (rebuiltIndex ||
-            !string.Equals(
+            _hierarchyIndex.UpdateEditorStates(_hiddenKeys, _lockedKeys);
+            string filter = HierarchySearch?.Text.Trim() ?? string.Empty;
+            IReadOnlyList<HierarchyRow> rows = _hierarchyIndex.Flatten(
                 filter,
-                _lastHierarchyFilter,
-                StringComparison.Ordinal))
-        {
-            HierarchyRows.ReplaceAll(rows);
-        }
-        else
-        {
-            HierarchyRows.Synchronize(
-                rows,
-                ReferenceEqualityComparer.Instance);
-        }
+                _expanded);
+            if (rebuiltIndex ||
+                !string.Equals(
+                    filter,
+                    _lastHierarchyFilter,
+                    StringComparison.Ordinal))
+            {
+                HierarchyRows.ReplaceAll(rows);
+            }
+            else
+            {
+                HierarchyRows.Synchronize(
+                    rows,
+                    ReferenceEqualityComparer.Instance);
+            }
 
-        _lastHierarchyFilter = filter;
-        _visibleHierarchyRows.Clear();
-        foreach (HierarchyRow row in rows)
-        {
-            _visibleHierarchyRows.Add(row.NodeKey, row);
-        }
+            _lastHierarchyFilter = filter;
+            _visibleHierarchyRows.Clear();
+            foreach (HierarchyRow row in rows)
+            {
+                _visibleHierarchyRows.Add(row.NodeKey, row);
+            }
 
-        HierarchyCountText.Text = $"{rows.Count:N0}";
+            HierarchyCountText.Text = $"{rows.Count:N0}";
+        }
+        finally
+        {
+            _syncingSelection = priorSelectionSync;
+        }
     }
 
     private void BuildInspector(SelectionSnapshot? selection = null)
@@ -3284,9 +3551,21 @@ public partial class MainWindow : Window, IDisposable
         SelectionSnapshot? selection = null)
     {
         SelectionSnapshot snapshot = selection ?? CaptureSelection();
-        AddChildButton.IsEnabled =
+        XuiSyntaxNode? selectedNode =
+            snapshot.Nodes.Length == 1
+                ? snapshot.Nodes[0]
+                : null;
+        bool singleEditable =
             _document is not null &&
-            snapshot.Nodes.Length == 1;
+            selectedNode is not null &&
+            !IsLocked(selectedNode.Key);
+        AddChildButton.IsEnabled = singleEditable;
+        AddParentButton.IsEnabled =
+            singleEditable &&
+            !IsCanvasRoot(selectedNode!);
+        AddPropertyButton.IsEnabled =
+            singleEditable &&
+            selectedNode!.FirstElement("Properties") is not null;
         if (_document is null || snapshot.Nodes.Length != 1)
         {
             PreviewStatePanel.Visibility = Visibility.Collapsed;

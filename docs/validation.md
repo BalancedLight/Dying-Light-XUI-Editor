@@ -15,7 +15,7 @@ dotnet publish src\XuiEditor.Wpf\XuiEditor.Wpf.csproj
   -o artifacts\publish\win-x64
 ```
 
-Both test configurations passed all 156 tests with zero build warnings.
+Both test configurations passed all 161 tests with zero build warnings.
 
 Coverage includes:
 
@@ -38,7 +38,8 @@ Coverage includes:
   allows selected animated-hidden bounds to remain movable
 - transactional move commits that offset authored `Position` plus every
   applicable ancestor-scope `Position` key, reject malformed keys without a
-  partial edit, and undo as one command
+  partial edit, undo as one command, and retain the semantic selection through
+  the document reparse
 - material profiles for stock sprite/text/button/antialias/clip/tint/group
   families, recursive masked-group material substitution, solid-color white
   images, runtime-only shapes, and aggregated unsupported-material diagnostics
@@ -83,6 +84,9 @@ Coverage includes:
 - lossless, undoable visual-child insertion with typed group, image, text,
   antialiased rectangle, and stock-button presets plus validated custom XML,
   duplicate-ID rejection, and correct placement before timeline structures
+- lossless, undoable identity-parent wrapping and raw-property insertion,
+  including duplicate-ID/property rejection, retained selection, and placement
+  of the effective-state explanation beneath the Animation slider
 - 10,000-node hierarchy virtualization, fixed 24-pixel rows, expansion/filter
   state, selection synchronization, persistent hierarchy rows, direct and
   inherited eye/lock states, settings/pane persistence, recovery isolation,
@@ -120,8 +124,8 @@ The final `win-x64` publish contains one file and no sidecars:
 
 ```text
 DyingLightXuiEditor.exe
-65,556,026 bytes
-SHA-256 5AB700CFE08078F85B4807A144E31D73B101726E9B6943AE4532001A749630C8
+65,559,390 bytes
+SHA-256 C3A089D3AB3F89D2E77D9653B980FB84FF8DAD193988D3884BEE5F3C76041AAA
 ```
 
 The self-contained executable was launched without Unity or an installed .NET

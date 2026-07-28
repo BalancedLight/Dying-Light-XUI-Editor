@@ -440,11 +440,14 @@
                         <DockPanel>
                             <StackPanel DockPanel.Dock="Right"
                                         Orientation="Horizontal">
-                                <Button Style="{StaticResource CompactButton}"
+                                <Button x:Name="CollapseHierarchyButton"
+                                        Style="{StaticResource CompactButton}"
                                         Content="Collapse"
+                                        Margin="0,0,5,0"
                                         ToolTip="Collapse all hierarchy branches"
                                         Click="CollapseHierarchy_Click" />
-                                <Button Style="{StaticResource CompactButton}"
+                                <Button x:Name="RevealHierarchyButton"
+                                        Style="{StaticResource CompactButton}"
                                         Content="Reveal"
                                         ToolTip="Reveal the current canvas selection"
                                         Click="RevealHierarchySelection_Click" />
@@ -598,17 +601,31 @@
                 <DockPanel>
                     <Border DockPanel.Dock="Top" Style="{StaticResource PaneHeader}">
                         <DockPanel>
-                            <Button x:Name="AddChildButton"
-                                    DockPanel.Dock="Right"
-                                    Content="+ Child"
-                                    Margin="8,-3,0,-3"
-                                    Padding="8,2"
-                                    ToolTip="Add a visual child to the selected element (Ctrl+Insert)"
-                                    Click="AddChild_Click" />
-                            <TextBlock x:Name="SelectionCountText"
-                                       DockPanel.Dock="Right"
-                                       Margin="0,0,4,0"
-                                       Foreground="{StaticResource MutedTextBrush}" />
+                            <StackPanel DockPanel.Dock="Right"
+                                        Orientation="Horizontal"
+                                        Margin="8,-3,0,-3">
+                                <TextBlock x:Name="SelectionCountText"
+                                           Margin="0,0,6,0"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           VerticalAlignment="Center" />
+                                <Button x:Name="AddPropertyButton"
+                                        Content="+ Property"
+                                        Margin="0,0,4,0"
+                                        Padding="8,2"
+                                        ToolTip="Add an authored property to the selected element"
+                                        Click="AddProperty_Click" />
+                                <Button x:Name="AddParentButton"
+                                        Content="+ Parent"
+                                        Margin="0,0,4,0"
+                                        Padding="8,2"
+                                        ToolTip="Wrap the selected element in a new parent"
+                                        Click="AddParent_Click" />
+                                <Button x:Name="AddChildButton"
+                                        Content="+ Child"
+                                        Padding="8,2"
+                                        ToolTip="Add a visual child to the selected element (Ctrl+Insert)"
+                                        Click="AddChild_Click" />
+                            </StackPanel>
                             <TextBlock Text="Inspector"
                                        FontWeight="SemiBold" />
                         </DockPanel>
@@ -618,34 +635,6 @@
                                Margin="9,7"
                                Foreground="{StaticResource MutedTextBrush}"
                                Text="Select an element to edit its authored properties." />
-                    <Border x:Name="PreviewStatePanel"
-                            DockPanel.Dock="Top"
-                            Visibility="Collapsed"
-                            Margin="8,2,8,7"
-                            Padding="8,7"
-                            Background="{StaticResource PanelRaisedBrush}"
-                            BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="1">
-                        <StackPanel>
-                            <TextBlock Text="Effective preview state"
-                                       FontWeight="SemiBold"
-                                       Foreground="{StaticResource AccentBrush}" />
-                            <TextBlock x:Name="PreviewStateText"
-                                       Margin="0,3,0,5"
-                                       Foreground="{StaticResource MutedTextBrush}"
-                                       TextWrapping="Wrap" />
-                            <WrapPanel>
-                                <Button x:Name="ForceShowInspectorButton"
-                                        Content="Force show"
-                                        Margin="0,0,5,0"
-                                        Click="ForceShowSelected_Click" />
-                                <Button x:Name="RestoreComposedPoseButton"
-                                        Content="Composed pose"
-                                        ToolTip="Return the active animation scope to its automatically composed visible pose"
-                                        Click="RestoreComposedPose_Click" />
-                            </WrapPanel>
-                        </StackPanel>
-                    </Border>
                     <Expander x:Name="RawXmlExpander"
                               DockPanel.Dock="Bottom"
                               Header="Raw XML"
@@ -840,7 +829,7 @@
                       VerticalAlignment="Stretch" />
 
         <TabControl Grid.Row="4">
-            <TabItem Header="Animation">
+            <TabItem x:Name="AnimationTab" Header="Animation">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -901,19 +890,56 @@
                                     <Button Content="Copy" Click="CopyKeyFrame_Click" />
                                     <Button Content="Paste" Click="PasteKeyFrame_Click" />
                                 </StackPanel>
-                                <StackPanel Orientation="Horizontal"
-                                            HorizontalAlignment="Right">
-                                    <TextBlock x:Name="TickText"
-                                               VerticalAlignment="Center"
-                                               Margin="8,0"
-                                               FontFamily="Consolas" />
-                                    <Slider x:Name="TickSlider"
-                                            Width="300"
-                                            Minimum="0"
-                                            Maximum="1"
-                                            IsSnapToTickEnabled="True"
-                                            TickFrequency="1"
-                                            ValueChanged="TickSlider_ValueChanged" />
+                                <StackPanel HorizontalAlignment="Right">
+                                    <StackPanel Orientation="Horizontal"
+                                                HorizontalAlignment="Right">
+                                        <TextBlock x:Name="TickText"
+                                                   VerticalAlignment="Center"
+                                                   Margin="8,0"
+                                                   FontFamily="Consolas" />
+                                        <Slider x:Name="TickSlider"
+                                                Width="300"
+                                                Minimum="0"
+                                                Maximum="1"
+                                                IsSnapToTickEnabled="True"
+                                                TickFrequency="1"
+                                                ValueChanged="TickSlider_ValueChanged" />
+                                    </StackPanel>
+                                    <Border x:Name="PreviewStatePanel"
+                                            Visibility="Collapsed"
+                                            MaxWidth="440"
+                                            HorizontalAlignment="Right"
+                                            Margin="8,4,0,0"
+                                            Padding="6,4"
+                                            Background="{StaticResource PanelBrush}"
+                                            BorderBrush="{StaticResource BorderBrush}"
+                                            BorderThickness="1">
+                                        <DockPanel LastChildFill="True">
+                                            <StackPanel DockPanel.Dock="Right"
+                                                        Orientation="Horizontal"
+                                                        Margin="7,0,0,0">
+                                                <Button x:Name="ForceShowInspectorButton"
+                                                        Content="Force show"
+                                                        Padding="7,2"
+                                                        Margin="0,0,4,0"
+                                                        Click="ForceShowSelected_Click" />
+                                                <Button x:Name="RestoreComposedPoseButton"
+                                                        Content="Composed pose"
+                                                        Padding="7,2"
+                                                        ToolTip="Return the active animation scope to its automatically composed visible pose"
+                                                        Click="RestoreComposedPose_Click" />
+                                            </StackPanel>
+                                            <StackPanel>
+                                                <TextBlock Text="Effective preview state"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{StaticResource AccentBrush}" />
+                                                <TextBlock x:Name="PreviewStateText"
+                                                           Margin="0,2,0,0"
+                                                           Foreground="{StaticResource MutedTextBrush}"
+                                                           TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Border>
                                 </StackPanel>
                             </DockPanel>
                             <WrapPanel x:Name="TimelineEditPanel"

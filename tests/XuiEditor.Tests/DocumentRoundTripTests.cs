@@ -518,4 +518,80 @@ public sealed class DocumentRoundTripTests
         Assert.AreEqual(source, document.Text);
         Assert.IsFalse(document.History.CanUndo);
     }
+
+    [TestMethod]
+    public void VisualParentWrapPreservesTheChildAndIsUndoable()
+    {
+        const string source =
+            "<XuiCanvas version='000c'>\r\n" +
+            "  <Properties><Width>100</Width><Height>80</Height></Properties>\r\n" +
+            "  <!-- keep this comment -->\r\n" +
+            "  <MyImage custom=\"keep\"><Properties><Id>Child</Id>" +
+            "<Width>20</Width><Height>10</Height><Position>4,5,0</Position>" +
+            "</Properties></MyImage>\r\n" +
+            "  <MyText><Properties><Id>Sibling</Id></Properties></MyText>\r\n" +
+            "</XuiCanvas>\r\n";
+        XuiDocument document = XuiDocument.FromText(source);
+        XuiSyntaxNode child =
+            XuiModelReader.VisualDescendants(document.Root).Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Child");
+        string wrapper = XuiElementFactory.CreateXml(
+            new XuiElementCreationRequest
+            {
+                Preset = XuiElementPreset.Group,
+                Id = "G_Wrapper",
+                Width = 100,
+                Height = 80,
+                Position = default,
+            },
+            document.Format.NewLine);
+
+        document.Execute(XuiCommandFactory.WrapWithVisualParentXml(
+            document,
+            child,
+            wrapper));
+
+        XuiSyntaxNode currentChild =
+            XuiModelReader.VisualDescendants(document.Root).Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Child");
+        Assert.AreEqual(
+            "G_Wrapper",
+            XuiModelReader.GetId(currentChild.Parent!, document.Text));
+        StringAssert.Contains(document.Text, "custom=\"keep\"");
+        StringAssert.Contains(document.Text, "<!-- keep this comment -->");
+        StringAssert.Contains(document.Text, "<Id>Sibling</Id>");
+        Assert.AreEqual(
+            "4,5,0",
+            XuiModelReader.GetPropertyValue(
+                currentChild,
+                document.Text,
+                "Position"));
+
+        document.Undo();
+        Assert.AreEqual(source, document.Text);
+        document.Redo();
+        StringAssert.Contains(document.Text, "<Id>G_Wrapper</Id>");
+    }
+
+    [TestMethod]
+    public void VisualParentWrapRejectsDuplicateIdsWithoutChangingSource()
+    {
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>80</Height>" +
+            "</Properties><AdvGroup><Properties><Id>Existing</Id>" +
+            "</Properties></AdvGroup><MyImage><Properties><Id>Child</Id>" +
+            "</Properties></MyImage></XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        XuiSyntaxNode child =
+            XuiModelReader.VisualDescendants(document.Root).Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Child");
+
+        Assert.ThrowsExactly<InvalidDataException>(() =>
+            XuiCommandFactory.WrapWithVisualParentXml(
+                document,
+                child,
+                "<AdvGroup><Properties><Id>Existing</Id></Properties></AdvGroup>"));
+        Assert.AreEqual(source, document.Text);
+        Assert.IsFalse(document.History.CanUndo);
+    }
 }

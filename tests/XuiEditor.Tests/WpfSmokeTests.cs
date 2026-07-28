@@ -890,6 +890,9 @@ public sealed class WpfSmokeTests
             "32.000000,43.000000,0.000000",
             keyPositions[1]);
         Assert.AreEqual("Move selection", document.History.UndoDescription);
+        CollectionAssert.Contains(
+            window.SelectedKeysForTesting.ToList(),
+            current.Key);
 
         document.Undo();
         Assert.AreEqual(source, document.Text);
@@ -1022,6 +1025,106 @@ public sealed class WpfSmokeTests
 
         document.Undo();
         Assert.AreEqual(source, document.Text);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void InspectorAddParentWrapsAndSelectsTheNewGroup()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>80</Height>" +
+            "</Properties><MyImage><Properties><Id>Child</Id><Width>20</Width>" +
+            "<Height>10</Height><Position>4,5,0</Position></Properties>" +
+            "</MyImage></XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        XuiSyntaxNode child =
+            XuiModelReader.VisualDescendants(document.Root).Single();
+
+        window.AddParentForTesting(
+            child.Key,
+            new XuiElementCreationRequest
+            {
+                Preset = XuiElementPreset.Group,
+                Id = "G_Parent",
+                Width = 100,
+                Height = 80,
+                Position = default,
+            });
+
+        XuiSyntaxNode wrapper =
+            XuiModelReader.VisualDescendants(document.Root).Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "G_Parent");
+        XuiSyntaxNode currentChild =
+            XuiModelReader.VisualDescendants(document.Root).Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Child");
+        Assert.AreSame(wrapper, currentChild.Parent);
+        CollectionAssert.Contains(
+            window.SelectedKeysForTesting.ToList(),
+            wrapper.Key);
+        Assert.IsTrue(window.ExpandedKeysForTesting.Contains(wrapper.Key));
+        Assert.AreEqual(
+            "Add parent G_Parent",
+            document.History.UndoDescription);
+
+        document.Undo();
+        Assert.AreEqual(source, document.Text);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void InspectorAddPropertyPreservesSelectionAndIsUndoable()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>80</Height>" +
+            "</Properties><MyImage><Properties><Id>Image</Id><Width>20</Width>" +
+            "<Height>10</Height></Properties></MyImage></XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        XuiSyntaxNode image =
+            XuiModelReader.VisualDescendants(document.Root).Single();
+        window.SelectNodeKeysForTesting([image.Key]);
+
+        window.AddPropertyForTesting(
+            image.Key,
+            "Opacity",
+            "0.500000");
+
+        XuiSyntaxNode current =
+            XuiModelReader.VisualDescendants(document.Root).Single();
+        Assert.AreEqual(
+            "0.500000",
+            XuiModelReader.GetPropertyValue(
+                current,
+                document.Text,
+                "Opacity"));
+        CollectionAssert.Contains(
+            window.SelectedKeysForTesting.ToList(),
+            current.Key);
+        Assert.AreEqual(
+            "Add Opacity",
+            document.History.UndoDescription);
+
+        document.Undo();
+        Assert.AreEqual(source, document.Text);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void EffectivePreviewStateLivesUnderAnimationAndHeaderButtonsAreSeparated()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        using MainWindow window = new();
+
+        Assert.IsTrue(window.PreviewStateIsInAnimationTabForTesting);
+        Assert.IsTrue(window.HierarchyHeaderButtonsSeparatedForTesting);
     }
 
     [STATestMethod]

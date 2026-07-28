@@ -59,14 +59,17 @@ sources are always read-only. Opening an installed or extracted file requires
   does not have to be recomposited for every pointer move. Dragging inside an
   already-selected element keeps that semantic XUI owner even when a visual
   template or overlapping canvas node is painted above it; Alt-click cycles
-  overlapping owners.
+  overlapping owners. Committing a move, resize, or rotation also preserves
+  the selection while the lossless document model is reparsed.
 - Typed property groups plus a raw/unknown escape hatch. Invalid values remain
   visible with diagnostics instead of being silently normalized. Raw XML is
   materialized only when expanded; subtrees over 256 KiB require an explicit
   load action. `IUIText` nodes expose a typed
   `ColorControlSequenceEnabled` checkbox. The inspector and hierarchy provide
-  an undoable **Add child** workflow for groups, images, text, antialiased
-  rectangles, stock buttons, and validated custom XML.
+  undoable **Add child** and identity-preserving **Add parent** workflows for
+  groups, images, text, antialiased rectangles, stock buttons, and validated
+  custom XML. **Add property** inserts a validated raw property on the selected
+  node without rewriting unrelated source bytes.
 - Dying Light anchors, pivots, transforms, opacity/show inheritance, keep and
   resolution flags, stack/wrap-panel layout, visual templates, stock control
   families, evidence-backed material profiles, forced-mask substitution, DDS
@@ -92,7 +95,8 @@ sources are always read-only. Opening an installed or extracted file requires
 - Curated preview presets for hidden/runtime-populated HUD text and imagery,
   per-node force-show controls, and a variable-opacity reference
   screenshot overlay. Scenario data affects only the preview and never
-  rewrites the XUI. The inspector explains effective authored, animated,
+  rewrites the XUI. A compact effective-state explanation below the Animation
+  slider reports authored, animated,
   controller, ancestor, opacity, clipping, and off-canvas visibility, with
   one-click force-show and composed-pose recovery.
 - Full 60 Hz timeline parsing with independent per-owner scope state,

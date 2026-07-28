@@ -571,6 +571,104 @@ public static class XuiCommandFactory
             insertion);
     }
 
+    public static IXuiCommand WrapWithVisualParentXml(
+        XuiDocument document,
+        XuiSyntaxNode element,
+        string rawParentXml,
+        string description = "Add XUI parent")
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(element);
+        ArgumentException.ThrowIfNullOrWhiteSpace(rawParentXml);
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        if (element.Kind != XuiSyntaxKind.Element ||
+            XuiModelReader.IsStructural(element) ||
+            element.Parent is null ||
+            element.Parent.Kind == XuiSyntaxKind.Document)
+        {
+            throw new InvalidOperationException(
+                "The XUI document root cannot be wrapped in a visual parent.");
+        }
+
+        string normalized = rawParentXml
+            .ReplaceLineEndings(document.Format.NewLine)
+            .Trim();
+        XuiSyntaxTree fragment = new XuiSyntaxParser().Parse(
+            normalized,
+            document.Format);
+        XuiSyntaxNode wrapper = fragment.Root;
+        if (wrapper.Kind != XuiSyntaxKind.Element ||
+            XuiModelReader.IsStructural(wrapper) ||
+            wrapper.Name.Equals(
+                "XuiCanvas",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                "A new parent must be one non-structural visual element.");
+        }
+
+        string? wrapperId = XuiModelReader.GetId(wrapper, normalized);
+        if (string.IsNullOrWhiteSpace(wrapperId))
+        {
+            throw new InvalidDataException(
+                "A new visual parent requires a Properties/Id value.");
+        }
+
+        HashSet<string> existingIds = document.Root
+            .DescendantsAndSelf()
+            .Where(node =>
+                node.Kind == XuiSyntaxKind.Element &&
+                !XuiModelReader.IsStructural(node) &&
+                (node.Start < element.Start ||
+                 node.End > element.End))
+            .Select(node => XuiModelReader.GetId(node, document.Text))
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .Cast<string>()
+            .ToHashSet(StringComparer.Ordinal);
+        HashSet<string> wrapperIds = new(StringComparer.Ordinal);
+        foreach (XuiSyntaxNode visual in wrapper
+                     .DescendantsAndSelf()
+                     .Where(static node =>
+                         node.Kind == XuiSyntaxKind.Element &&
+                         !XuiModelReader.IsStructural(node)))
+        {
+            string? id = XuiModelReader.GetId(visual, normalized);
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                continue;
+            }
+
+            if (!wrapperIds.Add(id))
+            {
+                throw new InvalidDataException(
+                    $"The new parent contains duplicate Id '{id}'.");
+            }
+
+            if (existingIds.Contains(id))
+            {
+                throw new InvalidDataException(
+                    $"Id '{id}' already exists in this XUI document.");
+            }
+        }
+
+        string oldText = document.Text.Substring(
+            element.Start,
+            element.End - element.Start);
+        XuiDocument wrapperDocument = XuiDocument.FromText(
+            normalized,
+            format: document.Format);
+        wrapperDocument.Execute(InsertVisualChildXml(
+            wrapperDocument,
+            wrapperDocument.Root,
+            oldText,
+            description));
+        return new XuiTextEditCommand(
+            description,
+            element.Start,
+            oldText,
+            wrapperDocument.Text);
+    }
+
     public static IXuiCommand MoveSibling(
         XuiDocument document,
         XuiSyntaxNode element,

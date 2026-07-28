@@ -161,7 +161,8 @@
             <Button Content="Cancel"
                     IsCancel="True"
                     MinWidth="85" />
-            <Button Content="Add child"
+            <Button x:Name="ConfirmButton"
+                    Content="Add child"
                     IsDefault="True"
                     MinWidth="95"
                     Click="Add_Click" />
