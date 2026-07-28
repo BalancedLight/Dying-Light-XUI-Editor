@@ -15,6 +15,7 @@
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <DebugSymbols>false</DebugSymbols>
     <DebugType>None</DebugType>
+    <StandalonePublishDirectory>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\artifacts\publish\win-x64\'))</StandalonePublishDirectory>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\XuiEditor.Core\XuiEditor.Core.csproj" />
@@ -22,4 +23,17 @@
   <ItemGroup>
     <Resource Include="Assets\MovingGears.gif" />
   </ItemGroup>
+  <Target
+    Name="PublishStandaloneExecutableAfterReleaseBuild"
+    AfterTargets="Build"
+    Condition="'$(Configuration)' == 'Release' and '$(DesignTimeBuild)' != 'true' and '$(_IsPublishing)' != 'true'">
+    <MSBuild
+      Projects="$(MSBuildProjectFullPath)"
+      Targets="Publish"
+      BuildInParallel="false"
+      Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=true;PublishDir=$(StandalonePublishDirectory);_IsPublishing=true" />
+    <Message
+      Importance="High"
+      Text="Standalone executable -> $(StandalonePublishDirectory)DyingLightXuiEditor.exe" />
+  </Target>
 </Project>

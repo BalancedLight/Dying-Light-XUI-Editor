@@ -152,11 +152,9 @@ committed.
 dotnet restore XuiEditor.slnx --locked-mode
 dotnet test tests\XuiEditor.Tests\XuiEditor.Tests.csproj `
   -c Debug --no-restore
+dotnet build XuiEditor.slnx -c Release --no-restore
 dotnet test tests\XuiEditor.Tests\XuiEditor.Tests.csproj `
-  -c Release --no-restore
-dotnet publish src\XuiEditor.Wpf\XuiEditor.Wpf.csproj `
-  -c Release -r win-x64 --self-contained true --no-restore `
-  -o artifacts\publish\win-x64
+  -c Release --no-restore --no-build
 ```
 
 Optional read-only acceptance tests take local game and extracted-data roots
@@ -164,9 +162,10 @@ from `DYING_LIGHT_INSTALL` and `XUI_EDITOR_TEST_CORPUS_ROOT`. Checked-in tests
 must use portable synthetic fixtures rather than developer-machine paths or
 private third-party projects.
 
-The project enables .NET single-file publishing and embeds the supplied
-multi-resolution XUI icon, so the publish directory contains
-`DyingLightXuiEditor.exe` as the distributable application.
+Every successful Release build automatically refreshes the self-contained,
+single-file `artifacts\publish\win-x64\DyingLightXuiEditor.exe` distributable.
+No separate Visual Studio Publish action is required. The executable embeds the
+supplied multi-resolution XUI icon.
 
 The solution contains:
 

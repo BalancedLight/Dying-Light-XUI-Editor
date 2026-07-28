@@ -10,10 +10,11 @@ dotnet test XuiEditor.slnx
 dotnet build XuiEditor.slnx --configuration Release --no-restore
 dotnet test XuiEditor.slnx
   --configuration Release --no-restore --no-build
-dotnet publish src\XuiEditor.Wpf\XuiEditor.Wpf.csproj
-  -c Release -r win-x64 --self-contained true --no-restore
-  -o artifacts\publish\win-x64
 ```
+
+The Release build automatically runs the guarded single-file packaging target
+for `XuiEditor.Wpf` and writes the distributable to
+`artifacts\publish\win-x64`.
 
 Both test configurations passed: 156 tests succeeded and 8 optional
 acceptance tests were skipped, with zero build warnings. Set
@@ -133,12 +134,12 @@ The stock DLC file `data/menu/hud/hud_btz.xui` is malformed at its source
 rejects it safely. All other 173 currently installed stock XUIs parse and
 evaluate without mutation.
 
-The final `win-x64` publish contains one file and no sidecars:
+The final Release-build artifact contains one file and no sidecars:
 
 ```text
 DyingLightXuiEditor.exe
-65,560,813 bytes
-SHA-256 2F5344B532420FEC442D664EA978C5675F1141139D4B906A1132DC89FE1871B0
+66,318,844 bytes
+SHA-256 3EFA0CEA18052A6B1C7E1A08B180DBDC82EE1651C5D4768F32A30F7522ABC242
 ```
 
 The self-contained executable was launched without Unity or an installed .NET
