@@ -3,7 +3,7 @@
 A standalone Windows editor for Dying Light XUI documents.
 
 ## Run the portable build
-You can either run the release, or build the executable yourself.
+You can either run the release, an artifact from the [Actions](https://github.com/BalancedLight/Dying-Light-XUI-Editor/actions) page, or build the executable yourself.
 
 The self-contained Windows x64 build is one executable:
 
