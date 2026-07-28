@@ -1,14 +1,9 @@
 # Dying Light XUI Editor
 
-A standalone Windows editor for Dying Light XUI documents, rebuilt with
-.NET 10 and WPF. It replaces the old Unity editor without changing or requiring
-the legacy Unity project.
-
-The editor is intentionally Dying Light-specific. Dead Island sources may be
-useful supporting evidence, but the application does not claim Dead Island
-compatibility.
+A standalone Windows editor for Dying Light XUI documents.
 
 ## Run the portable build
+You can either run the release, or build the executable yourself.
 
 The self-contained Windows x64 build is one executable:
 
