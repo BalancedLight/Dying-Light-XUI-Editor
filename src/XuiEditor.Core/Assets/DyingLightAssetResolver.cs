@@ -15,7 +15,9 @@ namespace XuiEditor.Core.Assets;
 
 public sealed class DyingLightAssetResolver : IAssetResolver
 {
-    private const int CacheHeaderSize = 8;
+    private const int CacheHeaderSize = 48;
+    private const int CacheMagic = 0x33414742; // BGA3
+    private const int CacheVersion = 3;
     private const long MaximumDecodedPixels = 67_108_864;
     private const long DefaultMaximumCacheBytes = 2L * 1024 * 1024 * 1024;
     private readonly object _gate = new();
@@ -339,29 +341,26 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             throw;
         }
 
-        byte[] cropped = Crop(decoded, region, diagnostics);
-        int width = Math.Max(1, Math.Min(
-            (int)region.SourceRectangle.Width,
-            decoded.Width - Math.Max(0, (int)region.SourceRectangle.X)));
-        int height = Math.Max(1, Math.Min(
-            (int)region.SourceRectangle.Height,
-            decoded.Height - Math.Max(0, (int)region.SourceRectangle.Y)));
+        TextureCrop crop = Crop(decoded, region, diagnostics);
         await WriteCacheAsync(
             cacheHash,
-            width,
-            height,
-            cropped,
+            crop,
             cancellationToken).ConfigureAwait(false);
         return new ResolvedTexture(
             imagePath,
-            width,
-            height,
-            cropped,
+            crop.Width,
+            crop.Height,
+            crop.Pixels,
             requested,
             ddsFile.DisplayPath,
             cacheHash,
             false,
-            diagnostics);
+            diagnostics)
+        {
+            LogicalSize = crop.LogicalSize,
+            PhysicalSourceRectangle = crop.PhysicalSourceRectangle,
+            DefinitionToPhysicalScale = crop.DefinitionToPhysicalScale,
+        };
     }
 
     private async Task<ResolvedTexture?> ResolveTileSetAsync(
@@ -442,6 +441,9 @@ public sealed class DyingLightAssetResolver : IAssetResolver
                 resolved.Height,
                 resolved.BgraPixels,
                 rotationMode);
+            XuiVector2 logicalSize = TransformTileSize(
+                resolved.LogicalSize,
+                rotationMode);
             resolvedParts.Add(new ResolvedTileTexturePart(
                 selected.Role,
                 selected.RegionName,
@@ -451,7 +453,10 @@ public sealed class DyingLightAssetResolver : IAssetResolver
                 height,
                 pixels,
                 resolved.SourcePath,
-                resolved.ContentHash));
+                resolved.ContentHash)
+            {
+                LogicalSize = logicalSize,
+            });
         }
 
         if (resolvedParts.Count == 0)
@@ -499,6 +504,7 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             diagnostics)
         {
             TileParts = resolvedParts,
+            LogicalSize = ComposeTileLogicalSize(resolvedParts),
         };
     }
 
@@ -1480,6 +1486,34 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         return (destinationWidth, destinationHeight, transformed);
     }
 
+    private static XuiVector2 TransformTileSize(
+        XuiVector2 size,
+        int rotationMode) =>
+        rotationMode is 1 or 3
+            ? new XuiVector2(size.Y, size.X)
+            : size;
+
+    private static XuiVector2 ComposeTileLogicalSize(
+        IReadOnlyList<ResolvedTileTexturePart> parts)
+    {
+        double[] columnWidths = new double[3];
+        double[] rowHeights = new double[3];
+        foreach (ResolvedTileTexturePart part in parts)
+        {
+            (int column, int row) = TileCell(part.Role);
+            columnWidths[column] = Math.Max(
+                columnWidths[column],
+                part.LogicalSize.X);
+            rowHeights[row] = Math.Max(
+                rowHeights[row],
+                part.LogicalSize.Y);
+        }
+
+        return new XuiVector2(
+            Math.Max(1, columnWidths.Sum()),
+            Math.Max(1, rowHeights.Sum()));
+    }
+
     private static (int Width, int Height, byte[] Pixels) ComposeTileSample(
         IReadOnlyList<ResolvedTileTexturePart> parts)
     {
@@ -1714,31 +1748,20 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         return (byte)(((ulong)value * 255 + (maximum / 2u)) / maximum);
     }
 
-    private static byte[] Crop(
+    private static TextureCrop Crop(
         DecodedImage decoded,
         XuiTextureRegion region,
         List<XuiDiagnostic> diagnostics)
     {
-        int x = Math.Clamp((int)region.SourceRectangle.X, 0, decoded.Width - 1);
-        int y = Math.Clamp((int)region.SourceRectangle.Y, 0, decoded.Height - 1);
-        int width = Math.Clamp(
-            (int)region.SourceRectangle.Width,
-            1,
-            decoded.Width - x);
-        int height = Math.Clamp(
-            (int)region.SourceRectangle.Height,
-            1,
-            decoded.Height - y);
-        if (x != (int)region.SourceRectangle.X ||
-            y != (int)region.SourceRectangle.Y ||
-            width != (int)region.SourceRectangle.Width ||
-            height != (int)region.SourceRectangle.Height)
-        {
-            diagnostics.Add(new XuiDiagnostic(
-                "XUI-ASSET007",
-                XuiDiagnosticSeverity.Warning,
-                $"Texture region '{region.Name}' exceeds the decoded DDS and was clipped."));
-        }
+        TextureSampling sampling = MapTextureSampling(
+            region,
+            decoded.Width,
+            decoded.Height);
+        AddCropDiagnosticIfNeeded(region, sampling, diagnostics);
+        int x = (int)sampling.PhysicalSourceRectangle.X;
+        int y = (int)sampling.PhysicalSourceRectangle.Y;
+        int width = (int)sampling.PhysicalSourceRectangle.Width;
+        int height = (int)sampling.PhysicalSourceRectangle.Height;
 
         byte[] result = GC.AllocateUninitializedArray<byte>(
             checked(width * height * 4));
@@ -1752,7 +1775,126 @@ public sealed class DyingLightAssetResolver : IAssetResolver
                 .CopyTo(result.AsSpan(row * destinationStride, destinationStride));
         }
 
-        return result;
+        return new TextureCrop(
+            width,
+            height,
+            result,
+            sampling.LogicalSize,
+            sampling.PhysicalSourceRectangle,
+            sampling.DefinitionToPhysicalScale);
+    }
+
+    private static TextureSampling MapTextureSampling(
+        XuiTextureRegion region,
+        int decodedWidth,
+        int decodedHeight)
+    {
+        double definitionWidth = Math.Max(1, region.TextureWidth);
+        double definitionHeight = Math.Max(1, region.TextureHeight);
+        double scaleX = decodedWidth / definitionWidth;
+        double scaleY = decodedHeight / definitionHeight;
+        double logicalLeft = region.SourceRectangle.X;
+        double logicalTop = region.SourceRectangle.Y;
+        double logicalRight =
+            region.SourceRectangle.X + region.SourceRectangle.Width;
+        double logicalBottom =
+            region.SourceRectangle.Y + region.SourceRectangle.Height;
+        double clippedLeft = Math.Clamp(logicalLeft, 0, definitionWidth);
+        double clippedTop = Math.Clamp(logicalTop, 0, definitionHeight);
+        double clippedRight = Math.Clamp(logicalRight, 0, definitionWidth);
+        double clippedBottom = Math.Clamp(logicalBottom, 0, definitionHeight);
+        bool clipped =
+            logicalLeft < 0 ||
+            logicalTop < 0 ||
+            logicalRight > definitionWidth ||
+            logicalBottom > definitionHeight ||
+            logicalRight <= logicalLeft ||
+            logicalBottom <= logicalTop;
+
+        int x = Math.Clamp(
+            (int)Math.Floor(clippedLeft * scaleX),
+            0,
+            decodedWidth - 1);
+        int y = Math.Clamp(
+            (int)Math.Floor(clippedTop * scaleY),
+            0,
+            decodedHeight - 1);
+        int right = Math.Clamp(
+            (int)Math.Ceiling(clippedRight * scaleX),
+            x + 1,
+            decodedWidth);
+        int bottom = Math.Clamp(
+            (int)Math.Ceiling(clippedBottom * scaleY),
+            y + 1,
+            decodedHeight);
+        XuiRect physical = new(
+            x,
+            y,
+            right - x,
+            bottom - y);
+        XuiVector2 logicalSize = GetClippedLogicalSize(region);
+        return new TextureSampling(
+            logicalSize,
+            physical,
+            new XuiVector2(scaleX, scaleY),
+            clipped);
+    }
+
+    private static void AddCropDiagnosticIfNeeded(
+        XuiTextureRegion region,
+        TextureSampling sampling,
+        List<XuiDiagnostic> diagnostics)
+    {
+        if (!sampling.WasClipped)
+        {
+            return;
+        }
+
+        XuiRect physical = sampling.PhysicalSourceRectangle;
+        diagnostics.Add(new XuiDiagnostic(
+            "XUI-ASSET007",
+            XuiDiagnosticSeverity.Warning,
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"Texture region '{region.Name}' with logical bounds {region.SourceRectangle.X},{region.SourceRectangle.Y},{region.SourceRectangle.Width},{region.SourceRectangle.Height} exceeds the declared {region.TextureWidth}x{region.TextureHeight} texture space and was clipped to physical DDS bounds {physical.X},{physical.Y},{physical.Width},{physical.Height}.")));
+    }
+
+    private static XuiVector2 GetClippedLogicalSize(XuiTextureRegion region)
+    {
+        double definitionWidth = Math.Max(1, region.TextureWidth);
+        double definitionHeight = Math.Max(1, region.TextureHeight);
+        double left = Math.Clamp(
+            region.SourceRectangle.X,
+            0,
+            definitionWidth);
+        double top = Math.Clamp(
+            region.SourceRectangle.Y,
+            0,
+            definitionHeight);
+        double right = Math.Clamp(
+            region.SourceRectangle.X + region.SourceRectangle.Width,
+            0,
+            definitionWidth);
+        double bottom = Math.Clamp(
+            region.SourceRectangle.Y + region.SourceRectangle.Height,
+            0,
+            definitionHeight);
+        return new XuiVector2(
+            Math.Max(1, right - left),
+            Math.Max(1, bottom - top));
+    }
+
+    private static bool IsLogicalRegionClipped(XuiTextureRegion region)
+    {
+        double right = region.SourceRectangle.X + region.SourceRectangle.Width;
+        double bottom = region.SourceRectangle.Y + region.SourceRectangle.Height;
+        return
+            region.SourceRectangle.X < 0 ||
+            region.SourceRectangle.Y < 0 ||
+            right > Math.Max(1, region.TextureWidth) ||
+            bottom > Math.Max(1, region.TextureHeight) ||
+            region.SourceRectangle.Width <= 0 ||
+            region.SourceRectangle.Height <= 0;
     }
 
     private async Task<ResolvedTexture?> ReadCacheAsync(
@@ -1761,7 +1903,7 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         XuiTextureRegion definition,
         string sourcePath,
         bool approximation,
-        IReadOnlyList<XuiDiagnostic> diagnostics,
+        List<XuiDiagnostic> diagnostics,
         CancellationToken cancellationToken)
     {
         string path = Path.Combine(_cacheDirectory, hash + ".bgra");
@@ -1785,13 +1927,48 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             return null;
         }
 
-        int width = BinaryPrimitives.ReadInt32LittleEndian(data);
-        int height = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(4));
-        long expected = CacheHeaderSize + checked((long)width * height * 4);
-        if (width <= 0 || height <= 0 || expected != data.Length)
+        int magic = BinaryPrimitives.ReadInt32LittleEndian(data);
+        int version = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(4));
+        if (magic != CacheMagic || version != CacheVersion)
         {
             return null;
         }
+
+        int width = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(8));
+        int height = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(12));
+        int sourceX = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(16));
+        int sourceY = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(20));
+        int sourceWidth = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(24));
+        int sourceHeight = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(28));
+        double scaleX = BinaryPrimitives.ReadDoubleLittleEndian(data.AsSpan(32));
+        double scaleY = BinaryPrimitives.ReadDoubleLittleEndian(data.AsSpan(40));
+        long expected = CacheHeaderSize + checked((long)width * height * 4);
+        if (width <= 0 ||
+            height <= 0 ||
+            sourceX < 0 ||
+            sourceY < 0 ||
+            sourceWidth != width ||
+            sourceHeight != height ||
+            !double.IsFinite(scaleX) ||
+            !double.IsFinite(scaleY) ||
+            scaleX <= 0 ||
+            scaleY <= 0 ||
+            expected != data.Length)
+        {
+            return null;
+        }
+
+        XuiRect physicalSourceRectangle = new(
+            sourceX,
+            sourceY,
+            sourceWidth,
+            sourceHeight);
+        TextureSampling sampling = new(
+            GetClippedLogicalSize(definition),
+            physicalSourceRectangle,
+            new XuiVector2(scaleX, scaleY),
+            IsLogicalRegionClipped(definition));
+        AddCropDiagnosticIfNeeded(definition, sampling, diagnostics);
 
         try
         {
@@ -1813,14 +1990,17 @@ public sealed class DyingLightAssetResolver : IAssetResolver
             sourcePath,
             hash,
             approximation,
-            diagnostics);
+            diagnostics)
+        {
+            LogicalSize = sampling.LogicalSize,
+            PhysicalSourceRectangle = sampling.PhysicalSourceRectangle,
+            DefinitionToPhysicalScale = sampling.DefinitionToPhysicalScale,
+        };
     }
 
     private async Task WriteCacheAsync(
         string hash,
-        int width,
-        int height,
-        byte[] pixels,
+        TextureCrop crop,
         CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(_cacheDirectory);
@@ -1831,10 +2011,30 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         }
 
         byte[] data = GC.AllocateUninitializedArray<byte>(
-            checked(CacheHeaderSize + pixels.Length));
-        BinaryPrimitives.WriteInt32LittleEndian(data, width);
-        BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(4), height);
-        pixels.CopyTo(data, CacheHeaderSize);
+            checked(CacheHeaderSize + crop.Pixels.Length));
+        BinaryPrimitives.WriteInt32LittleEndian(data, CacheMagic);
+        BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(4), CacheVersion);
+        BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(8), crop.Width);
+        BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(12), crop.Height);
+        BinaryPrimitives.WriteInt32LittleEndian(
+            data.AsSpan(16),
+            (int)crop.PhysicalSourceRectangle.X);
+        BinaryPrimitives.WriteInt32LittleEndian(
+            data.AsSpan(20),
+            (int)crop.PhysicalSourceRectangle.Y);
+        BinaryPrimitives.WriteInt32LittleEndian(
+            data.AsSpan(24),
+            (int)crop.PhysicalSourceRectangle.Width);
+        BinaryPrimitives.WriteInt32LittleEndian(
+            data.AsSpan(28),
+            (int)crop.PhysicalSourceRectangle.Height);
+        BinaryPrimitives.WriteDoubleLittleEndian(
+            data.AsSpan(32),
+            crop.DefinitionToPhysicalScale.X);
+        BinaryPrimitives.WriteDoubleLittleEndian(
+            data.AsSpan(40),
+            crop.DefinitionToPhysicalScale.Y);
+        crop.Pixels.CopyTo(data, CacheHeaderSize);
         string temporaryPath = Path.Combine(
             _cacheDirectory,
             $".{hash}.{Guid.NewGuid():N}.tmp");
@@ -1944,7 +2144,7 @@ public sealed class DyingLightAssetResolver : IAssetResolver
     {
         string identity = string.Create(
             CultureInfo.InvariantCulture,
-            $"{sourceHash}|{region.DefinitionRoot?.FullPath}|{region.DefinitionRelativePath}|{region.Name}|{region.TextureFile}|{region.Primitive}|{region.SourceRectangle.X}|{region.SourceRectangle.Y}|{region.SourceRectangle.Width}|{region.SourceRectangle.Height}|BGRA32-v2");
+            $"{sourceHash}|{region.DefinitionRoot?.FullPath}|{region.DefinitionRelativePath}|{region.Name}|{region.TextureFile}|{region.Primitive}|{region.TextureWidth}|{region.TextureHeight}|{region.SourceRectangle.X}|{region.SourceRectangle.Y}|{region.SourceRectangle.Width}|{region.SourceRectangle.Height}|BGRA32-v3");
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)));
     }
 
@@ -2405,6 +2605,20 @@ public sealed class DyingLightAssetResolver : IAssetResolver
 
         return pixels;
     }
+
+    private readonly record struct TextureSampling(
+        XuiVector2 LogicalSize,
+        XuiRect PhysicalSourceRectangle,
+        XuiVector2 DefinitionToPhysicalScale,
+        bool WasClipped);
+
+    private readonly record struct TextureCrop(
+        int Width,
+        int Height,
+        byte[] Pixels,
+        XuiVector2 LogicalSize,
+        XuiRect PhysicalSourceRectangle,
+        XuiVector2 DefinitionToPhysicalScale);
 
     private sealed record DecodedImage(int Width, int Height, byte[] Bgra);
 

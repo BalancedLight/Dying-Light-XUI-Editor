@@ -1596,16 +1596,18 @@ public sealed class XuiViewportControl : FrameworkElement
         }
 
         double sourceCornerX = Math.Min(
-            definition.CornerSize.X,
+            definition.CornerSize.X *
+                texture.Resolved.DefinitionToPhysicalScale.X,
             bitmap.PixelWidth * 0.5);
         double sourceCornerY = Math.Min(
-            definition.CornerSize.Y,
+            definition.CornerSize.Y *
+                texture.Resolved.DefinitionToPhysicalScale.Y,
             bitmap.PixelHeight * 0.5);
         double destinationCornerX = Math.Min(
-            sourceCornerX,
+            definition.CornerSize.X,
             destination.Width * 0.5);
         double destinationCornerY = Math.Min(
-            sourceCornerY,
+            definition.CornerSize.Y,
             destination.Height * 0.5);
         double[] sourceX =
         [
@@ -1750,8 +1752,8 @@ public sealed class XuiViewportControl : FrameworkElement
                 Viewport = new Rect(
                     target.Left,
                     target.Top,
-                    bitmap.PixelWidth,
-                    bitmap.PixelHeight),
+                    part.Resolved.LogicalSize.X,
+                    part.Resolved.LogicalSize.Y),
                 ViewportUnits = BrushMappingMode.Absolute,
             };
             brush.Freeze();
@@ -1762,14 +1764,14 @@ public sealed class XuiViewportControl : FrameworkElement
     private static double TileColumnWidth(LoadedTexture texture, int column) =>
         texture.TileParts.Values
             .Where(part => TileCell(part.Resolved.Role).Column == column)
-            .Select(static part => (double)part.Bitmap.PixelWidth)
+            .Select(static part => part.Resolved.LogicalSize.X)
             .DefaultIfEmpty(0)
             .Max();
 
     private static double TileRowHeight(LoadedTexture texture, int row) =>
         texture.TileParts.Values
             .Where(part => TileCell(part.Resolved.Role).Row == row)
-            .Select(static part => (double)part.Bitmap.PixelHeight)
+            .Select(static part => part.Resolved.LogicalSize.Y)
             .DefaultIfEmpty(0)
             .Max();
 

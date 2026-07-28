@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using XuiEditor.Core.Assets;
+using XuiEditor.Core.Diagnostics;
 using XuiEditor.Core.Documents;
 using XuiEditor.Core.Layout;
 using XuiEditor.Core.Values;
@@ -377,6 +378,175 @@ public sealed class AssetTests
         Assert.AreEqual(2, texture.Height);
         Assert.AreEqual(16, texture.BgraPixels.Length);
         Assert.IsTrue(texture.ContentHash.Length == 64);
+    }
+
+    [TestMethod]
+    public async Task ResolverMapsLogicalDefinitionSpaceToScaledPhysicalDds()
+    {
+        using TestDirectory directory = new();
+        string root = directory.File("workspace");
+        string cache = directory.File("cache");
+        Directory.CreateDirectory(root);
+        await File.WriteAllTextAsync(
+            Path.Combine(root, "textures.def"),
+            """
+            Texture("scaled.dds",2,2)
+            {
+                Whole("whole")
+                Rect("right_half",1,0,2,2)
+            }
+            """);
+        await File.WriteAllBytesAsync(
+            Path.Combine(root, "scaled.dds"),
+            CreateSizedUncompressedDds(
+                4,
+                4,
+                static (x, y) => (byte)((y * 16) + x)));
+        XuiAssetRoot assetRoot = new(
+            root,
+            XuiAssetRootKind.Workspace,
+            false);
+        DyingLightAssetResolver coldResolver = new([assetRoot], cache);
+
+        await coldResolver.RebuildAsync();
+        ResolvedTexture? whole =
+            await coldResolver.ResolveTextureAsync("whole");
+        ResolvedTexture? right =
+            await coldResolver.ResolveTextureAsync("right_half");
+
+        Assert.IsNotNull(whole);
+        Assert.AreEqual(4, whole.Width);
+        Assert.AreEqual(4, whole.Height);
+        Assert.AreEqual(new XuiVector2(2, 2), whole.LogicalSize);
+        Assert.AreEqual(new XuiVector2(2, 2), whole.DefinitionToPhysicalScale);
+        Assert.AreEqual(new XuiRect(0, 0, 4, 4), whole.PhysicalSourceRectangle);
+        Assert.AreEqual(0, whole.BgraPixels[0]);
+        Assert.AreEqual(51, whole.BgraPixels[^4]);
+
+        Assert.IsNotNull(right);
+        Assert.AreEqual(2, right.Width);
+        Assert.AreEqual(4, right.Height);
+        Assert.AreEqual(new XuiVector2(1, 2), right.LogicalSize);
+        Assert.AreEqual(new XuiRect(2, 0, 2, 4), right.PhysicalSourceRectangle);
+        Assert.AreEqual(2, right.BgraPixels[0]);
+        Assert.AreEqual(51, right.BgraPixels[^4]);
+
+        DyingLightAssetResolver warmResolver = new([assetRoot], cache);
+        await warmResolver.RebuildAsync();
+        ResolvedTexture? cached =
+            await warmResolver.ResolveTextureAsync("right_half");
+
+        Assert.IsNotNull(cached);
+        Assert.AreEqual(right.Width, cached.Width);
+        Assert.AreEqual(right.Height, cached.Height);
+        Assert.AreEqual(right.LogicalSize, cached.LogicalSize);
+        Assert.AreEqual(
+            right.DefinitionToPhysicalScale,
+            cached.DefinitionToPhysicalScale);
+        Assert.AreEqual(
+            right.PhysicalSourceRectangle,
+            cached.PhysicalSourceRectangle);
+        CollectionAssert.AreEqual(right.BgraPixels, cached.BgraPixels);
+    }
+
+    [TestMethod]
+    public async Task ResolverSupportsIndependentDefinitionScaleAndClampsLogicalBounds()
+    {
+        using TestDirectory directory = new();
+        string root = directory.File("workspace");
+        Directory.CreateDirectory(root);
+        await File.WriteAllTextAsync(
+            Path.Combine(root, "textures.def"),
+            """
+            Texture("scaled.dds",3,2)
+            {
+                Rect("middle",1,0,2,1)
+                Rect("clipped",-1,-1,2,1)
+            }
+            """);
+        await File.WriteAllBytesAsync(
+            Path.Combine(root, "scaled.dds"),
+            CreateSizedUncompressedDds(
+                6,
+                8,
+                static (x, y) => (byte)((y * 8) + x)));
+        DyingLightAssetResolver resolver = new(
+        [
+            new XuiAssetRoot(root, XuiAssetRootKind.Workspace, false),
+        ],
+            directory.File("cache"));
+
+        await resolver.RebuildAsync();
+        ResolvedTexture? middle =
+            await resolver.ResolveTextureAsync("middle");
+        ResolvedTexture? clipped =
+            await resolver.ResolveTextureAsync("clipped");
+
+        Assert.IsNotNull(middle);
+        Assert.AreEqual(new XuiVector2(2, 4), middle.DefinitionToPhysicalScale);
+        Assert.AreEqual(new XuiRect(2, 0, 2, 4), middle.PhysicalSourceRectangle);
+        Assert.AreEqual(new XuiVector2(1, 1), middle.LogicalSize);
+        Assert.AreEqual(2, middle.BgraPixels[0]);
+        Assert.AreEqual(27, middle.BgraPixels[^4]);
+
+        Assert.IsNotNull(clipped);
+        Assert.AreEqual(new XuiRect(0, 0, 4, 4), clipped.PhysicalSourceRectangle);
+        Assert.AreEqual(new XuiVector2(2, 1), clipped.LogicalSize);
+        XuiDiagnostic diagnostic = clipped.Diagnostics.Single(static item =>
+            item.Code == "XUI-ASSET007");
+        StringAssert.Contains(diagnostic.Message, "declared 3x2");
+        StringAssert.Contains(diagnostic.Message, "physical DDS bounds 0,0,4,4");
+    }
+
+    [TestMethod]
+    public async Task ScaledNineSliceAndTilePartsKeepLogicalLayoutSizes()
+    {
+        using TestDirectory directory = new();
+        string root = directory.File("workspace");
+        Directory.CreateDirectory(root);
+        await File.WriteAllTextAsync(
+            Path.Combine(root, "textures.def"),
+            """
+            Texture("scaled.dds",4,4)
+            {
+                RectWithCorner("panel",0,0,4,4,1,1)
+                Tileset("frame")
+                {
+                    Rect("top",1,0,3,1)
+                    Top("top",100,1)
+                }
+            }
+            """);
+        await File.WriteAllBytesAsync(
+            Path.Combine(root, "scaled.dds"),
+            CreateSizedUncompressedDds(
+                8,
+                8,
+                static (x, y) => (byte)((y * 8) + x)));
+        DyingLightAssetResolver resolver = new(
+        [
+            new XuiAssetRoot(root, XuiAssetRootKind.Workspace, false),
+        ],
+            directory.File("cache"));
+
+        await resolver.RebuildAsync();
+        ResolvedTexture? panel =
+            await resolver.ResolveTextureAsync("panel");
+        ResolvedTexture? frame =
+            await resolver.ResolveTextureAsync("frame");
+
+        Assert.IsNotNull(panel);
+        Assert.AreEqual(8, panel.Width);
+        Assert.AreEqual(8, panel.Height);
+        Assert.AreEqual(new XuiVector2(4, 4), panel.LogicalSize);
+        Assert.AreEqual(new XuiVector2(2, 2), panel.DefinitionToPhysicalScale);
+
+        Assert.IsNotNull(frame);
+        ResolvedTileTexturePart top = frame.TileParts.Single();
+        Assert.AreEqual(2, top.Width);
+        Assert.AreEqual(4, top.Height);
+        Assert.AreEqual(new XuiVector2(1, 2), top.LogicalSize);
+        Assert.AreEqual(new XuiVector2(1, 2), frame.LogicalSize);
     }
 
     [TestMethod]
@@ -793,6 +963,42 @@ public sealed class AssetTests
             result[index + 1] = 40;
             result[index + 2] = 200;
             result[index + 3] = 255;
+        }
+
+        return result;
+    }
+
+    private static byte[] CreateSizedUncompressedDds(
+        int width,
+        int height,
+        Func<int, int, byte> blue)
+    {
+        byte[] result = new byte[checked(128 + (width * height * 4))];
+        Encoding.ASCII.GetBytes("DDS ").CopyTo(result, 0);
+        Span<byte> header = result.AsSpan(4, 124);
+        BinaryPrimitives.WriteInt32LittleEndian(header, 124);
+        BinaryPrimitives.WriteUInt32LittleEndian(header[4..], 0x0000100f);
+        BinaryPrimitives.WriteInt32LittleEndian(header[8..], height);
+        BinaryPrimitives.WriteInt32LittleEndian(header[12..], width);
+        BinaryPrimitives.WriteInt32LittleEndian(header[16..], width * 4);
+        BinaryPrimitives.WriteInt32LittleEndian(header[72..], 32);
+        BinaryPrimitives.WriteUInt32LittleEndian(header[76..], 0x41);
+        BinaryPrimitives.WriteInt32LittleEndian(header[84..], 32);
+        BinaryPrimitives.WriteUInt32LittleEndian(header[88..], 0x00ff0000);
+        BinaryPrimitives.WriteUInt32LittleEndian(header[92..], 0x0000ff00);
+        BinaryPrimitives.WriteUInt32LittleEndian(header[96..], 0x000000ff);
+        BinaryPrimitives.WriteUInt32LittleEndian(header[100..], 0xff000000);
+        BinaryPrimitives.WriteUInt32LittleEndian(header[104..], 0x1000);
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                int offset = 128 + (((y * width) + x) * 4);
+                result[offset] = blue(x, y);
+                result[offset + 1] = 40;
+                result[offset + 2] = 200;
+                result[offset + 3] = 255;
+            }
         }
 
         return result;

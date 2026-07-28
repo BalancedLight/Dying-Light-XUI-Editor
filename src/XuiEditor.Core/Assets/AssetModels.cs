@@ -86,7 +86,10 @@ public sealed record ResolvedTileTexturePart(
     int Height,
     byte[] BgraPixels,
     string SourcePath,
-    string ContentHash);
+    string ContentHash)
+{
+    public XuiVector2 LogicalSize { get; init; } = new(Width, Height);
+}
 
 public sealed record ResolvedTexture(
     string Name,
@@ -100,6 +103,16 @@ public sealed record ResolvedTexture(
     IReadOnlyList<XuiDiagnostic> Diagnostics)
 {
     public IReadOnlyList<ResolvedTileTexturePart> TileParts { get; init; } = [];
+
+    public XuiVector2 LogicalSize { get; init; } = new(
+        Math.Max(1, Definition.SourceRectangle.Width),
+        Math.Max(1, Definition.SourceRectangle.Height));
+
+    public XuiRect PhysicalSourceRectangle { get; init; } =
+        new(0, 0, Width, Height);
+
+    public XuiVector2 DefinitionToPhysicalScale { get; init; } =
+        new(1, 1);
 }
 
 public sealed record XuiFontDefinition(
