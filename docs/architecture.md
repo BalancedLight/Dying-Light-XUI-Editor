@@ -140,7 +140,7 @@ streams before decoding; this is how stock HUD references resolve
 
 The selected installed localization catalog is parsed with declaration order
 and duplicate-key diagnostics. Installed `basicfonts.scr`, `fontstyles.scr`,
-`.fm` glyph metrics, private input-glyph catalogs, and the corresponding DDS
+`.fm` glyph metrics, game input-glyph catalogs, and the corresponding DDS
 font atlases from the selected locale provide exact bitmap text when present.
 A user mapping or language-appropriate Unicode system font is an explicit
 diagnosed fallback.
@@ -201,11 +201,11 @@ runtime placeholders remain higher-priority.
 
 Some runtime UI controllers intentionally coordinate nested scopes. The editor
 does not fabricate playback coordination. The composed first view positions
-the Irisu HUD's `HudZoneInfoDI` scope at its earliest visible tick and its child
-`G_Group` scope at the first visible image, so the project-local
-`irisu_attack_00` texture appears immediately. Scrubbing either scope remains
-independent, and the named-frame **Go to** action still provides exact manual
-positioning without executing a frame command.
+each independent scope at its earliest useful visible tick, so project-local
+textures can appear immediately without coupling parent and child playback.
+Scrubbing either scope remains independent, and the named-frame **Go to**
+action still provides exact manual positioning without executing a frame
+command.
 
 Keyframe and marker edits use the same command history and source-patching
 pipeline as inspector edits.

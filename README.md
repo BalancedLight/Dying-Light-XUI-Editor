@@ -91,7 +91,7 @@ workspace before it can be saved.
   language PAKs, with English fallback; extracted copies cannot override the
   chosen language. Explicit `Locale\<language>` catalogs in configured
   projects, workspaces, loose-resource roots, or RPACKs remain supported.
-  `basicfonts.scr`, `fontstyles.scr`, `.fm` bitmap metrics, private input
+  `basicfonts.scr`, `fontstyles.scr`, `.fm` bitmap metrics, game input
   glyphs, and locale-specific font-atlas DDS resources are indexed alongside
   them. Exact engine bitmap fonts are used when available; Unicode-capable
   Windows families are used as diagnosed CJK/Thai fallbacks while an atlas is
@@ -158,6 +158,11 @@ dotnet publish src\XuiEditor.Wpf\XuiEditor.Wpf.csproj `
   -c Release -r win-x64 --self-contained true --no-restore `
   -o artifacts\publish\win-x64
 ```
+
+Optional read-only acceptance tests take local game and extracted-data roots
+from `DYING_LIGHT_INSTALL` and `XUI_EDITOR_TEST_CORPUS_ROOT`. Checked-in tests
+must use portable synthetic fixtures rather than developer-machine paths or
+private third-party projects.
 
 The project enables .NET single-file publishing and embeds the supplied
 multi-resolution XUI icon, so the publish directory contains

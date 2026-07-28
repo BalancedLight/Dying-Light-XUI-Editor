@@ -174,38 +174,11 @@ public static class EditorSettingsStore
         return settings;
     }
 
-    private static EditorSettings CreateDefaults()
-    {
-        EditorSettings settings = new()
+    private static EditorSettings CreateDefaults() =>
+        new()
         {
             DyingLightInstallPath = FindDyingLightInstall(),
         };
-        string extraction =
-            @"D:\Backups\Assets\Dying Light Extraction\Dying Light Files";
-        string textures =
-            @"D:\Backups\Assets\Dying Light Extraction\Textures";
-        if (Directory.Exists(extraction))
-        {
-            settings.AssetRoots.Add(new AssetRootSetting
-            {
-                Path = extraction,
-                Kind = XuiAssetRootKind.ExtractedDyingLight,
-                IsReadOnly = true,
-            });
-        }
-
-        if (Directory.Exists(textures))
-        {
-            settings.AssetRoots.Add(new AssetRootSetting
-            {
-                Path = textures,
-                Kind = XuiAssetRootKind.ExtractedDyingLight,
-                IsReadOnly = true,
-            });
-        }
-
-        return settings;
-    }
 
     private static void Normalize(EditorSettings settings)
     {

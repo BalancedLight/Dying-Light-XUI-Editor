@@ -15,7 +15,12 @@ dotnet publish src\XuiEditor.Wpf\XuiEditor.Wpf.csproj
   -o artifacts\publish\win-x64
 ```
 
-Both test configurations passed all 167 tests with zero build warnings.
+Both test configurations passed: 156 tests succeeded and 8 optional
+acceptance tests were skipped, with zero build warnings. Set
+`DYING_LIGHT_INSTALL` to a game installation and
+`XUI_EDITOR_TEST_CORPUS_ROOT` to an extracted data root to include those
+read-only acceptance suites. The repository does not provide
+developer-machine default paths for either source.
 
 Coverage includes:
 
@@ -73,10 +78,9 @@ Coverage includes:
 - persisted ordered Dying Light project, loose-resource, individual
   texture-definition, and RP6L RPACK sources, including a synthetic
   definition/RPACK pair resolved through the same public resolver
-- a synthetic Workshop project plus the real Irisu project, including decoded
-  project-local `irisu_attack_00` pixels, selected-image priority over the
-  large HUD texture backlog, a real retained `ImageDrawing`, and byte-identical
-  source isolation
+- synthetic Workshop projects covering project-root discovery, project-local
+  texture-definition and DDS precedence, resolver provenance, and source
+  isolation
 - the real `hud_dw` texture definition and DDS source for the 20×20
   `aggro_skull` atlas region (the similarly named `hud_dl` is not used)
 - composed runtime text placeholders, hidden-node reveal rules, removal of the
@@ -114,16 +118,15 @@ Coverage includes:
   authored height when the effective preview-state explanation is visible
 - the single-file publish contract and embedded multi-resolution icon
 
-The current installation at
-`E:\SteamLibrary\steamapps\common\Dying Light` exposed 174 stock XUIs and
-8,793 install assets. With the configured optional extracted roots, the live
-editor indexed 24,735 assets. The install-only English acceptance resolver
-indexed 23,766 PAK-backed strings; extracted localization binaries no longer
-enter the catalog, while structurally identified project locale folders can
-still add explicit overrides. Stock `hud.xui` opened read-only with 4,061
-nodes and 1,896 timelines. The gameplay-HUD acceptance context resolved
-installed imagery, populated sample health/medkit/quest values, and did not
-produce the former false `XUI-TL005` Const0/Const1 diagnostics.
+An optional local-install acceptance run exposed 174 stock XUIs and 8,793
+install assets. With optional extracted roots configured, the live editor
+indexed 24,735 assets. The install-only English acceptance resolver indexed
+23,766 PAK-backed strings; extracted localization binaries no longer enter the
+catalog, while structurally identified project locale folders can still add
+explicit overrides. Stock `hud.xui` opened read-only with 4,061 nodes and 1,896
+timelines. The gameplay-HUD acceptance context resolved installed imagery,
+populated sample health/medkit/quest values, and did not produce the former
+false `XUI-TL005` Const0/Const1 diagnostics.
 
 The stock DLC file `data/menu/hud/hud_btz.xui` is malformed at its source
 (`TimelineProp` is closed as `Timeline</Prop>` near line 4255). The parser
@@ -142,17 +145,12 @@ The self-contained executable was launched without Unity or an installed .NET
 runtime. Its PE resources contain one multi-resolution icon group and ten icon
 images. The desktop smoke test opened extracted `menuyesnodialog.xui` read-only:
 the dialog remained at its authored position, Yes and No were separated and
-fully textured, and the common runtime profile hid OK. It then opened the real
-4,066-node, 1,898-timeline Irisu Workshop `hud.xui`, discovered the project's
-`data` root, resolved `I_Irisu_00` to the project-local `irisu_attack_00`
-definition/DDS, and rendered the red attack overlay immediately from the
-composed `HUD_DI=0`, `HudZoneInfoDI=3`, and `G_Group=1` state. Its active image
-scope exposed 3 tracks and 5 named frames rather than constructing the
-document-wide timeline, and three warm WPF samples stayed within the 100 ms
-30-FPS budget while updating at most four retained presentations. Both
-documents remained clean. A hidden single-file smoke start reached input-idle
-before its exact spawned process was cleaned up; Dying Light and Dying Light
-Player were not launched.
+fully textured, and the common runtime profile hid OK. The document remained
+clean. Portable synthetic tests independently cover Workshop `data`-root
+discovery, project-local texture precedence, independent nested timeline
+scopes, and warm indexed scope navigation. A hidden single-file smoke start
+reached input-idle before its exact spawned process was cleaned up; Dying Light
+and Dying Light Player were not launched.
 
 The controlled Player comparison is documented in
 [runtime-comparison.md](runtime-comparison.md).

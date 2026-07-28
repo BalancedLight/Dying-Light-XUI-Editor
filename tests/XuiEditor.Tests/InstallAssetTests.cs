@@ -9,16 +9,16 @@ namespace XuiEditor.Tests;
 [TestClass]
 public sealed class InstallAssetTests
 {
-    private const string InstallPath =
-        @"E:\SteamLibrary\steamapps\common\Dying Light";
+    private const string InstallPathEnvironmentVariable =
+        "DYING_LIGHT_INSTALL";
 
     [TestMethod]
     [Timeout(30_000)]
     public async Task InstallIndexExposesEveryCurrentStockXuiReadOnly()
     {
-        RequireInstall();
+        string installPath = RequireInstall();
         DyingLightInstallIndex index = new(
-            new DyingLightInstallProfile(InstallPath, "En"));
+            new DyingLightInstallProfile(installPath, "En"));
 
         await index.RebuildAsync();
 
@@ -55,9 +55,9 @@ public sealed class InstallAssetTests
     [Timeout(90_000)]
     public async Task InstallResolverLoadsHudDwLocalizationAndBitmapFonts()
     {
-        RequireInstall();
+        string installPath = RequireInstall();
         DyingLightInstallIndex index = new(
-            new DyingLightInstallProfile(InstallPath, "En"));
+            new DyingLightInstallProfile(installPath, "En"));
         DyingLightAssetResolver resolver = new(
             [],
             sources: [index],
@@ -164,9 +164,9 @@ public sealed class InstallAssetTests
     [Timeout(90_000)]
     public async Task InstallResolverLoadsJapaneseLocalizationAndGlyphAtlas()
     {
-        RequireInstall();
+        string installPath = RequireInstall();
         DyingLightInstallIndex index = new(
-            new DyingLightInstallProfile(InstallPath, "Jp"));
+            new DyingLightInstallProfile(installPath, "Jp"));
         DyingLightAssetResolver resolver = new(
             [],
             sources: [index],
@@ -195,9 +195,9 @@ public sealed class InstallAssetTests
     [Timeout(120_000)]
     public async Task EveryInstalledStockXuiParsesAndEvaluatesReadOnly()
     {
-        RequireInstall();
+        string installPath = RequireInstall();
         DyingLightInstallIndex index = new(
-            new DyingLightInstallProfile(InstallPath, "En"));
+            new DyingLightInstallProfile(installPath, "En"));
         DyingLightAssetResolver resolver = new(
             [],
             sources: [index],
@@ -247,12 +247,18 @@ public sealed class InstallAssetTests
             malformedStockFiles[0]);
     }
 
-    private static void RequireInstall()
+    private static string RequireInstall()
     {
-        if (!DyingLightInstallIndex.LooksLikeInstall(InstallPath))
+        string? installPath =
+            Environment.GetEnvironmentVariable(
+                InstallPathEnvironmentVariable);
+        if (string.IsNullOrWhiteSpace(installPath) ||
+            !DyingLightInstallIndex.LooksLikeInstall(installPath))
         {
             Assert.Inconclusive(
-                "The external Dying Light installation is not available.");
+                $"Set {InstallPathEnvironmentVariable} to a Dying Light installation to run install acceptance tests.");
         }
+
+        return Path.GetFullPath(installPath);
     }
 }

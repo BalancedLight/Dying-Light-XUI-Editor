@@ -75,7 +75,10 @@ public sealed class AssetTests
                 StringComparer.OrdinalIgnoreCase)
             {
                 ["engine_heading"] = "Segoe UI",
-                ["missing_file"] = @"Z:\fonts\not-present.ttf",
+                ["missing_file"] = Path.Combine(
+                    Path.GetTempPath(),
+                    "XuiEditor.Tests",
+                    "not-present.ttf"),
             });
 
         ResolvedFont installed = resolver.ResolveFont("ENGINE_HEADING", 19);

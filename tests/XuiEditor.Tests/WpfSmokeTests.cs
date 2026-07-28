@@ -1787,6 +1787,24 @@ public sealed class WpfSmokeTests
     [TestMethod]
     public void PaneAndAssetSettingsRoundTripWithProtectedRoots()
     {
+        string settingsRoot = Path.Combine(
+            Path.GetTempPath(),
+            "XuiEditor.Tests",
+            "SettingsRoundTrip");
+        string installPath = Path.Combine(
+            settingsRoot,
+            "Dying Light");
+        string extractedPath = Path.Combine(
+            settingsRoot,
+            "Extracted");
+        string textureDefinitionPath = Path.Combine(
+            settingsRoot,
+            "Definitions",
+            "hudtextures.def");
+        string resourcePackPath = Path.Combine(
+            settingsRoot,
+            "Resources",
+            "menu_PC.rpack");
         EditorSettings settings = new()
         {
             WindowWidth = 1440,
@@ -1796,8 +1814,7 @@ public sealed class WpfSmokeTests
             TimelineHeight = 288,
             ShowGrid = false,
             SnapEnabled = false,
-            DyingLightInstallPath =
-                @"E:\SteamLibrary\steamapps\common\Dying Light",
+            DyingLightInstallPath = installPath,
             Locale = "Pl",
             InputGlyphScheme = XuiInputGlyphScheme.Xbox,
             PreviewScenarioId = "hud-combat",
@@ -1806,7 +1823,7 @@ public sealed class WpfSmokeTests
             [
                 new AssetRootSetting
                 {
-                    Path = @"D:\Extracted",
+                    Path = extractedPath,
                     Kind = XuiAssetRootKind.ExtractedDyingLight,
                     IsReadOnly = false,
                 },
@@ -1815,13 +1832,13 @@ public sealed class WpfSmokeTests
             [
                 new AdditionalAssetSourceSetting
                 {
-                    Path = @"D:\Definitions\hudtextures.def",
+                    Path = textureDefinitionPath,
                     Kind =
                         XuiConfiguredAssetSourceKind.TextureDefinitionFile,
                 },
                 new AdditionalAssetSourceSetting
                 {
-                    Path = @"D:\Resources\menu_PC.rpack",
+                    Path = resourcePackPath,
                     Kind = XuiConfiguredAssetSourceKind.Rp6ResourcePack,
                 },
             ],
@@ -1837,7 +1854,7 @@ public sealed class WpfSmokeTests
         Assert.IsFalse(restored.ShowGrid);
         Assert.IsFalse(restored.SnapEnabled);
         Assert.AreEqual(
-            @"E:\SteamLibrary\steamapps\common\Dying Light",
+            installPath,
             restored.DyingLightInstallPath);
         Assert.AreEqual("Pl", restored.Locale);
         Assert.AreEqual(
