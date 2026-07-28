@@ -350,6 +350,11 @@ public sealed class XuiViewportControl : FrameworkElement
         return colors;
     }
 
+    internal static bool BitmapFontSupportsTextForTesting(
+        XuiBitmapFontMetrics metrics,
+        string text) =>
+        BitmapFontSupportsText(metrics, text);
+
     internal bool RetainedContainerHasClipForTesting(string nodeKey) =>
         _nodeVisuals[nodeKey].Container.Clip is not null;
 
@@ -1814,7 +1819,10 @@ public sealed class XuiViewportControl : FrameworkElement
         {
             if (_bitmapFonts.TryGetValue(
                     node.Font,
-                    out LoadedBitmapFont? bitmapFont))
+                    out LoadedBitmapFont? bitmapFont) &&
+                BitmapFontSupportsText(
+                    bitmapFont.Resolved.Metrics,
+                    presentation.Text))
             {
                 DrawBitmapText(
                     drawing,
@@ -1931,6 +1939,26 @@ public sealed class XuiViewportControl : FrameworkElement
         }
 
         drawing.DrawText(text, origin);
+    }
+
+    private static bool BitmapFontSupportsText(
+        XuiBitmapFontMetrics metrics,
+        string text)
+    {
+        foreach (Rune rune in text.EnumerateRunes())
+        {
+            if (rune.Value is '\r' or '\n')
+            {
+                continue;
+            }
+
+            if (!metrics.Glyphs.ContainsKey(rune.Value))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static void DrawBitmapText(

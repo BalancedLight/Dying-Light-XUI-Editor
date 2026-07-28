@@ -467,18 +467,38 @@ public sealed class DyingLightInstallIndex : IDyingLightInstallIndex
         foreach (DirectoryInfo directory in dataDirectories)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            string data = Path.Combine(directory.FullName, "Data");
-            if (!Directory.Exists(data))
+            string localizedData = Path.Combine(
+                directory.FullName,
+                $"Data{profile.NormalizedLocale}",
+                "Data");
+            if (!profile.NormalizedLocale.Equals(
+                    "En",
+                    StringComparison.OrdinalIgnoreCase) &&
+                Directory.Exists(localizedData))
             {
-                directoryPriority -= 100;
-                continue;
+                foreach (string path in Directory
+                             .EnumerateFiles(
+                                 localizedData,
+                                 "menu*_PC.rpack")
+                             .OrderBy(
+                                 static path => path,
+                                 StringComparer.OrdinalIgnoreCase))
+                {
+                    yield return (path, directoryPriority + 50);
+                }
             }
 
-            foreach (string path in Directory
-                         .EnumerateFiles(data, "menu*_PC.rpack")
-                         .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase))
+            string data = Path.Combine(directory.FullName, "Data");
+            if (Directory.Exists(data))
             {
-                yield return (path, directoryPriority);
+                foreach (string path in Directory
+                             .EnumerateFiles(data, "menu*_PC.rpack")
+                             .OrderBy(
+                                 static path => path,
+                                 StringComparer.OrdinalIgnoreCase))
+                {
+                    yield return (path, directoryPriority);
+                }
             }
 
             directoryPriority -= 100;

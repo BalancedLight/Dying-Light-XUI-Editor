@@ -15,7 +15,7 @@ dotnet publish src\XuiEditor.Wpf\XuiEditor.Wpf.csproj
   -o artifacts\publish\win-x64
 ```
 
-Both test configurations passed all 164 tests with zero build warnings.
+Both test configurations passed all 167 tests with zero build warnings.
 
 Coverage includes:
 
@@ -61,8 +61,9 @@ Coverage includes:
   `menuyesnodialog.xui`, and the large HUD
 - direct Dying Light install indexing, PAK precedence, RP6 resource lookup,
   selected-locale/English fallback, rejection of extracted localization
-  binaries, explicit project-locale overrides, input glyphs, and exact bitmap
-  fonts
+  binaries, explicit project-locale overrides, input glyphs, selected-locale
+  font RPACK precedence, Japanese glyph-atlas decoding, exact bitmap fonts,
+  and readable system-font retention for incomplete Unicode atlases
 - exact `IUIText` `%COLOR(RRGGBB)`/`%COLOR(reset)` parsing after
   localization, literal disabled/malformed tags, cached colored runs,
   per-range WPF brushes, per-glyph bitmap colors, and stock HUD evidence

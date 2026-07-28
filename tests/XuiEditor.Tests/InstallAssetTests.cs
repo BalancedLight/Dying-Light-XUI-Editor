@@ -161,6 +161,37 @@ public sealed class InstallAssetTests
     }
 
     [TestMethod]
+    [Timeout(90_000)]
+    public async Task InstallResolverLoadsJapaneseLocalizationAndGlyphAtlas()
+    {
+        RequireInstall();
+        DyingLightInstallIndex index = new(
+            new DyingLightInstallProfile(InstallPath, "Jp"));
+        DyingLightAssetResolver resolver = new(
+            [],
+            sources: [index],
+            locale: "Jp");
+
+        await resolver.RebuildAsync();
+        ResolvedBitmapFont? font =
+            await resolver.ResolveBitmapFontAsync("boxed_r_10");
+
+        Assert.AreEqual(
+            "ミニマップ",
+            resolver.ResolveText("TutN_TimeFreeze_PrologueRadar"));
+        Assert.IsNotNull(font);
+        Assert.IsTrue(font.Metrics.Glyphs.ContainsKey('ミ'));
+        Assert.IsGreaterThan(1, font.AtlasWidth);
+        Assert.IsGreaterThan(1, font.AtlasHeight);
+        Assert.IsTrue(index.Entries.Any(entry =>
+            entry.Origin.ContainerPath.Contains(
+                $"{Path.DirectorySeparatorChar}DataJp" +
+                $"{Path.DirectorySeparatorChar}Data" +
+                $"{Path.DirectorySeparatorChar}menu_common_PC.rpack",
+                StringComparison.OrdinalIgnoreCase)));
+    }
+
+    [TestMethod]
     [Timeout(120_000)]
     public async Task EveryInstalledStockXuiParsesAndEvaluatesReadOnly()
     {

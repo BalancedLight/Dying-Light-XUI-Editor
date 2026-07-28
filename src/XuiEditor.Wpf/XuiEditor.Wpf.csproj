@@ -19,4 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\XuiEditor.Core\XuiEditor.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\MovingGears.gif" />
+  </ItemGroup>
 </Project>

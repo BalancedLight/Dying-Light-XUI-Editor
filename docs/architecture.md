@@ -114,10 +114,12 @@ Roots are indexed once and resolved in this order:
 
 The install source indexes loose `DW*\Data` overrides, every non-language
 `Data*.pak` layer (including numeric patch and DLC packs), the selected locale
-plus English fallback, and `menu*_PC.rpack` RP6L resources. Installed entries
-are virtual, read-only files; the source archive is reopened for each bounded
-read and is never modified. The searchable stock-XUI browser opens these
-entries without first extracting them.
+plus English fallback, base `DW*\Data\menu*_PC.rpack` resources, and the
+selected locale's higher-precedence
+`DW*\Data<locale>\Data\menu*_PC.rpack` resources. Installed entries are
+virtual, read-only files; the source archive is reopened for each bounded read
+and is never modified. The searchable stock-XUI browser opens these entries
+without first extracting them.
 
 Standalone `.def` and texture-definition `.scr` sources retain a structurally
 discovered project/data root for provenance and DDS lookup. Standalone
@@ -139,8 +141,9 @@ streams before decoding; this is how stock HUD references resolve
 The selected installed localization catalog is parsed with declaration order
 and duplicate-key diagnostics. Installed `basicfonts.scr`, `fontstyles.scr`,
 `.fm` glyph metrics, private input-glyph catalogs, and the corresponding DDS
-font atlases provide exact bitmap text when present. A user mapping or system
-font is an explicit diagnosed fallback.
+font atlases from the selected locale provide exact bitmap text when present.
+A user mapping or language-appropriate Unicode system font is an explicit
+diagnosed fallback.
 
 The resolver never silently invents a successful result. Missing, ambiguous,
 probabilistic, corrupt, and approximate resources carry diagnostics into the

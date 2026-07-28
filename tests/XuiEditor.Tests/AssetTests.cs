@@ -89,6 +89,38 @@ public sealed class AssetTests
     }
 
     [TestMethod]
+    public async Task JapaneseEngineFontUsesUnicodeCapableSystemFallback()
+    {
+        using TestDirectory directory = new();
+        string root = directory.File("fonts");
+        Directory.CreateDirectory(root);
+        await File.WriteAllTextAsync(
+            Path.Combine(root, "basicfonts.scr"),
+            "FontAlias(\"jp regular 15\", " +
+            "\"dfhsgothic-w3_regular\", 15, 0, \"\", 1.0, " +
+            "\"missing.dds\")");
+        await File.WriteAllTextAsync(
+            Path.Combine(root, "fontstyles.scr"),
+            "FontStyle(\"boxed_r_10\", \"jp regular 15\", " +
+            "1, 0, 0, 1)");
+
+        DyingLightAssetResolver resolver = new(
+        [
+            new XuiAssetRoot(
+                root,
+                XuiAssetRootKind.DyingLightProject,
+                false),
+        ],
+            directory.File("cache"));
+        await resolver.RebuildAsync();
+
+        ResolvedFont font = resolver.ResolveFont("boxed_r_10", 15);
+
+        Assert.AreEqual("Yu Gothic UI", font.Family);
+        Assert.IsTrue(font.IsApproximation);
+    }
+
+    [TestMethod]
     public async Task BitmapMetricsDriveTextMeasurementAndAutoSize()
     {
         using TestDirectory directory = new();

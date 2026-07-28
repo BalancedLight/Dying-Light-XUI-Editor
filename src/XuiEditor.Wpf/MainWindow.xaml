@@ -583,10 +583,32 @@
                           Width="5"
                           HorizontalAlignment="Stretch" />
 
-            <controls:XuiViewportControl x:Name="Viewport"
-                                         Grid.Column="2"
-                                         SelectionRequested="Viewport_SelectionRequested"
-                                         TransformCommitted="Viewport_TransformCommitted" />
+            <Grid Grid.Column="2">
+                <controls:XuiViewportControl x:Name="Viewport"
+                                             SelectionRequested="Viewport_SelectionRequested"
+                                             TransformCommitted="Viewport_TransformCommitted" />
+                <Grid x:Name="ViewportLoadingOverlay"
+                      Panel.ZIndex="100"
+                      Background="#F0000000"
+                      Visibility="Collapsed"
+                      IsHitTestVisible="True">
+                    <StackPanel HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <controls:AnimatedGifImage x:Name="LoadingGears"
+                                                   Width="176"
+                                                   Height="176"
+                                                   Stretch="Uniform"
+                                                   SourceUri="/DyingLightXuiEditor;component/Assets/MovingGears.gif"
+                                                   AutomationProperties.Name="Loading animation" />
+                        <TextBlock Margin="0,16,0,0"
+                                   HorizontalAlignment="Center"
+                                   Foreground="White"
+                                   FontSize="17"
+                                   FontWeight="SemiBold"
+                                   Text="Loading XUI and assets..." />
+                    </StackPanel>
+                </Grid>
+            </Grid>
 
             <GridSplitter Grid.Column="3"
                           Width="5"

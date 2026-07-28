@@ -7,9 +7,12 @@ game output:
   their authored flat canvas. The game's camera actions, 3D placement,
   correction transforms, depth, and perspective are not emulated.
 - **Fonts.** The renderer uses installed `.fm` glyph metrics and font-atlas DDS
-  data when both are available. Engine IDs without an exact bitmap resource
-  are mapped through `basicfonts.scr`, `fontstyles.scr`, user-supplied font
-  files, or installed families and receive a visible approximation diagnostic.
+  data from the selected locale when both are available. Engine IDs without
+  an exact bitmap resource are mapped through `basicfonts.scr`,
+  `fontstyles.scr`, user-supplied font files, or language-appropriate
+  Unicode-capable installed families and receive a visible approximation
+  diagnostic. If an atlas does not contain every displayed rune, the editor
+  retains the readable system-font path instead of substituting `?` glyphs.
 - **Localization.** Stock localization binaries are read only from the
   selected install's language PAKs and use the English PAK as fallback.
   Extracted copies are ignored so they cannot impersonate the selected

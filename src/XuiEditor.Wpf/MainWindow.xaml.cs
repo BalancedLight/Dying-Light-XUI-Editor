@@ -141,6 +141,7 @@ public partial class MainWindow : Window, IDisposable
     private bool _allowClose;
     private string? _recoverySuggestedPath;
     private RecoverySnapshot? _activeRecovery;
+    private int _viewportLoadingDepth;
     private bool _disposed;
 
     private int CurrentTimelineTick =>
@@ -226,6 +227,9 @@ public partial class MainWindow : Window, IDisposable
     internal string RawXmlStatusForTesting => RawXmlStatusText.Text;
 
     internal string PreviewStateForTesting => PreviewStateText.Text;
+
+    internal bool ViewportLoadingOverlayVisibleForTesting =>
+        ViewportLoadingOverlay.Visibility == Visibility.Visible;
 
     internal bool PreviewStateIsInAnimationTabForTesting =>
         HasLogicalAncestor(PreviewStatePanel, AnimationTab);
@@ -2900,6 +2904,7 @@ public partial class MainWindow : Window, IDisposable
 
     private async Task OpenDocumentAsync(string path)
     {
+        using DelegateDisposable loading = BeginViewportLoading();
         try
         {
             StatusText.Text = "Opening XUI…";
@@ -2932,6 +2937,7 @@ public partial class MainWindow : Window, IDisposable
 
     private async Task OpenAssetDocumentAsync(XuiAssetEntry entry)
     {
+        using DelegateDisposable loading = BeginViewportLoading();
         try
         {
             StatusText.Text = $"Opening stock {entry.FileName}…";
@@ -2965,6 +2971,7 @@ public partial class MainWindow : Window, IDisposable
 
     private async Task OpenRecoveryAsync(RecoverySnapshot snapshot)
     {
+        using DelegateDisposable loading = BeginViewportLoading();
         try
         {
             byte[] bytes = await File.ReadAllBytesAsync(
@@ -3028,6 +3035,7 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
+        using DelegateDisposable loading = BeginViewportLoading();
         await EnsureInstallIndexAsync(showErrors: false).ConfigureAwait(true);
         List<XuiAssetRoot> roots = [];
         XuiDocumentAssetContext? documentContext =
@@ -3152,6 +3160,7 @@ public partial class MainWindow : Window, IDisposable
             return true;
         }
 
+        using DelegateDisposable loading = BeginViewportLoading();
         try
         {
             AssetStatusText.Text = "Indexing Dying Light PAKs and RPACKs…";
@@ -3184,6 +3193,33 @@ public partial class MainWindow : Window, IDisposable
 
             return false;
         }
+    }
+
+    private DelegateDisposable BeginViewportLoading()
+    {
+        _viewportLoadingDepth++;
+        ViewportLoadingOverlay.Visibility = Visibility.Visible;
+        return new DelegateDisposable(EndViewportLoading);
+    }
+
+    private void EndViewportLoading()
+    {
+        _viewportLoadingDepth = Math.Max(0, _viewportLoadingDepth - 1);
+        if (_viewportLoadingDepth == 0)
+        {
+            ViewportLoadingOverlay.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    internal IDisposable BeginViewportLoadingForTesting() =>
+        BeginViewportLoading();
+
+    private sealed class DelegateDisposable(Action dispose) : IDisposable
+    {
+        private Action? _dispose = dispose;
+
+        public void Dispose() =>
+            Interlocked.Exchange(ref _dispose, null)?.Invoke();
     }
 
     private XuiDocumentOptions CreateDocumentOptions()

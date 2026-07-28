@@ -35,9 +35,10 @@ On first use:
 
 No separate extraction is required for stock XUI, strings, fonts, or menu
 textures. The editor indexes loose installed data, base and patch PAKs, DLC
-PAKs, the selected locale with English fallback, and menu RP6 RPACKs. These
-sources are always read-only. Opening an installed or extracted file requires
-**Save As** into the writable workspace before it can be saved.
+PAKs, the selected locale with English fallback, and both base and
+locale-specific menu RP6 RPACKs. These sources are always read-only. Opening
+an installed or extracted file requires **Save As** into the writable
+workspace before it can be saved.
 
 ## What is implemented
 
@@ -96,9 +97,11 @@ sources are always read-only. Opening an installed or extracted file requires
   chosen language. Explicit `Locale\<language>` catalogs in configured
   projects, workspaces, loose-resource roots, or RPACKs remain supported.
   `basicfonts.scr`, `fontstyles.scr`, `.fm` bitmap metrics, private input
-  glyphs, and font-atlas DDS resources are indexed alongside them. Exact
-  engine bitmap fonts are used when available; mappings and diagnosed
-  fallbacks remain available. Enabled `%COLOR(RRGGBB)` and
+  glyphs, and locale-specific font-atlas DDS resources are indexed alongside
+  them. Exact engine bitmap fonts are used when available; Unicode-capable
+  Windows families are used as diagnosed CJK/Thai fallbacks while an atlas is
+  unavailable, and an incomplete atlas cannot replace readable Unicode with
+  question-mark glyphs. Enabled `%COLOR(RRGGBB)` and
   `%COLOR(reset)` sequences render as per-run system-font and bitmap-font
   colors; disabled or malformed markup stays literal like the game.
 - A composed preview for hidden/runtime-populated HUD elements, per-node

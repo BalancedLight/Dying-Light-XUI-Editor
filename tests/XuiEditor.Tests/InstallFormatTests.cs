@@ -152,11 +152,16 @@ public sealed class InstallFormatTests
         string install = directory.File("Dying Light");
         string dw = Path.Combine(install, "DW");
         string dlc = Path.Combine(install, "DW_DLC1");
+        string localizedResources = Path.Combine(
+            dw,
+            "DataFr",
+            "Data");
         Directory.CreateDirectory(Path.Combine(
             dw,
             "Data",
             "menu",
             "scr"));
+        Directory.CreateDirectory(localizedResources);
         Directory.CreateDirectory(dlc);
         await File.WriteAllBytesAsync(
             Path.Combine(install, "DyingLightGame.exe"),
@@ -182,6 +187,12 @@ public sealed class InstallFormatTests
         await File.WriteAllTextAsync(
             Path.Combine(dw, "Data", "menu", "scr", "base.xui"),
             MinimalXui("LooseBase"));
+        await File.WriteAllBytesAsync(
+            Path.Combine(dw, "Data", "menu_common_PC.rpack"),
+            BuildRp6([1], "locale_font"));
+        await File.WriteAllBytesAsync(
+            Path.Combine(localizedResources, "menu_common_PC.rpack"),
+            BuildRp6([2], "locale_font"));
 
         DyingLightInstallIndex index = new(
             new DyingLightInstallProfile(install, "Fr"));
@@ -202,6 +213,14 @@ public sealed class InstallFormatTests
             entry.Origin.SourceName == "DataEn.pak"));
         Assert.IsFalse(index.Entries.Any(static entry =>
             entry.Origin.SourceName == "DataDe.pak"));
+        XuiAssetEntry localizedFont =
+            index.Find("locale_font.dds")!;
+        Assert.IsNotNull(localizedFont);
+        Assert.IsTrue(localizedFont.Origin.ContainerPath.Contains(
+            $"{Path.DirectorySeparatorChar}DataFr" +
+            $"{Path.DirectorySeparatorChar}Data" +
+            $"{Path.DirectorySeparatorChar}menu_common_PC.rpack",
+            StringComparison.OrdinalIgnoreCase));
     }
 
     private static byte[] BuildRp6(byte[] payload, string name)

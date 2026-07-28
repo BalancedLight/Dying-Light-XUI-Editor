@@ -84,6 +84,53 @@ public sealed class WpfSmokeTests
             XuiViewportControl.BitmapGlyphColorsForTesting(node).ToArray());
     }
 
+    [TestMethod]
+    public void MissingBitmapUnicodeGlyphKeepsTheReadableSystemFontPath()
+    {
+        XuiBitmapGlyph question = new(
+            '?',
+            8,
+            new XuiRect(0, 0, 8, 16),
+            0,
+            false);
+        XuiBitmapGlyph latin = new(
+            'A',
+            8,
+            new XuiRect(8, 0, 8, 16),
+            0,
+            false);
+        XuiBitmapGlyph japanese = new(
+            'ミ',
+            16,
+            new XuiRect(16, 0, 16, 16),
+            0,
+            false);
+        XuiBitmapFontMetrics metrics = new(
+            "jp",
+            "Japanese",
+            64,
+            64,
+            16,
+            new Dictionary<int, XuiBitmapGlyph>
+            {
+                ['?'] = question,
+                ['A'] = latin,
+                ['ミ'] = japanese,
+            },
+            "jp.fm");
+
+        Assert.IsTrue(
+            XuiViewportControl.BitmapFontSupportsTextForTesting(
+                metrics,
+                "Aミ"));
+        Assert.IsFalse(
+            XuiViewportControl.BitmapFontSupportsTextForTesting(
+                metrics,
+                "日本"),
+            "The '?' glyph must not make an incomplete atlas appear " +
+            "Unicode-capable.");
+    }
+
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void TextInspectorOffersTypedColorControlCheckboxAndCommitsIt()
@@ -189,6 +236,43 @@ public sealed class WpfSmokeTests
         Assert.AreEqual(300, hierarchy, 0.5);
         Assert.AreEqual(360, inspector, 0.5);
         Assert.AreEqual(250, timeline, 0.5);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void ViewportLoadingOverlayIsNestedAndUsesAnimatedPackagedGears()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        using MainWindow window = new();
+
+        Assert.IsFalse(window.ViewportLoadingOverlayVisibleForTesting);
+        Uri animationUri = new(
+            "/DyingLightXuiEditor;component/Assets/MovingGears.gif",
+            UriKind.Relative);
+        using Stream animationStream =
+            Application.GetResourceStream(animationUri).Stream;
+        GifBitmapDecoder decoder = new(
+            animationStream,
+            BitmapCreateOptions.PreservePixelFormat,
+            BitmapCacheOption.OnLoad);
+        Assert.IsGreaterThan(
+            1,
+            decoder.Frames.Count,
+            "The packaged loading image must retain multiple GIF frames.");
+
+        using (window.BeginViewportLoadingForTesting())
+        {
+            Assert.IsTrue(window.ViewportLoadingOverlayVisibleForTesting);
+            using (window.BeginViewportLoadingForTesting())
+            {
+                Assert.IsTrue(window.ViewportLoadingOverlayVisibleForTesting);
+            }
+
+            Assert.IsTrue(window.ViewportLoadingOverlayVisibleForTesting);
+        }
+
+        Assert.IsFalse(window.ViewportLoadingOverlayVisibleForTesting);
     }
 
     [STATestMethod]

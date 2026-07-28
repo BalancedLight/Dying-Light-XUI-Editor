@@ -2340,6 +2340,41 @@ public sealed class DyingLightAssetResolver : IAssetResolver
 
     private static string ApproximateFamily(string engineFamily)
     {
+        if (engineFamily.Contains(
+                "dfhsgothic",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return "Yu Gothic UI";
+        }
+
+        if (engineFamily.Contains(
+                "nanum",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return "Malgun Gothic";
+        }
+
+        if (engineFamily.Contains(
+                "noto sans thai",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return "Leelawadee UI";
+        }
+
+        if (engineFamily.Contains(
+                "monotype",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return "Microsoft YaHei UI";
+        }
+
+        if (engineFamily.Contains(
+                "udshuyuanheib5",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return "Microsoft JhengHei UI";
+        }
+
         if (engineFamily.Contains("boxed", StringComparison.OrdinalIgnoreCase))
         {
             return "Segoe UI";
