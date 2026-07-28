@@ -182,3 +182,7 @@ The solution contains:
 
 The extracted game data and decompiles are research inputs only. They are not
 redistributed by this project.
+
+## Disclaimer
+
+The Dying Light XUI Editor was created with assistance from AI tools.
