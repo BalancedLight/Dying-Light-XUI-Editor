@@ -11,6 +11,11 @@
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PackageId>Dying Light XUI Editor</PackageId>
+    <Title>Dying Light XUI Editor</Title>
+    <Authors>BalancedLight</Authors>
+    <Product>$(Title)</Product>
+    <Description>An easy to use GUI to edit Dying Light's XUI files</Description>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <DebugSymbols>false</DebugSymbols>
@@ -23,17 +28,8 @@
   <ItemGroup>
     <Resource Include="Assets\MovingGears.gif" />
   </ItemGroup>
-  <Target
-    Name="PublishStandaloneExecutableAfterReleaseBuild"
-    AfterTargets="Build"
-    Condition="'$(Configuration)' == 'Release' and '$(DesignTimeBuild)' != 'true' and '$(_IsPublishing)' != 'true'">
-    <MSBuild
-      Projects="$(MSBuildProjectFullPath)"
-      Targets="Publish"
-      BuildInParallel="false"
-      Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=true;PublishDir=$(StandalonePublishDirectory);_IsPublishing=true" />
-    <Message
-      Importance="High"
-      Text="Standalone executable -> $(StandalonePublishDirectory)DyingLightXuiEditor.exe" />
+  <Target Name="PublishStandaloneExecutableAfterReleaseBuild" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(DesignTimeBuild)' != 'true' and '$(_IsPublishing)' != 'true'">
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" BuildInParallel="false" Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=true;PublishDir=$(StandalonePublishDirectory);_IsPublishing=true" />
+    <Message Importance="High" Text="Standalone executable -&gt; $(StandalonePublishDirectory)DyingLightXuiEditor.exe" />
   </Target>
 </Project>
