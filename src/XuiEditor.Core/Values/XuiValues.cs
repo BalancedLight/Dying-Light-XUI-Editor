@@ -12,6 +12,16 @@ public readonly record struct XuiVector2(double X, double Y)
 
 public readonly record struct XuiVector3(double X, double Y, double Z)
 {
+    public static XuiVector3 operator +(
+        XuiVector3 left,
+        XuiVector3 right) =>
+        new(left.X + right.X, left.Y + right.Y, left.Z + right.Z);
+
+    public static XuiVector3 operator -(
+        XuiVector3 left,
+        XuiVector3 right) =>
+        new(left.X - right.X, left.Y - right.Y, left.Z - right.Z);
+
     public static XuiVector3 Lerp(XuiVector3 left, XuiVector3 right, double amount) =>
         new(
             left.X + ((right.X - left.X) * amount),

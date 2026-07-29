@@ -49,8 +49,10 @@ workspace before it can be saved.
   A row context menu can hide everything except that item and its subtree,
   then restore the exact prior visibility state.
 - A retained `DrawingVisual` canvas with transform-only pan/zoom, fit, actual
-  pixels, rulers, grid, safe-area overlay, snapping, declaration-order
-  compositing, clipping, selection bounds, and live transform handles. Camera
+  pixels, rulers, three independently colored grid tiers, the stock 90%
+  safe-area overlay, snapping, declaration-order compositing, clipping,
+  selection bounds, and hidden-editor-style move, resize, rotation, and pivot
+  handles. Camera
   gestures temporarily flatten the retained HUD layer so a 4,000-node canvas
   does not have to be recomposited for every pointer move. Dragging inside an
   already-selected element keeps that semantic XUI owner even when a visual
@@ -62,19 +64,40 @@ workspace before it can be saved.
   transforms, clipping, opacity, and editor hide overrides without the editor
   background, reference image, grid, rulers, selection handles, or
   unknown-control bounds.
-- Typed property groups plus a raw/unknown escape hatch. Invalid values remain
-  visible with diagnostics instead of being silently normalized. Raw XML is
+- An embedded, facts-only Dying Light class/property catalog drives the typed
+  Common and Advanced inspector views. Unauthored inherited defaults appear as
+  ghost values and serialize only after editing; Reset removes the authored
+  property. Add Property is searchable, class-filtered, typed, and retains an
+  explicit raw/unknown escape hatch. Evidence, default source, animation
+  support, and preview accuracy are visible in inspector tooltips. Invalid
+  values remain visible with diagnostics instead of being silently normalized.
+  Raw XML is
   materialized only when expanded; subtrees over 256 KiB require an explicit
   load action. `IUIText` nodes expose a typed
   `ColorControlSequenceEnabled` checkbox. The inspector and hierarchy provide
   undoable **Add child** and identity-preserving **Add parent** workflows for
   groups, images, text, antialiased rectangles, stock buttons, and validated
   custom XML. **Add property** inserts a validated raw property on the selected
-  node without rewriting unrelated source bytes.
+  node without rewriting unrelated source bytes. The element palette also
+  exposes the stock class catalog and its observed default dimensions.
+- A semantic text section decodes legacy `TextStyle` into bold, italic,
+  underline, horizontal alignment, and vertical alignment while preserving
+  every unmapped bit. Decimal and hexadecimal raw editing remains available.
+  Existing standalone formatting/alignment properties remain standalone and
+  override the bit-derived preview; Dying Light bottom alignment authors
+  `VerticalAlignDown`.
 - Dying Light anchors, pivots, transforms, opacity/show inheritance, keep and
   resolution flags, stack/wrap-panel layout, visual templates, stock control
   families, evidence-backed material profiles, forced-mask substitution, DDS
-  textures, atlases, tilesets, and nine-slice definitions.
+  textures, atlases, tilesets, and nine-slice definitions. Pivot authoring
+  supports unrestricted XYZ values, a 3x3 preset grid, raw-runtime and
+  preserve-visual-position modes, timeline-key rebasing, and an explicit
+  animated-scale/rotation restriction.
+- Hidden-editor visibility tools select the parent group, mask or gray outside
+  its bounds, force-show the current group or all elements, and include or
+  exclude design-time elements. Six-way navigation links resolve direct IDs
+  and `..\` paths, visualize missing/ambiguous links, and support safe drag
+  assignment or clearing without guessing.
 - Direct install-backed resolution for PAK and RP6L/RPACK assets. In
   particular, HUD definitions referring to `hud_dw` resolve the real
   `hud_dw.dds` atlas from the installed menu packs.
@@ -99,6 +122,14 @@ workspace before it can be saved.
   question-mark glyphs. Enabled `%COLOR(RRGGBB)` and
   `%COLOR(reset)` sequences render as per-run system-font and bitmap-font
   colors; disabled or malformed markup stays literal like the game.
+- A separate asset catalog browses screens, visuals, textures, and fonts
+  through the existing resolver. Texture drops can create `MyImage` nodes or
+  rebind `ImagePath`; auto-size is always explicit. Installed PAK/RPACK
+  entries stay read-only and require Copy to Workspace. Loose workspace XUI
+  screens and visual libraries can be created, opened, renamed, and
+  recoverably deleted. Exact references can be inspected and rebound through
+  a content-hash preflighted, backed-up, undoable atomic transaction; archives
+  are never rewritten.
 - A composed preview for hidden/runtime-populated HUD elements, per-node
   force-show controls, and a variable-opacity reference screenshot overlay.
   A compact effective-state explanation below the Animation slider reports
@@ -180,6 +211,7 @@ The solution contains:
 
 - [Architecture](docs/architecture.md)
 - [Recovered rendering evidence](docs/rendering-evidence.md)
+- [Chrome 6 editor evidence](docs/chrome6-editor-evidence.md)
 - [Runtime comparison](docs/runtime-comparison.md)
 - [Known approximations](docs/known-approximations.md)
 - [Validation record](docs/validation.md)

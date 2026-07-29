@@ -77,18 +77,23 @@ internal static class IncrementalTimelineFrameEvaluator
         {
             foreach (XuiTrack track in timeline.Tracks)
             {
+                if (track.KnownProperty is not XuiTimelineProperty property)
+                {
+                    return false;
+                }
+
                 XuiAnimatedValue? oldValue =
                     TimelineEvaluator.Sample(track, previousTick);
                 XuiAnimatedValue? newValue =
                     TimelineEvaluator.Sample(track, currentTick);
                 if (oldValue is not null)
                 {
-                    oldValues[(timeline.TargetId, track.Property)] = oldValue;
+                    oldValues[(timeline.TargetId, property)] = oldValue;
                 }
 
                 if (newValue is not null)
                 {
-                    newValues[(timeline.TargetId, track.Property)] = newValue;
+                    newValues[(timeline.TargetId, property)] = newValue;
                 }
             }
         }

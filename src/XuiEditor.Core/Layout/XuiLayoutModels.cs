@@ -119,6 +119,8 @@ public sealed record XuiRenderNode(
 
     public bool Underline { get; init; }
 
+    public bool DesignTime { get; init; }
+
     public XuiTextHorizontalAlignment HorizontalTextAlignment { get; init; }
 
     public XuiTextVerticalAlignment VerticalTextAlignment { get; init; }

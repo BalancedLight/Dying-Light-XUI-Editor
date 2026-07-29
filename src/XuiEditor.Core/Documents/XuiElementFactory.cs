@@ -11,6 +11,7 @@ public enum XuiElementPreset
     Text,
     Rectangle,
     Button,
+    CatalogClass,
     CustomXml,
 }
 
@@ -36,6 +37,10 @@ public sealed record XuiElementCreationRequest
 
     public string Visual { get; init; } = "ButtonV";
 
+    public string ElementName { get; init; } = string.Empty;
+
+    public string ClassOverride { get; init; } = string.Empty;
+
     public string RawXml { get; init; } = string.Empty;
 }
 
@@ -49,6 +54,7 @@ public static class XuiElementFactory
             XuiElementPreset.Text => new XuiVector2(320, 40),
             XuiElementPreset.Rectangle => new XuiVector2(240, 120),
             XuiElementPreset.Button => new XuiVector2(260, 34),
+            XuiElementPreset.CatalogClass => new XuiVector2(40, 20),
             _ => new XuiVector2(100, 100),
         };
 
@@ -60,6 +66,7 @@ public static class XuiElementFactory
             XuiElementPreset.Text => "T_NewText",
             XuiElementPreset.Rectangle => "R_NewRectangle",
             XuiElementPreset.Button => "B_NewButton",
+            XuiElementPreset.CatalogClass => "X_NewControl",
             _ => "X_NewElement",
         };
 
@@ -146,6 +153,22 @@ public static class XuiElementFactory
                 properties.Add(("AutoAdjustWidth", "true"));
                 properties.Add(("WidthAdjust", "30"));
                 break;
+            case XuiElementPreset.CatalogClass:
+                elementName = request.ElementName.Trim();
+                if (!IsValidXmlName(elementName))
+                {
+                    throw new InvalidOperationException(
+                        "A catalog element requires a valid XML element tag.");
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.ClassOverride))
+                {
+                    properties.Add((
+                        "ClassOverride",
+                        request.ClassOverride.Trim()));
+                }
+
+                break;
             default:
                 throw new ArgumentOutOfRangeException(
                     nameof(request),
@@ -178,4 +201,11 @@ public static class XuiElementFactory
     private static string Encode(string value) =>
         WebUtility.HtmlEncode(value)
             .Replace("&#39;", "&apos;", StringComparison.Ordinal);
+
+    private static bool IsValidXmlName(string name) =>
+        name.Length > 0 &&
+        (char.IsLetter(name[0]) || name[0] is '_' or ':') &&
+        name.All(character =>
+            char.IsLetterOrDigit(character) ||
+            character is '_' or '-' or ':' or '.');
 }

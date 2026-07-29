@@ -1,0 +1,106 @@
+<Window x:Class="XuiEditor.Wpf.GridSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Grid Settings"
+        Width="510"
+        Height="345"
+        MinWidth="460"
+        MinHeight="320"
+        Background="{StaticResource WindowBrush}"
+        Foreground="{StaticResource TextBrush}"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip">
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0"
+                   Margin="0,0,0,12"
+                   Text="Chrome 6 editor grid tiers. Colors use #AARRGGBB; choose which tier receives snapping."
+                   Foreground="{StaticResource MutedTextBrush}"
+                   TextWrapping="Wrap" />
+
+        <Grid Grid.Row="1" Margin="0,3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="100" />
+                <ColumnDefinition Width="100" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="90" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Tier" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="1" Text="Spacing" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="2" Text="Color" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="3" Text="Snap" FontWeight="SemiBold" />
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="0,3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="100" />
+                <ColumnDefinition Width="100" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="90" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Minor" VerticalAlignment="Center" />
+            <TextBox x:Name="MinorSizeText" Grid.Column="1" Margin="0,0,8,0" />
+            <TextBox x:Name="MinorColorText" Grid.Column="2" Margin="0,0,8,0" />
+            <RadioButton x:Name="MinorSnap"
+                         Grid.Column="3"
+                         GroupName="SnapTier"
+                         Content="Use" />
+        </Grid>
+
+        <Grid Grid.Row="3" Margin="0,3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="100" />
+                <ColumnDefinition Width="100" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="90" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Major" VerticalAlignment="Center" />
+            <TextBox x:Name="MajorSizeText" Grid.Column="1" Margin="0,0,8,0" />
+            <TextBox x:Name="MajorColorText" Grid.Column="2" Margin="0,0,8,0" />
+            <RadioButton x:Name="MajorSnap"
+                         Grid.Column="3"
+                         GroupName="SnapTier"
+                         Content="Use" />
+        </Grid>
+
+        <Grid Grid.Row="4" Margin="0,3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="100" />
+                <ColumnDefinition Width="100" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="90" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Coarse" VerticalAlignment="Center" />
+            <TextBox x:Name="CoarseSizeText" Grid.Column="1" Margin="0,0,8,0" />
+            <TextBox x:Name="CoarseColorText" Grid.Column="2" Margin="0,0,8,0" />
+            <RadioButton x:Name="CoarseSnap"
+                         Grid.Column="3"
+                         GroupName="SnapTier"
+                         Content="Use" />
+        </Grid>
+
+        <TextBlock x:Name="ErrorText"
+                   Grid.Row="5"
+                   Margin="0,10,0,0"
+                   Foreground="{StaticResource DangerBrush}"
+                   TextWrapping="Wrap" />
+        <StackPanel Grid.Row="6"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,12,0,0">
+            <Button Content="Cancel" IsCancel="True" MinWidth="85" />
+            <Button Content="Apply"
+                    IsDefault="True"
+                    MinWidth="85"
+                    Click="Apply_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

@@ -120,7 +120,7 @@ internal sealed class TimelineAnimationCache
                         TimelineEvaluator.Sample(track, tick);
                     if (value is not null)
                     {
-                        values[track.Property.ToString()] = value;
+                        values[track.PropertyName] = value;
                     }
                 }
             }
@@ -200,7 +200,7 @@ internal sealed class AnimationOverrides
                     TimelineEvaluator.Sample(track, tick);
                 if (value is not null)
                 {
-                    values[track.Property.ToString()] = value;
+                    values[track.PropertyName] = value;
                 }
             }
         }

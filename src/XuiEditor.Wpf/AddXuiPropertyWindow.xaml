@@ -2,10 +2,10 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Add XUI Property"
-        Width="470"
-        Height="235"
-        MinWidth="420"
-        MinHeight="220"
+        Width="590"
+        Height="520"
+        MinWidth="500"
+        MinHeight="430"
         Background="{StaticResource WindowBrush}"
         Foreground="{StaticResource TextBrush}"
         WindowStartupLocation="CenterOwner"
@@ -14,17 +14,69 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
+
         <TextBlock x:Name="OwnerText"
                    Grid.Row="0"
                    Margin="0,0,0,10"
                    Foreground="{StaticResource MutedTextBrush}"
                    TextWrapping="Wrap" />
+
         <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="105" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Search"
+                       VerticalAlignment="Center" />
+            <TextBox x:Name="SearchTextBox"
+                     Grid.Column="1"
+                     TextChanged="SearchTextBox_TextChanged" />
+            <CheckBox x:Name="RawModeCheckBox"
+                      Grid.Column="2"
+                      Margin="12,0,0,0"
+                      VerticalAlignment="Center"
+                      Content="Raw custom property"
+                      Checked="RawModeCheckBox_Changed"
+                      Unchecked="RawModeCheckBox_Changed" />
+        </Grid>
+
+        <ListBox x:Name="PropertyList"
+                 Grid.Row="2"
+                 Margin="105,7,0,7"
+                 SelectionChanged="PropertyList_SelectionChanged"
+                 MouseDoubleClick="PropertyList_MouseDoubleClick">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="3">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="{Binding Name}" />
+                            <TextBlock Text="{Binding Category}"
+                                       FontSize="10"
+                                       Foreground="{StaticResource MutedTextBrush}" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="1"
+                                   Margin="12,0,2,0"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding EvidenceLabel}"
+                                   FontSize="10"
+                                   Foreground="{StaticResource MutedTextBrush}" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="105" />
                 <ColumnDefinition Width="*" />
@@ -32,9 +84,11 @@
             <TextBlock Text="Property name"
                        VerticalAlignment="Center" />
             <TextBox x:Name="NameTextBox"
-                     Grid.Column="1" />
+                     Grid.Column="1"
+                     IsEnabled="False" />
         </Grid>
-        <Grid Grid.Row="2"
+
+        <Grid Grid.Row="4"
               Margin="0,6,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="105" />
@@ -44,13 +98,31 @@
                        VerticalAlignment="Center" />
             <TextBox x:Name="ValueTextBox"
                      Grid.Column="1" />
+            <ComboBox x:Name="ChoiceValueCombo"
+                      Grid.Column="1"
+                      Visibility="Collapsed" />
         </Grid>
-        <TextBlock x:Name="ErrorText"
-                   Grid.Row="3"
-                   Margin="0,8,0,0"
-                   Foreground="{StaticResource DangerBrush}"
-                   TextWrapping="Wrap" />
-        <StackPanel Grid.Row="5"
+
+        <Border Grid.Row="5"
+                Margin="105,8,0,0"
+                Padding="8"
+                BorderThickness="1"
+                BorderBrush="{StaticResource BorderBrush}">
+            <StackPanel>
+                <TextBlock x:Name="TypeText"
+                           Foreground="{StaticResource MutedTextBrush}" />
+                <TextBlock x:Name="DescriptionText"
+                           Margin="0,3,0,0"
+                           TextWrapping="Wrap"
+                           Foreground="{StaticResource MutedTextBrush}" />
+                <TextBlock x:Name="ErrorText"
+                           Margin="0,6,0,0"
+                           Foreground="{StaticResource DangerBrush}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="6"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,12,0,0">

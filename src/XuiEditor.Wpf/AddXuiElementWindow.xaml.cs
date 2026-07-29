@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using XuiEditor.Core.Documents;
+using XuiEditor.Core.Schema;
 using XuiEditor.Core.Values;
 
 namespace XuiEditor.Wpf;
@@ -11,6 +12,7 @@ public partial class AddXuiElementWindow : Window
     private readonly XuiVector2 _parentSize;
     private readonly Func<XuiElementPreset, string> _suggestedId;
     private readonly bool _identityPlacement;
+    private readonly XuiClassDefinition[] _catalogClasses;
     private bool _updatingPreset;
 
     public AddXuiElementWindow(
@@ -33,6 +35,12 @@ public partial class AddXuiElementWindow : Window
         ConfirmButton.Content = actionLabel ?? ConfirmButton.Content;
         ParentText.Text = instruction ??
             $"Add a visual child under {parentDisplayName}. The edit is lossless and undoable.";
+        _catalogClasses = XuiClassCatalog.Default.Classes
+            .Where(static definition =>
+                definition.Evidence == XuiEvidenceLevel.DyingLightStock)
+            .OrderBy(static definition => definition.Name, StringComparer.Ordinal)
+            .ToArray();
+        CatalogClassCombo.ItemsSource = _catalogClasses;
         XuiElementPreset[] presets =
             availablePresets?.ToArray() ??
             Enum.GetValues<XuiElementPreset>();
@@ -62,14 +70,41 @@ public partial class AddXuiElementWindow : Window
         ApplyPreset(preset);
     }
 
+    private void CatalogClassCombo_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs eventArgs)
+    {
+        if (_updatingPreset ||
+            PresetCombo.SelectedItem is not XuiElementPreset.CatalogClass ||
+            CatalogClassCombo.SelectedItem is not XuiClassDefinition definition)
+        {
+            return;
+        }
+
+        ApplyCatalogClass(definition);
+    }
+
     private void ApplyPreset(XuiElementPreset preset)
     {
         _updatingPreset = true;
         try
         {
+            if (preset == XuiElementPreset.CatalogClass &&
+                CatalogClassCombo.SelectedItem is null &&
+                _catalogClasses.Length > 0)
+            {
+                CatalogClassCombo.SelectedItem = _catalogClasses[0];
+            }
+
             XuiVector2 size = _identityPlacement
                 ? _parentSize
-                : XuiElementFactory.DefaultSize(preset);
+                : preset == XuiElementPreset.CatalogClass &&
+                  CatalogClassCombo.SelectedItem is
+                      XuiClassDefinition selectedClass
+                    ? new XuiVector2(
+                        selectedClass.DefaultWidth,
+                        selectedClass.DefaultHeight)
+                    : XuiElementFactory.DefaultSize(preset);
             IdText.Text = _suggestedId(preset);
             WidthText.Text = Number(size.X);
             HeightText.Text = Number(size.Y);
@@ -94,6 +129,10 @@ public partial class AddXuiElementWindow : Window
                 preset == XuiElementPreset.CustomXml;
             RawXmlText.IsEnabled =
                 preset == XuiElementPreset.CustomXml;
+            CatalogClassCombo.Visibility =
+                preset == XuiElementPreset.CatalogClass
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
             if (preset == XuiElementPreset.CustomXml)
             {
                 RawXmlText.Text = XuiElementFactory.CreateXml(
@@ -123,9 +162,41 @@ public partial class AddXuiElementWindow : Window
                     "An antialiased color rectangle using menu_antialias.mat and the white-image contract.",
                 XuiElementPreset.Button =>
                     "An AdvButton using the stock ButtonV visual and auto-width behavior.",
+                XuiElementPreset.CatalogClass =>
+                    "Choose a class observed in Dying Light stock XUI. The palette uses its catalog dimensions and emits only the common authored geometry.",
                 _ =>
                     "Edit the raw XML below. Preset fields are ignored in custom mode.",
             };
+        }
+        finally
+        {
+            _updatingPreset = false;
+        }
+    }
+
+    private void ApplyCatalogClass(XuiClassDefinition definition)
+    {
+        _updatingPreset = true;
+        try
+        {
+            XuiVector2 size = _identityPlacement
+                ? _parentSize
+                : new XuiVector2(
+                    definition.DefaultWidth,
+                    definition.DefaultHeight);
+            WidthText.Text = Number(size.X);
+            HeightText.Text = Number(size.Y);
+            XText.Text = Number(_identityPlacement
+                ? 0
+                : Math.Max(0, (_parentSize.X - size.X) / 2));
+            YText.Text = Number(_identityPlacement
+                ? 0
+                : Math.Max(0, (_parentSize.Y - size.Y) / 2));
+            IdText.Text = _suggestedId(XuiElementPreset.CatalogClass);
+            PresetHelpText.Text =
+                $"{definition.Name} : {definition.Description}. " +
+                $"Evidence: {definition.Evidence}; base: " +
+                $"{definition.BaseClassName ?? "(none)"}.";
         }
         finally
         {
@@ -185,6 +256,12 @@ public partial class AddXuiElementWindow : Window
                     Color = ColorText.Text,
                     Font = FontText.Text,
                     Visual = VisualText.Text,
+                    ElementName =
+                        preset == XuiElementPreset.CatalogClass &&
+                        CatalogClassCombo.SelectedItem is
+                            XuiClassDefinition catalogClass
+                            ? catalogClass.Name
+                            : string.Empty,
                 };
                 _ = XuiElementFactory.CreateXml(Request);
             }

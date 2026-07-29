@@ -17,6 +17,7 @@ public enum XuiTimelineValueKind
 
 public enum XuiTimelineProperty
 {
+    Unknown,
     Opacity,
     Show,
     Scale,
@@ -36,6 +37,8 @@ public enum XuiTimelineProperty
     DefaultFontColor,
     Pivot,
     Material,
+    Text,
+    Play,
 }
 
 public enum XuiInterpolation
@@ -80,10 +83,26 @@ public sealed record XuiKeyFrame(
     XuiSyntaxNode Syntax);
 
 public sealed record XuiTrack(
-    XuiTimelineProperty Property,
+    string PropertyName,
+    XuiTimelineProperty? KnownProperty,
     int PropertyIndex,
     IReadOnlyList<XuiKeyFrame> KeyFrames)
 {
+    public XuiTrack(
+        XuiTimelineProperty property,
+        int propertyIndex,
+        IReadOnlyList<XuiKeyFrame> keyFrames)
+        : this(
+            property.ToString(),
+            property,
+            propertyIndex,
+            keyFrames)
+    {
+    }
+
+    public XuiTimelineProperty Property =>
+        KnownProperty ?? XuiTimelineProperty.Unknown;
+
     public int SourcePropertyIndex { get; init; } = PropertyIndex;
 }
 

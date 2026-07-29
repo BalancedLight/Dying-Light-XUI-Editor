@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using XuiEditor.Core.Schema;
 
 namespace XuiEditor.Wpf.Models;
 
@@ -15,7 +16,9 @@ public sealed class InspectorPropertyRow : INotifyPropertyChanged
         bool isMixed,
         bool isUnknown,
         IReadOnlyList<string>? choices = null,
-        bool isBooleanToggle = false)
+        bool isBooleanToggle = false,
+        bool isAuthored = true,
+        XuiPropertyDefinition? definition = null)
     {
         Name = name;
         _value = value;
@@ -24,6 +27,8 @@ public sealed class InspectorPropertyRow : INotifyPropertyChanged
         IsUnknown = isUnknown;
         Choices = choices ?? [];
         IsBooleanToggle = isBooleanToggle;
+        IsAuthored = isAuthored;
+        Definition = definition;
     }
 
     public string Name { get; }
@@ -33,6 +38,31 @@ public sealed class InspectorPropertyRow : INotifyPropertyChanged
     public bool IsMixed { get; }
 
     public bool IsUnknown { get; }
+
+    public bool IsAuthored { get; }
+
+    public bool IsGhostDefault => !IsAuthored;
+
+    public bool CanReset => IsAuthored;
+
+    public XuiPropertyDefinition? Definition { get; }
+
+    public string ToolTip => Definition is null
+        ? "Unknown mod-authored property. It will be preserved losslessly."
+        : string.Join(
+            Environment.NewLine,
+            new[]
+            {
+                Definition.Description,
+                $"Evidence: {Definition.EvidenceLabel}",
+                $"Preview: {Definition.PreviewSupport}",
+                Definition.IsAnimatable
+                    ? "Timeline: animatable"
+                    : "Timeline: noanim",
+                IsAuthored
+                    ? "Authored in the selected XML."
+                    : $"Inherited default: {Definition.DefaultValue}",
+            });
 
     public IReadOnlyList<string> Choices { get; }
 

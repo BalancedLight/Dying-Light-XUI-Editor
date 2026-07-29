@@ -132,6 +132,47 @@ public sealed class DyingLightAssetResolver : IAssetResolver
         }
     }
 
+    public IReadOnlyList<XuiTextureRegion> TextureDefinitions
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _textureRegions.Values
+                    .OrderBy(static texture => texture.Name, StringComparer.Ordinal)
+                    .ToArray();
+            }
+        }
+    }
+
+    public IReadOnlyList<XuiVisualTemplate> VisualTemplates
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _visuals.Values
+                    .OrderBy(static visual => visual.Id, StringComparer.Ordinal)
+                    .ToArray();
+            }
+        }
+    }
+
+    public IReadOnlyList<string> FontIds
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _fonts.Keys
+                    .Concat(_fontStyles.Keys)
+                    .Distinct(StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal)
+                    .ToArray();
+            }
+        }
+    }
+
     public async Task RebuildAsync(CancellationToken cancellationToken = default)
     {
         foreach (IXuiAssetSource source in _sources)
@@ -2190,6 +2231,17 @@ public sealed class DyingLightAssetResolver : IAssetResolver
 
             foreach (string subdirectory in subdirectories)
             {
+                string directoryName = Path.GetFileName(subdirectory);
+                if (directoryName.Equals(
+                        ".xui-editor-trash",
+                        StringComparison.OrdinalIgnoreCase) ||
+                    directoryName.Equals(
+                        ".xui-editor-backups",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 FileAttributes attributes;
                 try
                 {

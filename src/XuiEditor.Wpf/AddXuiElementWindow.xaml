@@ -48,9 +48,17 @@
 
                 <TextBlock Grid.Row="0" Grid.Column="0"
                            Text="Preset" VerticalAlignment="Center" />
-                <ComboBox x:Name="PresetCombo"
-                          Grid.Row="0" Grid.Column="1"
-                          SelectionChanged="PresetCombo_SelectionChanged" />
+                <StackPanel Grid.Row="0" Grid.Column="1">
+                    <ComboBox x:Name="PresetCombo"
+                              SelectionChanged="PresetCombo_SelectionChanged" />
+                    <ComboBox x:Name="CatalogClassCombo"
+                              Margin="0,5,0,0"
+                              Visibility="Collapsed"
+                              IsEditable="True"
+                              IsTextSearchEnabled="True"
+                              DisplayMemberPath="Name"
+                              SelectionChanged="CatalogClassCombo_SelectionChanged" />
+                </StackPanel>
 
                 <TextBlock Grid.Row="1" Grid.Column="0"
                            Text="Id" VerticalAlignment="Center" />

@@ -214,14 +214,55 @@ public sealed class TimelineTests
 
         XuiTimelineSet set = XuiTimelineParser.Parse(document);
 
-        Assert.AreEqual(1, set.Timelines[0].Tracks.Count);
+        Assert.AreEqual(2, set.Timelines[0].Tracks.Count);
+        Assert.AreEqual(
+            "EngineMystery",
+            set.Timelines[0].Tracks[0].PropertyName);
+        Assert.IsNull(set.Timelines[0].Tracks[0].KnownProperty);
+        Assert.AreEqual(
+            "mystery",
+            TimelineEvaluator.Sample(set.Timelines[0].Tracks[0], 0)!.Text);
         Assert.AreEqual(
             0.75,
-            TimelineEvaluator.Sample(set.Timelines[0].Tracks[0], 0)!.Number,
+            TimelineEvaluator.Sample(set.Timelines[0].Tracks[1], 0)!.Number,
             0.0001);
-        Assert.AreEqual(1, set.Timelines[0].Tracks[0].SourcePropertyIndex);
+        Assert.AreEqual(1, set.Timelines[0].Tracks[1].SourcePropertyIndex);
         Assert.IsTrue(set.Diagnostics.Any(static diagnostic =>
             diagnostic.Code == "XUI-TL002"));
+    }
+
+    [TestMethod]
+    public void TextAndPlayTracksArePreservedAndPreviewDiscretely()
+    {
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>1</Width><Height>1</Height></Properties>" +
+            "<MyText><Properties><Id>T</Id></Properties></MyText><Timelines><Timeline>" +
+            "<Id>T</Id><TimelineProp>Text</TimelineProp><TimelineProp>Play</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>first</Prop><Prop>false</Prop></KeyFrame>" +
+            "<KeyFrame><Time>10</Time><Interpolation>0</Interpolation>" +
+            "<Prop>second</Prop><Prop>true</Prop></KeyFrame>" +
+            "</Timeline></Timelines></XuiCanvas>");
+
+        XuiTimeline timeline =
+            XuiTimelineParser.Parse(document).Timelines.Single();
+        Assert.AreEqual("Text", timeline.Tracks[0].PropertyName);
+        Assert.AreEqual(
+            XuiTimelineProperty.Text,
+            timeline.Tracks[0].KnownProperty);
+        Assert.AreEqual(
+            "first",
+            TimelineEvaluator.Sample(timeline.Tracks[0], 9)!.Text);
+        Assert.AreEqual(
+            "second",
+            TimelineEvaluator.Sample(timeline.Tracks[0], 10)!.Text);
+        Assert.AreEqual(
+            XuiTimelineProperty.Play,
+            timeline.Tracks[1].KnownProperty);
+        Assert.IsFalse(
+            TimelineEvaluator.Sample(timeline.Tracks[1], 9)!.Boolean);
+        Assert.IsTrue(
+            TimelineEvaluator.Sample(timeline.Tracks[1], 10)!.Boolean);
     }
 
     [TestMethod]

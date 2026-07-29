@@ -1,5 +1,6 @@
 using XuiEditor.Core.Diagnostics;
 using XuiEditor.Core.Documents;
+using XuiEditor.Core.Schema;
 using XuiEditor.Core.Values;
 
 namespace XuiEditor.Core.Animation;
@@ -8,7 +9,12 @@ public sealed class XuiTimelineParser
 {
     private static readonly Dictionary<string, XuiTimelineProperty> Properties =
         Enum.GetValues<XuiTimelineProperty>()
+            .Where(static value => value != XuiTimelineProperty.Unknown)
             .ToDictionary(static value => value.ToString(), StringComparer.Ordinal);
+    private static readonly HashSet<string> CatalogTimelineProperties =
+        new(
+            XuiClassCatalog.Default.TimelinePropertyNames,
+            StringComparer.Ordinal);
 
     public static XuiTimelineSet Parse(XuiDocument document)
     {
@@ -76,23 +82,30 @@ public sealed class XuiTimelineParser
             return null;
         }
 
-        List<(XuiTimelineProperty Property, int SourceIndex)> properties = [];
+        List<(
+            string Name,
+            XuiTimelineProperty? KnownProperty,
+            int SourceIndex)> properties = [];
         int propertyIndex = 0;
         foreach (XuiSyntaxNode propertyNode in timelineNode.Elements("TimelineProp"))
         {
-            string name = propertyNode.GetDecodedValue(source);
+            string name = propertyNode.GetDecodedValue(source).Trim();
             if (Properties.TryGetValue(name, out XuiTimelineProperty property))
             {
-                properties.Add((property, propertyIndex));
+                properties.Add((name, property, propertyIndex));
             }
             else
             {
-                diagnostics.Add(new XuiDiagnostic(
-                    "XUI-TL002",
-                    XuiDiagnosticSeverity.Warning,
-                    $"Unknown timeline property '{name}' is preserved but not evaluated.",
-                    propertyNode.Span,
-                    propertyNode.Key));
+                properties.Add((name, null, propertyIndex));
+                if (!CatalogTimelineProperties.Contains(name))
+                {
+                    diagnostics.Add(new XuiDiagnostic(
+                        "XUI-TL002",
+                        XuiDiagnosticSeverity.Warning,
+                        $"Unknown timeline property '{name}' is preserved as raw text.",
+                        propertyNode.Span,
+                        propertyNode.Key));
+                }
             }
 
             propertyIndex++;
@@ -121,12 +134,15 @@ public sealed class XuiTimelineParser
         List<XuiTrack> tracks = [];
         for (int index = 0; index < properties.Count; index++)
         {
-            XuiTimelineProperty property = properties[index].Property;
             IReadOnlyList<XuiKeyFrame> frames = keyFrames
                 .Where(frame => frame.Values.Count > index)
                 .OrderBy(static frame => frame.Tick)
                 .ToArray();
-            tracks.Add(new XuiTrack(property, index, frames)
+            tracks.Add(new XuiTrack(
+                properties[index].Name,
+                properties[index].KnownProperty,
+                index,
+                frames)
             {
                 SourcePropertyIndex = properties[index].SourceIndex,
             });
@@ -138,7 +154,10 @@ public sealed class XuiTimelineParser
     private static XuiKeyFrame? ParseKeyFrame(
         XuiSyntaxNode keyFrameNode,
         string source,
-        List<(XuiTimelineProperty Property, int SourceIndex)> properties,
+        List<(
+            string Name,
+            XuiTimelineProperty? KnownProperty,
+            int SourceIndex)> properties,
         int sourcePropertyCount,
         List<XuiDiagnostic> diagnostics)
     {
@@ -189,7 +208,8 @@ public sealed class XuiTimelineParser
 
             string raw = propNodes[sourceIndex].GetDecodedValue(source);
             if (TryParsePropertyValue(
-                    properties[index].Property,
+                    properties[index].Name,
+                    properties[index].KnownProperty,
                     raw,
                     out XuiAnimatedValue? value))
             {
@@ -200,7 +220,7 @@ public sealed class XuiTimelineParser
                 diagnostics.Add(new XuiDiagnostic(
                     "XUI-TL005",
                     XuiDiagnosticSeverity.Error,
-                    $"'{raw}' is invalid for timeline property {properties[index].Property}.",
+                    $"'{raw}' is invalid for timeline property {properties[index].Name}.",
                     propNodes[sourceIndex].Span,
                     propNodes[sourceIndex].Key));
                 values.Add(new XuiAnimatedValue(XuiTimelineValueKind.Textual, Text: raw));
@@ -303,9 +323,22 @@ public sealed class XuiTimelineParser
     public static bool TryParsePropertyValue(
         XuiTimelineProperty property,
         string raw,
+        out XuiAnimatedValue? value) =>
+        TryParsePropertyValue(
+            property.ToString(),
+            property,
+            raw,
+            out value);
+
+    public static bool TryParsePropertyValue(
+        string propertyName,
+        XuiTimelineProperty? knownProperty,
+        string raw,
         out XuiAnimatedValue? value)
     {
-        switch (property)
+        ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
+        ArgumentNullException.ThrowIfNull(raw);
+        switch (knownProperty)
         {
             case XuiTimelineProperty.Opacity:
             case XuiTimelineProperty.Width:
@@ -378,6 +411,7 @@ public sealed class XuiTimelineParser
                 break;
 
             case XuiTimelineProperty.Show:
+            case XuiTimelineProperty.Play:
                 if (XuiValueParser.TryBoolean(raw, out bool boolean))
                 {
                     value = new XuiAnimatedValue(
@@ -452,6 +486,13 @@ public sealed class XuiTimelineParser
 
             case XuiTimelineProperty.ImagePath:
             case XuiTimelineProperty.Material:
+            case XuiTimelineProperty.Text:
+                value = new XuiAnimatedValue(
+                    XuiTimelineValueKind.Textual,
+                    Text: raw);
+                return true;
+            case null:
+            case XuiTimelineProperty.Unknown:
                 value = new XuiAnimatedValue(
                     XuiTimelineValueKind.Textual,
                     Text: raw);

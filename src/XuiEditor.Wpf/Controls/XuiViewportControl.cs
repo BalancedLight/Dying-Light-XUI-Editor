@@ -8,7 +8,9 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using XuiEditor.Core.Assets;
 using XuiEditor.Core.Diagnostics;
+using XuiEditor.Core.Editing;
 using XuiEditor.Core.Layout;
+using XuiEditor.Core.Navigation;
 using XuiEditor.Core.Values;
 using Matrix3x2 = System.Numerics.Matrix3x2;
 
@@ -42,7 +44,10 @@ public sealed class XuiTransformCommittedEventArgs : EventArgs
         XuiVector2 sizeDelta,
         double rotationDelta,
         XuiVector2 originalSize,
-        IReadOnlyDictionary<string, XuiVector2>? positionDeltas = null)
+        IReadOnlyDictionary<string, XuiVector2>? positionDeltas = null,
+        XuiVector3 originalPivot = default,
+        XuiVector3 newPivot = default,
+        bool preservePivotVisualPosition = false)
     {
         NodeKey = nodeKey;
         Kind = kind;
@@ -52,6 +57,9 @@ public sealed class XuiTransformCommittedEventArgs : EventArgs
         OriginalSize = originalSize;
         PositionDeltas = positionDeltas ??
             new Dictionary<string, XuiVector2>(StringComparer.Ordinal);
+        OriginalPivot = originalPivot;
+        NewPivot = newPivot;
+        PreservePivotVisualPosition = preservePivotVisualPosition;
     }
 
     public string NodeKey { get; }
@@ -67,6 +75,12 @@ public sealed class XuiTransformCommittedEventArgs : EventArgs
     public XuiVector2 OriginalSize { get; }
 
     public IReadOnlyDictionary<string, XuiVector2> PositionDeltas { get; }
+
+    public XuiVector3 OriginalPivot { get; }
+
+    public XuiVector3 NewPivot { get; }
+
+    public bool PreservePivotVisualPosition { get; }
 }
 
 public enum XuiTransformKind
@@ -74,6 +88,34 @@ public enum XuiTransformKind
     Move,
     Resize,
     Rotate,
+    Pivot,
+}
+
+public sealed record XuiNavigationConnection(
+    string SourceNodeKey,
+    string PropertyName,
+    string AuthoredPath,
+    string? TargetNodeKey,
+    XuiNavigationResolutionStatus Status,
+    string Message);
+
+public sealed class XuiNavigationEditRequestedEventArgs : EventArgs
+{
+    public XuiNavigationEditRequestedEventArgs(
+        string sourceNodeKey,
+        string propertyName,
+        string? targetNodeKey)
+    {
+        SourceNodeKey = sourceNodeKey;
+        PropertyName = propertyName;
+        TargetNodeKey = targetNodeKey;
+    }
+
+    public string SourceNodeKey { get; }
+
+    public string PropertyName { get; }
+
+    public string? TargetNodeKey { get; }
 }
 
 public sealed class XuiTextureDiagnosticsEventArgs : EventArgs
@@ -108,6 +150,7 @@ public sealed class XuiViewportControl : FrameworkElement
         Right = 4,
         Bottom = 8,
         Rotate = 16,
+        Pivot = 32,
         TopLeft = Left | Top,
         TopRight = Right | Top,
         BottomRight = Right | Bottom,
@@ -165,6 +208,8 @@ public sealed class XuiViewportControl : FrameworkElement
     private XuiVector2 _dragPositionDelta;
     private XuiVector2 _dragSizeDelta;
     private double _dragRotationDelta;
+    private XuiVector3 _dragOriginalPivot;
+    private XuiVector3 _dragNewPivot;
     private XuiRect? _dragPreviewBounds;
     private readonly Dictionary<string, Matrix3x2> _previewLocalTransforms =
         new(StringComparer.Ordinal);
@@ -176,9 +221,21 @@ public sealed class XuiViewportControl : FrameworkElement
         RenderAtScale = 1,
     };
     private readonly DispatcherTimer _navigationCacheTimer;
+    private readonly DispatcherTimer _gizmoPulseTimer;
+    private double _gizmoPulse;
+    private bool _gizmoPulseIncreasing = true;
+    private ResizeHandle _hoverHandle;
+    private XuiNavigationConnection[] _navigationConnections = [];
+    private AssetDragPreview? _assetDragPreview;
+    private NavigationHandleHit? _navigationDrag;
+    private XuiVector2 _navigationDragPoint;
     private bool _showGrid = true;
     private bool _showSafeArea = true;
     private bool _showUnknownBounds = true;
+    private bool _showDesignTimeElements = true;
+    private bool _showParentMask;
+    private bool _grayOutsideSelectedGroup;
+    private bool _showNavigationConnections;
     private bool _finishingTransform;
     private long _nodeContentRedrawCount;
     private long _nodePresentationUpdateCount;
@@ -198,6 +255,32 @@ public sealed class XuiViewportControl : FrameworkElement
         {
             IsEnabled = false,
         };
+        _gizmoPulseTimer = new DispatcherTimer(
+            TimeSpan.FromMilliseconds(70),
+            DispatcherPriority.Render,
+            (_, _) =>
+            {
+                _gizmoPulse += _gizmoPulseIncreasing ? 0.08 : -0.08;
+                if (_gizmoPulse >= 1)
+                {
+                    _gizmoPulse = 1;
+                    _gizmoPulseIncreasing = false;
+                }
+                else if (_gizmoPulse <= 0)
+                {
+                    _gizmoPulse = 0;
+                    _gizmoPulseIncreasing = true;
+                }
+
+                if (_selectedKeys.Count > 0)
+                {
+                    RedrawOverlay();
+                }
+            },
+            Dispatcher)
+        {
+            IsEnabled = true,
+        };
         _visuals = new VisualCollection(this)
         {
             _background,
@@ -206,11 +289,15 @@ public sealed class XuiViewportControl : FrameworkElement
             _overlay,
         };
         SizeChanged += (_, _) => ResizePresentation();
+        Unloaded += (_, _) => _gizmoPulseTimer.Stop();
     }
 
     public event EventHandler<XuiSelectionRequestedEventArgs>? SelectionRequested;
 
     public event EventHandler<XuiTransformCommittedEventArgs>? TransformCommitted;
+
+    public event EventHandler<XuiNavigationEditRequestedEventArgs>?
+        NavigationEditRequested;
 
     public event EventHandler<XuiTextureDiagnosticsEventArgs>?
         TextureDiagnosticsAvailable;
@@ -264,6 +351,84 @@ public sealed class XuiViewportControl : FrameworkElement
 
     public double GridSize { get; set; } = 8;
 
+    public double SnapGridSize { get; set; } = 8;
+
+    public double MajorGridSize { get; set; } = 32;
+
+    public double CoarseGridSize { get; set; } = 128;
+
+    public Color MinorGridColor { get; set; } =
+        Color.FromArgb(32, 54, 59, 64);
+
+    public Color MajorGridColor { get; set; } =
+        Color.FromArgb(64, 83, 90, 98);
+
+    public Color CoarseGridColor { get; set; } =
+        Color.FromArgb(96, 112, 120, 130);
+
+    public bool PreservePivotVisualPosition { get; set; }
+
+    public bool ShowDesignTimeElements
+    {
+        get => _showDesignTimeElements;
+        set
+        {
+            if (_showDesignTimeElements == value)
+            {
+                return;
+            }
+
+            _showDesignTimeElements = value;
+            UpdateNodeVisibility();
+            RedrawOverlay();
+        }
+    }
+
+    public bool ShowParentMask
+    {
+        get => _showParentMask;
+        set
+        {
+            if (_showParentMask == value)
+            {
+                return;
+            }
+
+            _showParentMask = value;
+            RedrawOverlay();
+        }
+    }
+
+    public bool GrayOutsideSelectedGroup
+    {
+        get => _grayOutsideSelectedGroup;
+        set
+        {
+            if (_grayOutsideSelectedGroup == value)
+            {
+                return;
+            }
+
+            _grayOutsideSelectedGroup = value;
+            RedrawOverlay();
+        }
+    }
+
+    public bool ShowNavigationConnections
+    {
+        get => _showNavigationConnections;
+        set
+        {
+            if (_showNavigationConnections == value)
+            {
+                return;
+            }
+
+            _showNavigationConnections = value;
+            RedrawOverlay();
+        }
+    }
+
     public double ReferenceImageOpacity
     {
         get => _referenceImageOpacity;
@@ -277,6 +442,69 @@ public sealed class XuiViewportControl : FrameworkElement
     public double Zoom => _zoom;
 
     public bool HasRenderedFrame => _frame is not null;
+
+    public XuiVector2 LogicalPointFromControl(Point point) =>
+        ControlToLogical(point);
+
+    public string? HitNodeKey(XuiVector2 logicalPoint) =>
+        HitTest(logicalPoint, cycle: false)?.SelectionKey;
+
+    public void SetNavigationConnections(
+        IEnumerable<XuiNavigationConnection> connections)
+    {
+        ArgumentNullException.ThrowIfNull(connections);
+        _navigationConnections = connections.ToArray();
+        RedrawOverlay();
+    }
+
+    public void RefreshEditorGuides()
+    {
+        DrawCanvasLayer();
+        RedrawOverlay();
+    }
+
+    public void SetAssetDragPreview(
+        string label,
+        XuiVector2 logicalPoint,
+        XuiVector2 size)
+    {
+        _assetDragPreview = new AssetDragPreview(
+            label,
+            logicalPoint,
+            new XuiVector2(
+                Math.Max(1, size.X),
+                Math.Max(1, size.Y)));
+        RedrawOverlay();
+    }
+
+    public void ClearAssetDragPreview()
+    {
+        if (_assetDragPreview is null)
+        {
+            return;
+        }
+
+        _assetDragPreview = null;
+        RedrawOverlay();
+    }
+
+    public XuiVector2 WorldPointToNodeLocal(
+        string nodeKey,
+        XuiVector2 point)
+    {
+        XuiRenderNode? node = _frame?.Nodes.LastOrDefault(candidate =>
+            candidate.SelectionKey.Equals(
+                nodeKey,
+                StringComparison.Ordinal) &&
+            !candidate.IsVisualTemplatePart);
+        if (node is null ||
+            !Matrix3x2.Invert(node.WorldTransform, out Matrix3x2 inverse))
+        {
+            return point;
+        }
+
+        return TransformPoint(point.X, point.Y, inverse);
+    }
 
     internal bool IsSelectedForTesting(string nodeKey) =>
         _selectedKeys.Contains(nodeKey);
@@ -295,6 +523,52 @@ public sealed class XuiViewportControl : FrameworkElement
 
     internal bool NavigationCacheActiveForTesting =>
         ReferenceEquals(_nodeLayer.CacheMode, _navigationBitmapCache);
+
+    internal XuiVector2 PivotHandleLogicalForTesting(string nodeKey)
+    {
+        XuiRenderNode node = _frame?.Nodes.Last(candidate =>
+            candidate.SelectionKey.Equals(
+                nodeKey,
+                StringComparison.Ordinal) &&
+            !candidate.IsVisualTemplatePart) ??
+            throw new InvalidOperationException(
+                "The requested test node is not rendered.");
+        return TransformPoint(
+            node.Pivot.X,
+            node.Pivot.Y,
+            node.WorldTransform);
+    }
+
+    internal Point PivotHandleControlForTesting(string nodeKey)
+    {
+        XuiVector2 logical = PivotHandleLogicalForTesting(nodeKey);
+        return CreateCamera().Transform(
+            new Point(logical.X, logical.Y));
+    }
+
+    internal XuiTransformKind? TransformKindAtControlPointForTesting(
+        Point point) =>
+        TransformKindAtLogicalPointForTesting(ControlToLogical(point));
+
+    internal XuiTransformKind? TransformKindAtLogicalPointForTesting(
+        XuiVector2 point)
+    {
+        TransformHandleHit? hit = HitTestTransformHandle(point);
+        return hit?.Handle switch
+        {
+            ResizeHandle.Pivot => XuiTransformKind.Pivot,
+            ResizeHandle.Rotate => XuiTransformKind.Rotate,
+            ResizeHandle.None or null => null,
+            _ => XuiTransformKind.Resize,
+        };
+    }
+
+    internal bool IsNodeVisibleForTesting(string nodeKey) =>
+        _nodeVisuals.TryGetValue(nodeKey, out NodeVisual? visual) &&
+        EffectiveNodeOpacity(visual.Node) > 0;
+
+    internal int NavigationConnectionCountForTesting =>
+        _navigationConnections.Length;
 
     internal bool TextureLoadedForTesting(string imagePath) =>
         _textureBitmaps.ContainsKey(imagePath);
@@ -695,20 +969,55 @@ public sealed class XuiViewportControl : FrameworkElement
             return;
         }
 
-        if (e.ChangedButton != MouseButton.Left || _frame is null)
+        if (_frame is null)
         {
             return;
         }
 
         XuiVector2 logical = ControlToLogical(_pointerStart);
+        if (ShowNavigationConnections &&
+            e.ChangedButton is MouseButton.Left or MouseButton.Right &&
+            HitTestNavigationHandle(logical) is
+                NavigationHandleHit navigationHit)
+        {
+            if (e.ChangedButton == MouseButton.Right)
+            {
+                NavigationEditRequested?.Invoke(
+                    this,
+                    new XuiNavigationEditRequestedEventArgs(
+                        navigationHit.Connection.SourceNodeKey,
+                        navigationHit.Connection.PropertyName,
+                        null));
+            }
+            else
+            {
+                _navigationDrag = navigationHit;
+                _navigationDragPoint = logical;
+                CaptureMouse();
+                Cursor = Cursors.Cross;
+                RedrawOverlay();
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        if (e.ChangedButton != MouseButton.Left)
+        {
+            return;
+        }
+
         TransformHandleHit? transformHit = HitTestTransformHandle(logical);
         if (transformHit is not null)
         {
             BeginTransform(
                 transformHit.Node,
-                transformHit.Handle == ResizeHandle.Rotate
-                    ? XuiTransformKind.Rotate
-                    : XuiTransformKind.Resize,
+                transformHit.Handle switch
+                {
+                    ResizeHandle.Rotate => XuiTransformKind.Rotate,
+                    ResizeHandle.Pivot => XuiTransformKind.Pivot,
+                    _ => XuiTransformKind.Resize,
+                },
                 transformHit.Handle);
             e.Handled = true;
             return;
@@ -736,6 +1045,15 @@ public sealed class XuiViewportControl : FrameworkElement
     {
         base.OnMouseMove(e);
         Point current = e.GetPosition(this);
+        if (_navigationDrag is not null &&
+            e.LeftButton == MouseButtonState.Pressed)
+        {
+            _navigationDragPoint = ControlToLogical(current);
+            RedrawOverlay();
+            e.Handled = true;
+            return;
+        }
+
         if (_panning && e.MiddleButton == MouseButtonState.Pressed)
         {
             Vector delta = current - _pointerStart;
@@ -798,7 +1116,14 @@ public sealed class XuiViewportControl : FrameworkElement
             {
                 TransformHandleHit? hover = HitTestTransformHandle(
                     ControlToLogical(current));
-                Cursor = CursorForHandle(hover?.Handle ?? ResizeHandle.None);
+                ResizeHandle hoverHandle =
+                    hover?.Handle ?? ResizeHandle.None;
+                Cursor = CursorForHandle(hoverHandle);
+                if (_hoverHandle != hoverHandle)
+                {
+                    _hoverHandle = hoverHandle;
+                    RedrawOverlay();
+                }
             }
 
             return;
@@ -810,10 +1135,10 @@ public sealed class XuiViewportControl : FrameworkElement
         double y = end.Y - start.Y;
         if (_dragKind != XuiTransformKind.Rotate &&
             SnapEnabled &&
-            GridSize > 0)
+            SnapGridSize > 0)
         {
-            x = Math.Round(x / GridSize) * GridSize;
-            y = Math.Round(y / GridSize) * GridSize;
+            x = Math.Round(x / SnapGridSize) * SnapGridSize;
+            y = Math.Round(y / SnapGridSize) * SnapGridSize;
         }
 
         _dragWorldDelta = new XuiVector2(x, y);
@@ -832,6 +1157,25 @@ public sealed class XuiViewportControl : FrameworkElement
             Cursor = Cursors.Arrow;
             ReleaseMouseCapture();
             ScheduleNavigationCacheRelease();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.ChangedButton == MouseButton.Left &&
+            _navigationDrag is NavigationHandleHit navigationDrag)
+        {
+            XuiVector2 logical = ControlToLogical(e.GetPosition(this));
+            XuiRenderNode? target = HitTest(logical, cycle: false);
+            _navigationDrag = null;
+            ReleasePointerCapture();
+            Cursor = Cursors.Arrow;
+            RedrawOverlay();
+            NavigationEditRequested?.Invoke(
+                this,
+                new XuiNavigationEditRequestedEventArgs(
+                    navigationDrag.Connection.SourceNodeKey,
+                    navigationDrag.Connection.PropertyName,
+                    target?.SelectionKey));
             e.Handled = true;
             return;
         }
@@ -861,6 +1205,8 @@ public sealed class XuiViewportControl : FrameworkElement
             XuiVector2 positionDelta = _dragPositionDelta;
             XuiVector2 sizeDelta = _dragSizeDelta;
             double rotationDelta = _dragRotationDelta;
+            XuiVector3 originalPivot = _dragOriginalPivot;
+            XuiVector3 newPivot = _dragNewPivot;
             Dictionary<string, XuiVector2> positionDeltas = new(
                 _dragPositionDeltas,
                 StringComparer.Ordinal);
@@ -874,6 +1220,8 @@ public sealed class XuiViewportControl : FrameworkElement
             _dragPositionDelta = default;
             _dragSizeDelta = default;
             _dragRotationDelta = 0;
+            _dragOriginalPivot = default;
+            _dragNewPivot = default;
             _dragPreviewBounds = null;
             _finishingTransform = true;
             ReleaseMouseCapture();
@@ -888,6 +1236,11 @@ public sealed class XuiViewportControl : FrameworkElement
                     HasDelta(positionDelta) || HasDelta(sizeDelta),
                 XuiTransformKind.Rotate =>
                     Math.Abs(rotationDelta) > 0.0001,
+                XuiTransformKind.Pivot =>
+                    HasDelta(new XuiVector2(
+                        newPivot.X - originalPivot.X,
+                        newPivot.Y - originalPivot.Y)) ||
+                    Math.Abs(newPivot.Z - originalPivot.Z) > 0.0001,
                 _ => false,
             };
             if (changed)
@@ -901,7 +1254,10 @@ public sealed class XuiViewportControl : FrameworkElement
                         sizeDelta,
                         rotationDelta,
                         originalSize,
-                        positionDeltas));
+                        positionDeltas,
+                        originalPivot,
+                        newPivot,
+                        PreservePivotVisualPosition));
             }
 
             e.Handled = true;
@@ -944,6 +1300,17 @@ public sealed class XuiViewportControl : FrameworkElement
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        if (e.Key == Key.Escape &&
+            _navigationDrag is not null)
+        {
+            _navigationDrag = null;
+            ReleasePointerCapture();
+            Cursor = Cursors.Arrow;
+            RedrawOverlay();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Escape &&
             _pendingPointerGesture is not null)
         {
@@ -1218,6 +1585,7 @@ public sealed class XuiViewportControl : FrameworkElement
 
     private double EffectiveNodeOpacity(XuiRenderNode node) =>
         _hiddenKeys.Contains(node.SelectionKey) ||
+        (!_showDesignTimeElements && node.DesignTime) ||
         !node.IsShown ||
         node.Opacity <= 0
             ? 0
@@ -1278,6 +1646,7 @@ public sealed class XuiViewportControl : FrameworkElement
         left.Bold == right.Bold &&
         left.Italic == right.Italic &&
         left.Underline == right.Underline &&
+        left.DesignTime == right.DesignTime &&
         left.HorizontalTextAlignment == right.HorizontalTextAlignment &&
         left.VerticalTextAlignment == right.VerticalTextAlignment &&
         left.TextBorder == right.TextBorder &&
@@ -1297,6 +1666,7 @@ public sealed class XuiViewportControl : FrameworkElement
         XuiRenderNode right) =>
         left.LocalTransform == right.LocalTransform &&
         left.IsShown == right.IsShown &&
+        left.DesignTime == right.DesignTime &&
         left.Opacity.Equals(right.Opacity) &&
         left.SelectionKey == right.SelectionKey &&
         left.ClipBounds == right.ClipBounds &&
@@ -1462,27 +1832,67 @@ public sealed class XuiViewportControl : FrameworkElement
         DrawingContext drawing,
         XuiRenderFrame frame)
     {
-        double spacing = GridSize > 0 ? GridSize : 8;
-        int verticalCount = (int)Math.Ceiling(frame.DesignSize.X / spacing);
-        int horizontalCount = (int)Math.Ceiling(frame.DesignSize.Y / spacing);
-        if (verticalCount + horizontalCount > 2_000)
-        {
-            spacing *= Math.Ceiling((verticalCount + horizontalCount) / 2_000.0);
-        }
+        double minorSpacing = ValidSpacing(GridSize, 8);
+        double majorSpacing = Math.Max(
+            minorSpacing,
+            ValidSpacing(MajorGridSize, minorSpacing * 4));
+        double coarseSpacing = Math.Max(
+            majorSpacing,
+            ValidSpacing(CoarseGridSize, majorSpacing * 4));
 
-        Pen minor = new(
-            new SolidColorBrush(Color.FromArgb(35, 255, 255, 255)),
-            0.5);
-        for (double x = spacing; x < frame.DesignSize.X; x += spacing)
-        {
-            drawing.DrawLine(minor, new Point(x, 0), new Point(x, frame.DesignSize.Y));
-        }
+        DrawTier(coarseSpacing, CoarseGridColor, 1.1, null);
+        DrawTier(majorSpacing, MajorGridColor, 0.8, coarseSpacing);
+        DrawTier(minorSpacing, MinorGridColor, 0.5, majorSpacing);
+        return;
 
-        for (double y = spacing; y < frame.DesignSize.Y; y += spacing)
+        void DrawTier(
+            double spacing,
+            Color color,
+            double thickness,
+            double? excludeMultiplesOf)
         {
-            drawing.DrawLine(minor, new Point(0, y), new Point(frame.DesignSize.X, y));
+            int verticalCount =
+                (int)Math.Ceiling(frame.DesignSize.X / spacing);
+            int horizontalCount =
+                (int)Math.Ceiling(frame.DesignSize.Y / spacing);
+            if (verticalCount + horizontalCount > 2_000)
+            {
+                return;
+            }
+
+            Pen pen = new(new SolidColorBrush(color), thickness);
+            for (double x = spacing; x < frame.DesignSize.X; x += spacing)
+            {
+                if (!IsExcluded(x, excludeMultiplesOf))
+                {
+                    drawing.DrawLine(
+                        pen,
+                        new Point(x, 0),
+                        new Point(x, frame.DesignSize.Y));
+                }
+            }
+
+            for (double y = spacing; y < frame.DesignSize.Y; y += spacing)
+            {
+                if (!IsExcluded(y, excludeMultiplesOf))
+                {
+                    drawing.DrawLine(
+                        pen,
+                        new Point(0, y),
+                        new Point(frame.DesignSize.X, y));
+                }
+            }
         }
     }
+
+    private static double ValidSpacing(double value, double fallback) =>
+        double.IsFinite(value) && value > 0
+            ? value
+            : fallback;
+
+    private static bool IsExcluded(double value, double? spacing) =>
+        spacing is double divisor &&
+        Math.Abs(value / divisor - Math.Round(value / divisor)) < 0.00001;
 
     private void DrawNode(DrawingContext drawing, XuiRenderNode node)
     {
@@ -2332,10 +2742,17 @@ public sealed class XuiViewportControl : FrameworkElement
 
         Matrix camera = CreateCamera();
         drawing.PushTransform(new MatrixTransform(camera));
+        DrawSelectedGroupMask(drawing, frame, camera.M11);
+        if (ShowNavigationConnections)
+        {
+            DrawNavigationConnections(drawing, frame, camera.M11);
+        }
+
         Pen selectionPen = new(
             new SolidColorBrush(Color.FromRgb(242, 140, 40)),
             1.5 / Math.Max(camera.M11, 0.001));
         double handleSize = 7 / Math.Max(camera.M11, 0.001);
+        List<XuiRenderNode> selectedNodes = [];
         foreach (string selectedKey in _selectedKeys)
         {
             if (!_nodeVisuals.TryGetValue(
@@ -2347,6 +2764,7 @@ public sealed class XuiViewportControl : FrameworkElement
             }
 
             XuiRenderNode node = selectedVisual.Node;
+            selectedNodes.Add(node);
             XuiRect world = PreviewBounds(node);
             if (_dragNodeKey == node.Key)
             {
@@ -2366,18 +2784,26 @@ public sealed class XuiViewportControl : FrameworkElement
             }
 
             Rect rect = ToRect(world);
-            drawing.DrawRectangle(null, selectionPen, rect);
+            byte pulseAlpha = (byte)Math.Round(18 + (_gizmoPulse * 30));
+            drawing.DrawRectangle(
+                new SolidColorBrush(
+                    Color.FromArgb(pulseAlpha, 242, 140, 40)),
+                selectionPen,
+                rect);
             if (!CanTransform(node))
             {
                 continue;
             }
 
-            foreach ((ResizeHandle _, Point handle) in Handles(
+            foreach ((ResizeHandle handleKind, Point handle) in Handles(
                          rect,
                          20 / Math.Max(camera.M11, 0.001)))
             {
                 drawing.DrawRectangle(
-                    new SolidColorBrush(Color.FromRgb(242, 140, 40)),
+                    new SolidColorBrush(
+                        handleKind == _hoverHandle
+                            ? Color.FromRgb(255, 224, 174)
+                            : Color.FromRgb(242, 140, 40)),
                     new Pen(Brushes.Black, 0.5 / Math.Max(camera.M11, 0.001)),
                     new Rect(
                         handle.X - (handleSize * 0.5),
@@ -2386,19 +2812,61 @@ public sealed class XuiViewportControl : FrameworkElement
                         handleSize));
             }
 
-            Point rotationHandle = RotationHandle(
-                rect,
-                20 / Math.Max(camera.M11, 0.001));
-            drawing.DrawLine(
-                selectionPen,
-                new Point(rect.Left + (rect.Width * 0.5), rect.Top),
-                rotationHandle);
-            drawing.DrawEllipse(
-                new SolidColorBrush(Color.FromRgb(242, 140, 40)),
-                new Pen(Brushes.Black, 0.5 / Math.Max(camera.M11, 0.001)),
-                rotationHandle,
-                handleSize * 0.55,
-                handleSize * 0.55);
+            double rotationOffset = 14 / Math.Max(camera.M11, 0.001);
+            foreach (Point rotationHandle in RotationHandles(
+                         rect,
+                         rotationOffset))
+            {
+                Pen rotationPen = new(
+                    new SolidColorBrush(
+                        _hoverHandle == ResizeHandle.Rotate
+                            ? Color.FromRgb(255, 224, 174)
+                            : Color.FromRgb(242, 140, 40)),
+                    1.6 / Math.Max(camera.M11, 0.001));
+                drawing.DrawEllipse(
+                    null,
+                    rotationPen,
+                    rotationHandle,
+                    handleSize * 0.75,
+                    handleSize * 0.75);
+            }
+
+            if (_selectedKeys.Count == 1)
+            {
+                Matrix3x2 worldTransform = PreviewWorldTransform(node);
+                XuiVector3 pivot =
+                    _dragNodeKey == node.Key &&
+                    _dragKind == XuiTransformKind.Pivot
+                        ? _dragNewPivot
+                        : node.Pivot;
+                XuiVector2 pivotWorld = TransformPoint(
+                    pivot.X,
+                    pivot.Y,
+                    worldTransform);
+                Point pivotPoint = new(pivotWorld.X, pivotWorld.Y);
+                double knobRadius = 6 / Math.Max(camera.M11, 0.001);
+                Brush pivotBrush = new SolidColorBrush(
+                    _hoverHandle == ResizeHandle.Pivot
+                        ? Color.FromRgb(224, 255, 255)
+                        : Color.FromRgb(74, 214, 219));
+                Pen pivotPen = new(
+                    new SolidColorBrush(Color.FromRgb(13, 67, 73)),
+                    1 / Math.Max(camera.M11, 0.001));
+                drawing.DrawLine(
+                    pivotPen,
+                    new Point(pivotPoint.X - (knobRadius * 1.7), pivotPoint.Y),
+                    new Point(pivotPoint.X + (knobRadius * 1.7), pivotPoint.Y));
+                drawing.DrawLine(
+                    pivotPen,
+                    new Point(pivotPoint.X, pivotPoint.Y - (knobRadius * 1.7)),
+                    new Point(pivotPoint.X, pivotPoint.Y + (knobRadius * 1.7)));
+                drawing.DrawEllipse(
+                    pivotBrush,
+                    pivotPen,
+                    pivotPoint,
+                    knobRadius,
+                    knobRadius);
+            }
 
             if (_dragNodeKey == node.Key &&
                 _dragKind == XuiTransformKind.Rotate)
@@ -2411,18 +2879,372 @@ public sealed class XuiViewportControl : FrameworkElement
                         rect.Top),
                     camera.M11);
             }
+            else if (_dragNodeKey == node.Key &&
+                     _dragKind == XuiTransformKind.Pivot)
+            {
+                DrawOverlayLabel(
+                    drawing,
+                    FormattableString.Invariant(
+                        $"Pivot {_dragNewPivot.X:0.###}, {_dragNewPivot.Y:0.###}, {_dragNewPivot.Z:0.###}"),
+                    new Point(
+                        rect.Right + (8 / Math.Max(camera.M11, 0.001)),
+                        rect.Top),
+                    camera.M11);
+            }
+        }
+
+        if (selectedNodes.Count > 1)
+        {
+            XuiRect aggregate = XuiRect.FromPoints(
+                selectedNodes
+                    .SelectMany(node =>
+                    {
+                        XuiRect bounds = PreviewBounds(node);
+                        return new[]
+                        {
+                            new XuiVector2(bounds.X, bounds.Y),
+                            new XuiVector2(bounds.Right, bounds.Bottom),
+                        };
+                    })
+                    .ToArray());
+            Point center = new(
+                aggregate.X + (aggregate.Width * 0.5),
+                aggregate.Y + (aggregate.Height * 0.5));
+            double radius = 5 / Math.Max(camera.M11, 0.001);
+            Pen aggregatePen = new(
+                new SolidColorBrush(Color.FromRgb(74, 214, 219)),
+                1 / Math.Max(camera.M11, 0.001));
+            drawing.DrawLine(
+                aggregatePen,
+                new Point(center.X - radius, center.Y),
+                new Point(center.X + radius, center.Y));
+            drawing.DrawLine(
+                aggregatePen,
+                new Point(center.X, center.Y - radius),
+                new Point(center.X, center.Y + radius));
+        }
+
+        if (_assetDragPreview is AssetDragPreview assetPreview)
+        {
+            Rect preview = new(
+                assetPreview.Position.X,
+                assetPreview.Position.Y,
+                assetPreview.Size.X,
+                assetPreview.Size.Y);
+            Pen previewPen = new(
+                new SolidColorBrush(Color.FromArgb(220, 93, 206, 255)),
+                1.4 / Math.Max(camera.M11, 0.001));
+            previewPen.DashStyle = DashStyles.Dash;
+            drawing.DrawRectangle(
+                new SolidColorBrush(Color.FromArgb(55, 93, 206, 255)),
+                previewPen,
+                preview);
+            DrawOverlayLabel(
+                drawing,
+                assetPreview.Label,
+                new Point(
+                    preview.Left + (5 / Math.Max(camera.M11, 0.001)),
+                    preview.Top + (5 / Math.Max(camera.M11, 0.001))),
+                camera.M11);
         }
 
         drawing.Pop();
         DrawZoomLabel(drawing, camera.M11);
     }
 
+    private void DrawSelectedGroupMask(
+        DrawingContext drawing,
+        XuiRenderFrame frame,
+        double scale)
+    {
+        if ((!ShowParentMask && !GrayOutsideSelectedGroup) ||
+            _selectedKeys.Count == 0)
+        {
+            return;
+        }
+
+        XuiRenderNode? selected = frame.Nodes.LastOrDefault(node =>
+            _selectedKeys.Contains(node.SelectionKey));
+        if (selected is null)
+        {
+            return;
+        }
+
+        XuiRenderNode? group =
+            selected.Kind is XuiRenderKind.Group or XuiRenderKind.Scene
+                ? selected
+                : frame.Nodes.LastOrDefault(node =>
+                    node.Key.Equals(
+                        selected.ParentKey,
+                        StringComparison.Ordinal));
+        if (group is null)
+        {
+            return;
+        }
+
+        Rect canvas = new(
+            0,
+            0,
+            frame.DesignSize.X,
+            frame.DesignSize.Y);
+        Rect groupBounds = Rect.Intersect(
+            canvas,
+            ToRect(PreviewBounds(group)));
+        if (groupBounds.IsEmpty)
+        {
+            return;
+        }
+
+        byte alpha = ShowParentMask ? (byte)72 : (byte)42;
+        Color color = GrayOutsideSelectedGroup
+            ? Color.FromArgb(alpha, 104, 111, 120)
+            : Color.FromArgb(alpha, 5, 7, 9);
+        Brush mask = new SolidColorBrush(color);
+        drawing.DrawRectangle(
+            mask,
+            null,
+            new Rect(canvas.Left, canvas.Top, canvas.Width, groupBounds.Top));
+        drawing.DrawRectangle(
+            mask,
+            null,
+            new Rect(
+                canvas.Left,
+                groupBounds.Bottom,
+                canvas.Width,
+                Math.Max(0, canvas.Bottom - groupBounds.Bottom)));
+        drawing.DrawRectangle(
+            mask,
+            null,
+            new Rect(
+                canvas.Left,
+                groupBounds.Top,
+                Math.Max(0, groupBounds.Left),
+                groupBounds.Height));
+        drawing.DrawRectangle(
+            mask,
+            null,
+            new Rect(
+                groupBounds.Right,
+                groupBounds.Top,
+                Math.Max(0, canvas.Right - groupBounds.Right),
+                groupBounds.Height));
+        if (ShowParentMask)
+        {
+            Pen boundary = new(
+                new SolidColorBrush(Color.FromArgb(190, 107, 190, 255)),
+                1 / Math.Max(scale, 0.001));
+            boundary.DashStyle = DashStyles.Dash;
+            drawing.DrawRectangle(null, boundary, groupBounds);
+        }
+    }
+
+    private void DrawNavigationConnections(
+        DrawingContext drawing,
+        XuiRenderFrame frame,
+        double scale)
+    {
+        Dictionary<string, XuiRenderNode> bySelectionKey = frame.Nodes
+            .Where(static node => !node.IsVisualTemplatePart)
+            .GroupBy(static node => node.SelectionKey, StringComparer.Ordinal)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.Last(),
+                StringComparer.Ordinal);
+        foreach (XuiNavigationConnection connection in _navigationConnections)
+        {
+            if (!bySelectionKey.TryGetValue(
+                    connection.SourceNodeKey,
+                    out XuiRenderNode? source))
+            {
+                continue;
+            }
+
+            Rect sourceBounds = ToRect(PreviewBounds(source));
+            Point start = NavigationHandlePoint(
+                sourceBounds,
+                connection.PropertyName,
+                scale);
+            XuiRenderNode? target = null;
+            bool resolved =
+                connection.Status == XuiNavigationResolutionStatus.Resolved &&
+                connection.TargetNodeKey is string targetKey &&
+                bySelectionKey.TryGetValue(targetKey, out target);
+            Point end;
+            if (resolved)
+            {
+                XuiRect targetBounds = PreviewBounds(target!);
+                end = new Point(
+                    targetBounds.X + (targetBounds.Width * 0.5),
+                    targetBounds.Y + (targetBounds.Height * 0.5));
+            }
+            else
+            {
+                Vector direction = NavigationDirection(
+                    connection.PropertyName);
+                end = start + (direction * (48 / Math.Max(scale, 0.001)));
+            }
+
+            if (connection.AuthoredPath.Length > 0 ||
+                ReferenceEquals(_navigationDrag?.Connection, connection))
+            {
+                Pen line = new(
+                    new SolidColorBrush(
+                        resolved
+                            ? Color.FromArgb(210, 93, 206, 255)
+                            : Color.FromArgb(230, 244, 74, 74)),
+                    1.4 / Math.Max(scale, 0.001));
+                if (!resolved)
+                {
+                    line.DashStyle = DashStyles.Dash;
+                }
+
+                drawing.DrawLine(line, start, end);
+                DrawArrowHead(drawing, line.Brush, start, end, scale);
+            }
+
+            if (_selectedKeys.Contains(connection.SourceNodeKey))
+            {
+                double radius = 5.5 / Math.Max(scale, 0.001);
+                bool hovered =
+                    _navigationDrag?.Connection.PropertyName ==
+                    connection.PropertyName;
+                drawing.DrawEllipse(
+                    new SolidColorBrush(
+                        hovered
+                            ? Color.FromRgb(224, 255, 255)
+                            : Color.FromRgb(93, 206, 255)),
+                    new Pen(
+                        new SolidColorBrush(Color.FromRgb(13, 52, 73)),
+                        0.8 / Math.Max(scale, 0.001)),
+                    start,
+                    radius,
+                    radius);
+                DrawOverlayLabel(
+                    drawing,
+                    NavigationLabel(connection.PropertyName),
+                    new Point(start.X + radius, start.Y - radius),
+                    scale);
+            }
+        }
+
+        if (_navigationDrag is NavigationHandleHit drag)
+        {
+            if (bySelectionKey.TryGetValue(
+                    drag.Connection.SourceNodeKey,
+                    out XuiRenderNode? source))
+            {
+                Point start = NavigationHandlePoint(
+                    ToRect(PreviewBounds(source)),
+                    drag.Connection.PropertyName,
+                    scale);
+                Pen dragPen = new(
+                    new SolidColorBrush(Color.FromArgb(220, 93, 206, 255)),
+                    1.5 / Math.Max(scale, 0.001));
+                dragPen.DashStyle = DashStyles.Dash;
+                drawing.DrawLine(
+                    dragPen,
+                    start,
+                    new Point(
+                        _navigationDragPoint.X,
+                        _navigationDragPoint.Y));
+            }
+        }
+    }
+
+    private static void DrawArrowHead(
+        DrawingContext drawing,
+        Brush brush,
+        Point start,
+        Point end,
+        double scale)
+    {
+        Vector direction = end - start;
+        if (direction.Length < 0.001)
+        {
+            return;
+        }
+
+        direction.Normalize();
+        Vector perpendicular = new(-direction.Y, direction.X);
+        double length = 8 / Math.Max(scale, 0.001);
+        Point back = end - (direction * length);
+        StreamGeometry arrow = new();
+        using (StreamGeometryContext context = arrow.Open())
+        {
+            context.BeginFigure(end, isFilled: true, isClosed: true);
+            context.LineTo(back + (perpendicular * length * 0.45), true, false);
+            context.LineTo(back - (perpendicular * length * 0.45), true, false);
+        }
+
+        arrow.Freeze();
+        drawing.DrawGeometry(brush, null, arrow);
+    }
+
+    private static Point NavigationHandlePoint(
+        Rect bounds,
+        string propertyName,
+        double scale)
+    {
+        double offset = 10 / Math.Max(scale, 0.001);
+        return propertyName switch
+        {
+            "NavLeft" =>
+                new Point(bounds.Left - offset, bounds.Top + bounds.Height * 0.5),
+            "NavRight" =>
+                new Point(bounds.Right + offset, bounds.Top + bounds.Height * 0.5),
+            "NavUp" =>
+                new Point(bounds.Left + bounds.Width * 0.5, bounds.Top - offset),
+            "NavDown" =>
+                new Point(bounds.Left + bounds.Width * 0.5, bounds.Bottom + offset),
+            "NavTabBackward" =>
+                new Point(bounds.Left - offset, bounds.Top - offset),
+            "NavTabForward" =>
+                new Point(bounds.Right + offset, bounds.Bottom + offset),
+            _ =>
+                new Point(bounds.Left + bounds.Width * 0.5, bounds.Top),
+        };
+    }
+
+    private static Vector NavigationDirection(string propertyName) =>
+        propertyName switch
+        {
+            "NavLeft" => new Vector(-1, 0),
+            "NavRight" => new Vector(1, 0),
+            "NavUp" => new Vector(0, -1),
+            "NavDown" => new Vector(0, 1),
+            "NavTabBackward" => new Vector(-0.707, -0.707),
+            "NavTabForward" => new Vector(0.707, 0.707),
+            _ => new Vector(1, 0),
+        };
+
+    private static string NavigationLabel(string propertyName) =>
+        propertyName switch
+        {
+            "NavLeft" => "L",
+            "NavRight" => "R",
+            "NavUp" => "U",
+            "NavDown" => "D",
+            "NavTabBackward" => "T-",
+            "NavTabForward" => "T+",
+            _ => "?",
+        };
+
     private XuiRect PreviewBounds(XuiRenderNode node)
+    {
+        if (_previewLocalTransforms.Count == 0)
+        {
+            return node.WorldBounds;
+        }
+
+        return TransformBounds(node.LocalBounds, PreviewWorldTransform(node));
+    }
+
+    private Matrix3x2 PreviewWorldTransform(XuiRenderNode node)
     {
         if (_previewLocalTransforms.Count == 0 ||
             _frame is not XuiRenderFrame frame)
         {
-            return node.WorldBounds;
+            return node.WorldTransform;
         }
 
         Dictionary<string, XuiRenderNode> byKey = frame.Nodes.ToDictionary(
@@ -2452,7 +3274,7 @@ public sealed class XuiViewportControl : FrameworkElement
             return world;
         }
 
-        return TransformBounds(node.LocalBounds, WorldFor(node));
+        return WorldFor(node);
     }
 
     private void RequestSelectedTextures()
@@ -3038,6 +3860,8 @@ public sealed class XuiViewportControl : FrameworkElement
         _dragPositionDelta = default;
         _dragSizeDelta = default;
         _dragRotationDelta = 0;
+        _dragOriginalPivot = node.Pivot;
+        _dragNewPivot = node.Pivot;
         _dragPreviewBounds = null;
         _previewLocalTransforms.Clear();
         _dragPositionDeltas.Clear();
@@ -3092,6 +3916,36 @@ public sealed class XuiViewportControl : FrameworkElement
                 _dragSizeDelta = default;
                 _dragPreviewBounds = null;
                 break;
+
+            case XuiTransformKind.Pivot:
+                if (Matrix3x2.Invert(
+                        node.WorldTransform,
+                        out Matrix3x2 inverseWorld))
+                {
+                    XuiVector2 local = TransformPoint(
+                        pointer.X,
+                        pointer.Y,
+                        inverseWorld);
+                    _dragNewPivot = new XuiVector3(
+                        local.X,
+                        local.Y,
+                        node.Pivot.Z);
+                    if (SnapEnabled && SnapGridSize > 0)
+                    {
+                        _dragNewPivot = _dragNewPivot with
+                        {
+                            X = Math.Round(_dragNewPivot.X / SnapGridSize) *
+                                SnapGridSize,
+                            Y = Math.Round(_dragNewPivot.Y / SnapGridSize) *
+                                SnapGridSize,
+                        };
+                    }
+                }
+
+                _dragPositionDelta = default;
+                _dragSizeDelta = default;
+                _dragPreviewBounds = null;
+                break;
         }
     }
 
@@ -3132,6 +3986,27 @@ public sealed class XuiViewportControl : FrameworkElement
                     node.RotationDegrees + _dragRotationDelta);
                 SetPreviewLocalTransform(node, preview);
             }
+        }
+        else if (_dragKind == XuiTransformKind.Pivot)
+        {
+            XuiVector3 position = primary.Position;
+            if (PreservePivotVisualPosition)
+            {
+                position = XuiPivotEditing.CompensatePosition(
+                    position,
+                    primary.Pivot,
+                    _dragNewPivot,
+                    primary.Scale,
+                    primary.RotationDegrees);
+            }
+
+            SetPreviewLocalTransform(
+                primary,
+                CreateLocalTransform(
+                    position,
+                    _dragNewPivot,
+                    primary.Scale,
+                    primary.RotationDegrees));
         }
     }
 
@@ -3210,6 +4085,8 @@ public sealed class XuiViewportControl : FrameworkElement
         _dragPositionDelta = default;
         _dragSizeDelta = default;
         _dragRotationDelta = 0;
+        _dragOriginalPivot = default;
+        _dragNewPivot = default;
         _dragPreviewBounds = null;
         if (releaseCapture && IsMouseCaptured)
         {
@@ -3364,19 +4241,38 @@ public sealed class XuiViewportControl : FrameworkElement
 
         double scale = Math.Max(CreateCamera().M11, 0.001);
         double radius = 7 / scale;
-        double rotationOffset = 20 / scale;
+        double rotationOffset = 14 / scale;
         foreach (XuiRenderNode node in frame.Nodes
                      .Where(node =>
-                         _selectedKeys.Contains(node.Key) &&
+                         _selectedKeys.Contains(node.SelectionKey) &&
                          !_hiddenKeys.Contains(node.SelectionKey) &&
                          CanTransform(node))
                      .Reverse())
         {
-            Rect bounds = ToRect(node.WorldBounds);
-            Point rotation = RotationHandle(bounds, rotationOffset);
-            if (Near(point, rotation, radius))
+            Rect bounds = ToRect(PreviewBounds(node));
+            foreach (Point rotation in RotationHandles(
+                         bounds,
+                         rotationOffset))
             {
-                return new TransformHandleHit(node, ResizeHandle.Rotate);
+                if (Near(point, rotation, 11 / scale))
+                {
+                    return new TransformHandleHit(node, ResizeHandle.Rotate);
+                }
+            }
+
+            if (_selectedKeys.Count == 1)
+            {
+                XuiVector2 pivot = TransformPoint(
+                    node.Pivot.X,
+                    node.Pivot.Y,
+                    node.WorldTransform);
+                if (Near(
+                        point,
+                        new Point(pivot.X, pivot.Y),
+                        9 / scale))
+                {
+                    return new TransformHandleHit(node, ResizeHandle.Pivot);
+                }
             }
 
             foreach ((ResizeHandle handle, Point location) in
@@ -3386,6 +4282,45 @@ public sealed class XuiViewportControl : FrameworkElement
                 {
                     return new TransformHandleHit(node, handle);
                 }
+            }
+        }
+
+        return null;
+    }
+
+    private NavigationHandleHit? HitTestNavigationHandle(XuiVector2 point)
+    {
+        if (_frame is not XuiRenderFrame frame)
+        {
+            return null;
+        }
+
+        double scale = Math.Max(CreateCamera().M11, 0.001);
+        Dictionary<string, XuiRenderNode> bySelectionKey = frame.Nodes
+            .Where(static node => !node.IsVisualTemplatePart)
+            .GroupBy(static node => node.SelectionKey, StringComparer.Ordinal)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.Last(),
+                StringComparer.Ordinal);
+        foreach (XuiNavigationConnection connection in
+                 _navigationConnections.Reverse())
+        {
+            if (!_selectedKeys.Contains(connection.SourceNodeKey) ||
+                !bySelectionKey.TryGetValue(
+                    connection.SourceNodeKey,
+                    out XuiRenderNode? source))
+            {
+                continue;
+            }
+
+            Point handle = NavigationHandlePoint(
+                ToRect(PreviewBounds(source)),
+                connection.PropertyName,
+                scale);
+            if (Near(point, handle, 9 / scale))
+            {
+                return new NavigationHandleHit(connection);
             }
         }
 
@@ -3409,6 +4344,7 @@ public sealed class XuiViewportControl : FrameworkElement
             ResizeHandle.TopRight or
                 ResizeHandle.BottomLeft => Cursors.SizeNESW,
             ResizeHandle.Rotate => Cursors.Cross,
+            ResizeHandle.Pivot => Cursors.Hand,
             _ => Cursors.Arrow,
         };
 
@@ -3542,12 +4478,31 @@ public sealed class XuiViewportControl : FrameworkElement
             new Point(rectangle.Left, rectangle.Top + (rectangle.Height * 0.5)));
     }
 
-    private static Point RotationHandle(Rect rectangle, double offset) =>
-        new(rectangle.Left + (rectangle.Width * 0.5), rectangle.Top - offset);
+    private static IEnumerable<Point> RotationHandles(
+        Rect rectangle,
+        double offset)
+    {
+        yield return new Point(rectangle.Left - offset, rectangle.Top - offset);
+        yield return new Point(rectangle.Right + offset, rectangle.Top - offset);
+        yield return new Point(
+            rectangle.Right + offset,
+            rectangle.Bottom + offset);
+        yield return new Point(
+            rectangle.Left - offset,
+            rectangle.Bottom + offset);
+    }
 
     private sealed record TransformHandleHit(
         XuiRenderNode Node,
         ResizeHandle Handle);
+
+    private sealed record NavigationHandleHit(
+        XuiNavigationConnection Connection);
+
+    private sealed record AssetDragPreview(
+        string Label,
+        XuiVector2 Position,
+        XuiVector2 Size);
 
     private sealed class NodeVisual
     {

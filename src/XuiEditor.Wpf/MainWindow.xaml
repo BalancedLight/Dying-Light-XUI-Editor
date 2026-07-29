@@ -316,6 +316,31 @@
                           IsCheckable="True" Click="Bounds_Click" />
                 <MenuItem x:Name="SnapMenuItem" Header="_Snap to Grid"
                           IsCheckable="True" Click="Snap_Click" />
+                <MenuItem Header="Grid Settings..."
+                          Click="GridSettings_Click" />
+                <Separator />
+                <MenuItem Header="Select Parent Group"
+                          Click="SelectParentGroup_Click" />
+                <MenuItem x:Name="ParentMaskMenuItem"
+                          Header="Parent-bounds Mask"
+                          IsCheckable="True"
+                          Click="ParentMask_Click" />
+                <MenuItem x:Name="GrayOutsideGroupMenuItem"
+                          Header="Gray Outside Selected Group"
+                          IsCheckable="True"
+                          Click="GrayOutsideGroup_Click" />
+                <MenuItem x:Name="DesignTimeMenuItem"
+                          Header="Show Design-time Elements"
+                          IsCheckable="True"
+                          Click="DesignTime_Click" />
+                <MenuItem x:Name="NavigationMenuItem"
+                          Header="Show Navigation Connections"
+                          IsCheckable="True"
+                          Click="Navigation_Click" />
+                <MenuItem x:Name="NavigationAllMenuItem"
+                          Header="Navigation: Show All"
+                          IsCheckable="True"
+                          Click="NavigationAll_Click" />
                 <Separator />
                 <MenuItem Header="_Fit Canvas" InputGestureText="F"
                           Click="Fit_Click" />
@@ -332,6 +357,12 @@
                           Click="ClearReferenceImage_Click" />
                 <MenuItem Header="Force-show Selection"
                           Click="ForceShowSelected_Click" />
+                <MenuItem x:Name="ForceShowGroupMenuItem"
+                          Header="Force-show Current Group"
+                          IsCheckable="True"
+                          Click="ForceShowCurrentGroup_Click" />
+                <MenuItem Header="Force-show All"
+                          Click="ForceShowAll_Click" />
                 <MenuItem Header="Clear Force-show"
                           Click="ClearForceShown_Click" />
             </MenuItem>
@@ -585,8 +616,13 @@
 
             <Grid Grid.Column="2">
                 <controls:XuiViewportControl x:Name="Viewport"
+                                             AllowDrop="True"
                                              SelectionRequested="Viewport_SelectionRequested"
-                                             TransformCommitted="Viewport_TransformCommitted" />
+                                             TransformCommitted="Viewport_TransformCommitted"
+                                             NavigationEditRequested="Viewport_NavigationEditRequested"
+                                             DragOver="Viewport_AssetDragOver"
+                                             DragLeave="Viewport_AssetDragLeave"
+                                             Drop="Viewport_AssetDrop" />
                 <Grid x:Name="ViewportLoadingOverlay"
                       Panel.ZIndex="100"
                       Background="#F0000000"
@@ -628,6 +664,12 @@
                                            Margin="0,0,6,0"
                                            Foreground="{StaticResource MutedTextBrush}"
                                            VerticalAlignment="Center" />
+                                <ToggleButton x:Name="AdvancedInspectorToggle"
+                                              Content="Advanced"
+                                              Margin="0,0,4,0"
+                                              Padding="8,2"
+                                              ToolTip="Show the full inherited Chrome 6 property schema"
+                                              Click="AdvancedInspector_Click" />
                                 <Button x:Name="AddPropertyButton"
                                         Content="+ Property"
                                         Margin="0,0,4,0"
@@ -650,11 +692,151 @@
                                        FontWeight="SemiBold" />
                         </DockPanel>
                     </Border>
-                    <TextBlock x:Name="InspectorHint"
-                               DockPanel.Dock="Top"
-                               Margin="9,7"
-                               Foreground="{StaticResource MutedTextBrush}"
-                               Text="Select an element to edit its authored properties." />
+                    <StackPanel DockPanel.Dock="Top">
+                        <TextBlock x:Name="InspectorHint"
+                                   Margin="9,7"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   Text="Select an element to edit its authored properties." />
+                        <Expander x:Name="TextStyleExpander"
+                                  Header="Semantic text style"
+                                  Margin="8,0,8,4"
+                                  Visibility="Collapsed"
+                                  IsExpanded="True">
+                            <StackPanel Margin="5,4,0,5">
+                                <WrapPanel>
+                                    <CheckBox x:Name="TextBoldCheckBox"
+                                              Content="Bold"
+                                              Margin="0,0,10,3"
+                                              Click="TextStyleFlag_Click" />
+                                    <CheckBox x:Name="TextItalicCheckBox"
+                                              Content="Italic"
+                                              Margin="0,0,10,3"
+                                              Click="TextStyleFlag_Click" />
+                                    <CheckBox x:Name="TextUnderlineCheckBox"
+                                              Content="Underline"
+                                              Margin="0,0,10,3"
+                                              Click="TextStyleFlag_Click" />
+                                </WrapPanel>
+                                <Grid Margin="0,3,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="72" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="68" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Horizontal"
+                                               VerticalAlignment="Center"
+                                               Foreground="{StaticResource MutedTextBrush}" />
+                                    <ComboBox x:Name="TextHorizontalComboBox"
+                                              Grid.Column="1"
+                                              SelectionChanged="TextHorizontal_SelectionChanged">
+                                        <ComboBoxItem Content="Unspecified" Tag="Unspecified" />
+                                        <ComboBoxItem Content="Left" Tag="Left" />
+                                        <ComboBoxItem Content="Center" Tag="Center" />
+                                        <ComboBoxItem Content="Right" Tag="Right" />
+                                    </ComboBox>
+                                    <TextBlock Grid.Column="2"
+                                               Text="Vertical"
+                                               Margin="8,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="{StaticResource MutedTextBrush}" />
+                                    <ComboBox x:Name="TextVerticalComboBox"
+                                              Grid.Column="3"
+                                              SelectionChanged="TextVertical_SelectionChanged">
+                                        <ComboBoxItem Content="Top" Tag="Top" />
+                                        <ComboBoxItem Content="Middle" Tag="Middle" />
+                                        <ComboBoxItem Content="Bottom" Tag="Bottom" />
+                                    </ComboBox>
+                                </Grid>
+                                <TextBlock x:Name="TextStyleRawText"
+                                           Margin="0,5,0,0"
+                                           FontFamily="Consolas"
+                                           FontSize="10"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Expander>
+                        <Expander x:Name="PivotExpander"
+                                  Header="Pivot"
+                                  Margin="8,0,8,5"
+                                  Visibility="Collapsed"
+                                  IsExpanded="True">
+                            <StackPanel Margin="5,4,0,5">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="X" VerticalAlignment="Center" />
+                                    <TextBox x:Name="PivotXTextBox"
+                                             Grid.Column="1"
+                                             LostKeyboardFocus="PivotValue_LostKeyboardFocus"
+                                             KeyDown="PivotValue_KeyDown" />
+                                    <TextBlock Grid.Column="2" Text="Y"
+                                               Margin="5,0,0,0"
+                                               VerticalAlignment="Center" />
+                                    <TextBox x:Name="PivotYTextBox"
+                                             Grid.Column="3"
+                                             LostKeyboardFocus="PivotValue_LostKeyboardFocus"
+                                             KeyDown="PivotValue_KeyDown" />
+                                    <TextBlock Grid.Column="4" Text="Z"
+                                               Margin="5,0,0,0"
+                                               VerticalAlignment="Center" />
+                                    <TextBox x:Name="PivotZTextBox"
+                                             Grid.Column="5"
+                                             LostKeyboardFocus="PivotValue_LostKeyboardFocus"
+                                             KeyDown="PivotValue_KeyDown" />
+                                </Grid>
+                                <UniformGrid Columns="3" Margin="0,5,0,0">
+                                    <Button Content="↖" Tag="TopLeft"
+                                            ToolTip="Top left"
+                                            Click="PivotPreset_Click" />
+                                    <Button Content="↑" Tag="TopCenter"
+                                            ToolTip="Top center"
+                                            Click="PivotPreset_Click" />
+                                    <Button Content="↗" Tag="TopRight"
+                                            ToolTip="Top right"
+                                            Click="PivotPreset_Click" />
+                                    <Button Content="←" Tag="MiddleLeft"
+                                            ToolTip="Middle left"
+                                            Click="PivotPreset_Click" />
+                                    <Button Content="•" Tag="Center"
+                                            ToolTip="Center"
+                                            Click="PivotPreset_Click" />
+                                    <Button Content="→" Tag="MiddleRight"
+                                            ToolTip="Middle right"
+                                            Click="PivotPreset_Click" />
+                                    <Button Content="↙" Tag="BottomLeft"
+                                            ToolTip="Bottom left"
+                                            Click="PivotPreset_Click" />
+                                    <Button Content="↓" Tag="BottomCenter"
+                                            ToolTip="Bottom center"
+                                            Click="PivotPreset_Click" />
+                                    <Button Content="↘" Tag="BottomRight"
+                                            ToolTip="Bottom right"
+                                            Click="PivotPreset_Click" />
+                                </UniformGrid>
+                                <Button Content="Reset pivot to origin"
+                                        Tag="Origin"
+                                        Margin="0,4,0,0"
+                                        ToolTip="Reset X and Y to zero while preserving Z"
+                                        Click="PivotPreset_Click" />
+                                <CheckBox x:Name="PreservePivotPositionCheckBox"
+                                          Margin="0,5,0,0"
+                                          Content="Preserve visual position"
+                                          ToolTip="Compensate Position while Scale and Rotation are static"
+                                          Click="PreservePivotPosition_Click" />
+                                <TextBlock x:Name="PivotStatusText"
+                                           Margin="0,3,0,0"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
                     <Expander x:Name="RawXmlExpander"
                               DockPanel.Dock="Bottom"
                               Header="Raw XML"
@@ -734,12 +916,13 @@
                             <DataTemplate DataType="{x:Type models:InspectorPropertyRow}">
                                 <Grid Margin="8,3">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="118" />
+                                        <ColumnDefinition Width="108" />
                                         <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="25" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0"
                                                Text="{Binding Name}"
-                                               ToolTip="{Binding Name}"
+                                               ToolTip="{Binding ToolTip}"
                                                TextTrimming="CharacterEllipsis"
                                                VerticalAlignment="Center"
                                                Foreground="{StaticResource MutedTextBrush}" />
@@ -753,6 +936,11 @@
                                             <Style TargetType="TextBox"
                                                    BasedOn="{StaticResource {x:Type TextBox}}">
                                                 <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsGhostDefault}"
+                                                                 Value="True">
+                                                        <Setter Property="FontStyle" Value="Italic" />
+                                                        <Setter Property="Opacity" Value="0.68" />
+                                                    </DataTrigger>
                                                     <DataTrigger Binding="{Binding HasChoices}"
                                                                  Value="True">
                                                         <Setter Property="Visibility"
@@ -835,6 +1023,27 @@
                                             </Style>
                                         </CheckBox.Style>
                                     </CheckBox>
+                                    <Button Grid.Column="2"
+                                            Content="×"
+                                            Padding="2,0"
+                                            Margin="3,0,0,0"
+                                            Tag="{Binding}"
+                                            ToolTip="Reset to the inherited default by removing the authored property"
+                                            Click="InspectorReset_Click">
+                                        <Button.Style>
+                                            <Style TargetType="Button"
+                                                   BasedOn="{StaticResource {x:Type Button}}">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding CanReset}"
+                                                                 Value="False">
+                                                        <Setter Property="Visibility"
+                                                                Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -1066,6 +1275,84 @@
                                                     SelectedKeyFrameChanged="TimelineEditor_SelectedKeyFrameChanged"
                                                     KeyFrameMoveRequested="TimelineEditor_KeyFrameMoveRequested" />
                 </Grid>
+            </TabItem>
+            <TabItem Header="Assets">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top"
+                            Background="{StaticResource PanelRaisedBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="0,0,0,1"
+                            Padding="6,4">
+                        <StackPanel>
+                            <WrapPanel>
+                                <TextBox x:Name="AssetSearchTextBox"
+                                         Width="260"
+                                         ToolTip="Search screens, visuals, textures, and fonts"
+                                         TextChanged="AssetSearch_TextChanged" />
+                                <ComboBox x:Name="AssetKindComboBox"
+                                          Width="115"
+                                          Margin="6,0,0,0"
+                                          SelectedIndex="0"
+                                          SelectionChanged="AssetKind_SelectionChanged">
+                                    <ComboBoxItem Content="All" Tag="All" />
+                                    <ComboBoxItem Content="Screens" Tag="Screen" />
+                                    <ComboBoxItem Content="Visuals" Tag="Visual" />
+                                    <ComboBoxItem Content="Textures" Tag="Texture" />
+                                    <ComboBoxItem Content="Fonts" Tag="Font" />
+                                </ComboBox>
+                            </WrapPanel>
+                            <WrapPanel Margin="0,4,0,0">
+                                <CheckBox x:Name="AutoSizeAssetDropCheckBox"
+                                          Content="Auto-size on drop"
+                                          VerticalAlignment="Center"
+                                          Margin="4,0,8,0"
+                                          ToolTip="Explicitly resize an existing image to the texture dimensions when dropping" />
+                                <Button Content="Open" Click="AssetOpen_Click" />
+                                <Button Content="Copy to Workspace"
+                                        Click="AssetCopy_Click" />
+                                <Button Content="New Screen"
+                                        Click="AssetNewScreen_Click" />
+                                <Button Content="New Visual"
+                                        Click="AssetNewVisual_Click" />
+                                <Button Content="Rename"
+                                        Click="AssetRename_Click" />
+                                <Button Content="Delete"
+                                        Click="AssetDelete_Click" />
+                                <Button Content="References / Replace"
+                                        Click="AssetReferences_Click" />
+                                <Button x:Name="UndoReferenceTransactionButton"
+                                        Content="Undo Replace"
+                                        IsEnabled="False"
+                                        Click="AssetUndoReferenceTransaction_Click" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+                    <ListView x:Name="AssetList"
+                              ItemsSource="{Binding AssetRows}"
+                              PreviewMouseLeftButtonDown="AssetList_MouseLeftButtonDown"
+                              PreviewMouseMove="AssetList_MouseMove"
+                              MouseDoubleClick="AssetList_MouseDoubleClick">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Kind"
+                                                DisplayMemberBinding="{Binding KindLabel}"
+                                                Width="85" />
+                                <GridViewColumn Header="Name"
+                                                DisplayMemberBinding="{Binding Name}"
+                                                Width="240" />
+                                <GridViewColumn Header="Size"
+                                                DisplayMemberBinding="{Binding SizeLabel}"
+                                                Width="100" />
+                                <GridViewColumn Header="Access"
+                                                DisplayMemberBinding="{Binding AccessLabel}"
+                                                Width="95" />
+                                <GridViewColumn Header="Source"
+                                                DisplayMemberBinding="{Binding SourceDisplayPath}"
+                                                Width="520" />
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </DockPanel>
             </TabItem>
             <TabItem Header="Diagnostics">
                 <DockPanel>

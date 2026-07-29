@@ -12,6 +12,9 @@ fast tests:
 - `XuiButtonLayoutProfile`, `XuiControllerRuntimeProfile`, and
   `XuiDocumentAssetContext`
 - `IAssetResolver` and Dying Light resource models
+- `IXuiAssetCatalog` and workspace-safe resource transactions
+- `XuiClassCatalog`, typed property/class definitions, and evidence metadata
+- `XuiTextStyleCodec`, pivot editing, and navigation path resolution
 - `XuiTimeline`, tracks, keyframes, named frames, and `TimelineEvaluator`
 - `XuiTimelineScopeCatalog`, `XuiTimelineEvaluationState`, and the
   selection-bound timeline workspace
@@ -56,6 +59,27 @@ Saving follows this sequence:
 An unchanged document returns its original bytes and is never rewritten.
 Recovery files live below `%LocalAppData%\DyingLightXuiEditor\Recovery`; they
 never replace the source document.
+
+## Semantic catalog and inspector
+
+`XuiClassCatalog` is loaded from a facts-only embedded JSON resource generated
+from the Dying Light stock corpus, Dying Light binary metadata, and separately
+tagged shared Chrome 6 evidence. The runtime has no dependency on extracted
+research files. Class inheritance supplies applicable property definitions and
+defaults; authored properties remain ordered syntax entries in the lossless
+document.
+
+The Common inspector combines authored properties with useful inherited
+defaults. Advanced exposes the complete inherited schema. A ghost default is
+presentation state only: editing it inserts a property command, while Reset
+removes the authored token and reveals the default again. Unknown properties
+remain editable through a deliberately separate raw route.
+
+`XuiTextStyleCodec` mutates only proven legacy bit masks and returns the raw
+value, decoded flags, and unmapped bits. Standalone text properties take
+preview precedence when present. `XuiPivotEditing` owns unrestricted pivot
+presets and the preserve-position transform equation so the viewport and
+timeline command paths share one tested implementation.
 
 ## Layout evaluation
 
@@ -121,6 +145,15 @@ virtual, read-only files; the source archive is reopened for each bounded read
 and is never modified. The searchable stock-XUI browser opens these entries
 without first extracting them.
 
+`IXuiAssetCatalog` is intentionally separate from `IAssetResolver`: resolution
+consumers and existing test doubles do not acquire authoring responsibilities.
+The catalog adds browse metadata and bounded Copy to Workspace. Loose-resource
+create, rename, recoverable delete, reference preflight, backup, and atomic
+replace/undo operations are confined to the configured workspace. Preflights
+retain exact property-node identities and source hashes, and recovery/backup
+folders are excluded from indexing; PAK and RPACK sources never become
+writable.
+
 Standalone `.def` and texture-definition `.scr` sources retain a structurally
 discovered project/data root for provenance and DDS lookup. Standalone
 `.rpack` sources expose only bounded type-32 texture entries. Both are indexed
@@ -151,7 +184,9 @@ viewport and diagnostics panel.
 
 ## Timeline system
 
-Timeline time is an integer 60 Hz tick. Parsing follows the real child-node
+Timeline time is an integer 60 Hz tick. Tracks retain their exact raw property
+name and optionally expose a known evaluator kind, so properties unknown to
+the current preview are never discarded. Parsing follows the real child-node
 structure under `Timelines`, `Timeline`, `KeyFrame`, `NamedFrames`, and
 `NamedFrame`.
 

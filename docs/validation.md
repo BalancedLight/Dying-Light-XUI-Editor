@@ -5,20 +5,24 @@ Validation performed on Windows x64 on 2026-07-28:
 ```text
 dotnet restore XuiEditor.slnx --locked-mode
 dotnet build XuiEditor.slnx --configuration Debug --no-restore
-dotnet test XuiEditor.slnx
-  --configuration Debug --no-restore --no-build
+dotnet run --project tests\XuiEditor.Tests\XuiEditor.Tests.csproj `
+  --configuration Debug --no-build --
+$env:DYING_LIGHT_INSTALL = "E:\SteamLibrary\steamapps\common\Dying Light"
+dotnet run --project tests\XuiEditor.Tests\XuiEditor.Tests.csproj `
+  --configuration Debug --no-build --
 dotnet build XuiEditor.slnx --configuration Release --no-restore
-dotnet test XuiEditor.slnx
-  --configuration Release --no-restore --no-build
+dotnet run --project tests\XuiEditor.Tests\XuiEditor.Tests.csproj `
+  --configuration Release --no-build --
 ```
 
 The Release build automatically runs the guarded single-file packaging target
 for `XuiEditor.Wpf` and writes the distributable to
 `artifacts\publish\win-x64`.
 
-Both test configurations passed: 156 tests succeeded and 8 optional
-acceptance tests were skipped, with zero build warnings. Set
-`DYING_LIGHT_INSTALL` to a game installation and
+The portable Debug run passed 178 tests and skipped 8 optional acceptance
+tests. Install-aware Debug and Release runs each passed 182 tests and skipped
+only the 4 extracted-corpus tests, with zero failures and zero build warnings.
+Set `DYING_LIGHT_INSTALL` to a game installation and
 `XUI_EDITOR_TEST_CORPUS_ROOT` to an extracted data root to include those
 read-only acceptance suites. The repository does not provide
 developer-machine default paths for either source.
@@ -28,6 +32,16 @@ Coverage includes:
 - byte-identical no-op saves and token-level mutation preservation
 - comments, whitespace, property order, duplicate/unknown nodes, CRLF/LF, and
   encoding
+- the embedded facts-only catalog: 168 Data0 XUIs, all 174 stock-authored
+  properties plus 8 Dying Light binary properties, 349 classes, inheritance,
+  defaults, types, choices, evidence levels, preview support, `noanim`, and all
+  21 stock timeline property names
+- exhaustive mutation of every 16-bit `TextStyle` value while preserving all
+  compatibility/unknown bits, decimal and hexadecimal parsing, semantic flag
+  edits, standalone-property precedence, and legacy bottom alignment
+- unrestricted negative, outside-bounds, fractional, and nonzero-Z pivots;
+  all presets; raw and preserve-position edits; timeline rebasing;
+  animated-scale/rotation restrictions; and undo/redo
 - malformed XML, DTD/entities, nesting limits, duplicate IDs, invalid edits,
   and external-change conflicts
 - transactional multi-command undo/redo and failed-batch rollback
@@ -42,6 +56,11 @@ Coverage includes:
 - semantic canvas hit testing that excludes `XuiCanvas`, preserves a selected
   visual-template owner during a drag, cycles overlap owners with Alt, and
   allows selected animated-hidden bounds to remain movable
+- constant-screen pivot targeting across zoom, pulsing move and resize/rotate
+  regions, parent masking/graying, design-time filtering, force-show modes,
+  three grid tiers, and persisted guide settings
+- six-way navigation resolution for direct, relative, missing, ambiguous, and
+  ID-less targets, including visualization, drag commit, clearing, and undo
 - transactional move commits that offset authored `Position` plus every
   applicable ancestor-scope `Position` key, reject malformed keys without a
   partial edit, undo as one command, and retain the semantic selection through
@@ -56,6 +75,8 @@ Coverage includes:
 - every supported timeline property, exact stepped keys, linear/eased
   sampling, named-frame commands, loops, recursion, duplicate targets, and
   keyframe undo/redo
+- raw timeline-property identity beyond the known evaluator enum, plus exact
+  stepped `Text` and preserved/editable boolean `Play` tracks without audio
 - independent timeline-owner scopes, remembered per-scope ticks,
   synchronized compatibility sampling, mixed-scope selection, scoped
   playback, and the `All in scope` track filter
@@ -79,6 +100,11 @@ Coverage includes:
 - persisted ordered Dying Light project, loose-resource, individual
   texture-definition, and RP6L RPACK sources, including a synthetic
   definition/RPACK pair resolved through the same public resolver
+- separate asset-catalog browsing for screens, visuals, textures, and fonts;
+  texture dimensions; explicit auto-size; Copy to Workspace; loose-screen
+  screen/visual create, open, rename, and recoverable delete; read-only archive
+  boundaries; content-hash reference preflight; backups; atomic replacement;
+  one-click transaction undo; stale-plan rejection; and rollback
 - synthetic Workshop projects covering project-root discovery, project-local
   texture-definition and DDS precedence, resolver provenance, and source
   isolation
@@ -138,8 +164,8 @@ The final Release-build artifact contains one file and no sidecars:
 
 ```text
 DyingLightXuiEditor.exe
-66,318,844 bytes
-SHA-256 3EFA0CEA18052A6B1C7E1A08B180DBDC82EE1651C5D4768F32A30F7522ABC242
+66,155,554 bytes
+SHA-256 899D3AFAEBF32106723F2D7FCB658093CDD10E85BCA9CA8D8A1A6C2C9593D287
 ```
 
 The self-contained executable was launched without Unity or an installed .NET

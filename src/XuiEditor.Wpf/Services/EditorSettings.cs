@@ -5,6 +5,13 @@ using XuiEditor.Core.Assets;
 
 namespace XuiEditor.Wpf.Services;
 
+public enum XuiGridTier
+{
+    Minor,
+    Major,
+    Coarse,
+}
+
 public sealed class EditorSettings
 {
     public double WindowWidth { get; set; } = 1500;
@@ -23,9 +30,38 @@ public sealed class EditorSettings
 
     public bool ShowUnknownBounds { get; set; } = true;
 
+    public bool ShowAdvancedInspector { get; set; }
+
+    public bool PreservePivotVisualPosition { get; set; }
+
     public bool SnapEnabled { get; set; } = true;
 
     public double GridSize { get; set; } = 8;
+
+    public double MajorGridSize { get; set; } = 32;
+
+    public double CoarseGridSize { get; set; } = 128;
+
+    [JsonConverter(typeof(JsonStringEnumConverter<XuiGridTier>))]
+    public XuiGridTier SnapGridTier { get; set; } = XuiGridTier.Minor;
+
+    public string MinorGridColor { get; set; } = "#20363B40";
+
+    public string MajorGridColor { get; set; } = "#40535A62";
+
+    public string CoarseGridColor { get; set; } = "#60707882";
+
+    public bool ShowParentMask { get; set; }
+
+    public bool GrayOutsideSelectedGroup { get; set; }
+
+    public bool ForceShowCurrentGroup { get; set; }
+
+    public bool ShowDesignTimeElements { get; set; } = true;
+
+    public bool ShowNavigationConnections { get; set; }
+
+    public bool ShowAllNavigationConnections { get; set; }
 
     public string? WorkspaceRoot { get; set; }
 
@@ -195,6 +231,13 @@ public static class EditorSettingsStore
             settings.ReferenceOverlayOpacity,
             0,
             1);
+        settings.GridSize = NormalizeGridSize(settings.GridSize, 8);
+        settings.MajorGridSize = NormalizeGridSize(
+            settings.MajorGridSize,
+            Math.Max(32, settings.GridSize * 4));
+        settings.CoarseGridSize = NormalizeGridSize(
+            settings.CoarseGridSize,
+            Math.Max(128, settings.MajorGridSize * 4));
         settings.FontMappings ??=
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (AssetRootSetting root in settings.AssetRoots)
@@ -208,6 +251,11 @@ public static class EditorSettingsStore
             }
         }
     }
+
+    private static double NormalizeGridSize(double value, double fallback) =>
+        double.IsFinite(value) && value > 0
+            ? Math.Clamp(value, 0.25, 4096)
+            : fallback;
 
     private static string? FindDyingLightInstall()
     {

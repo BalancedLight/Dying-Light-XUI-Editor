@@ -657,6 +657,21 @@ public sealed class DyingLightLayoutEngine
         int textStyle = kind == XuiRenderKind.Text
             ? properties.Integer("TextStyle", 0, diagnostics)
             : 0;
+        bool bold = kind == XuiRenderKind.Text &&
+                    (properties.Contains("Bold")
+                        ? properties.Boolean("Bold", false, diagnostics)
+                        : (textStyle & 0x0004) != 0);
+        bool italic = kind == XuiRenderKind.Text &&
+                      (properties.Contains("Italic")
+                          ? properties.Boolean("Italic", false, diagnostics)
+                          : (textStyle & 0x0002) != 0);
+        bool underline = kind == XuiRenderKind.Text &&
+                         (properties.Contains("Underline")
+                             ? properties.Boolean(
+                                 "Underline",
+                                 false,
+                                 diagnostics)
+                             : (textStyle & 0x0008) != 0);
         XuiTextHorizontalAlignment horizontalTextAlignment =
             kind == XuiRenderKind.Text
                 ? ParseHorizontalTextAlignment(
@@ -762,9 +777,13 @@ public sealed class DyingLightLayoutEngine
             PointSize = pointSize,
             Uppercase = uppercase,
             MultiLine = multiLine,
-            Bold = (textStyle & 4) != 0,
-            Italic = (textStyle & 2) != 0,
-            Underline = (textStyle & 8) != 0,
+            Bold = bold,
+            Italic = italic,
+            Underline = underline,
+            DesignTime = properties.Boolean(
+                "DesignTime",
+                false,
+                diagnostics),
             HorizontalTextAlignment = horizontalTextAlignment,
             VerticalTextAlignment = verticalTextAlignment,
             TextBorder = textBorder,
@@ -1991,8 +2010,10 @@ public sealed class DyingLightLayoutEngine
         ICollection<XuiDiagnostic> diagnostics)
     {
         string raw = properties.Text(
-                "ContentHorizontalAlign",
-                properties.Text("DefaultHorizontalAlign"))
+                "HorizontalAlign",
+                properties.Text(
+                    "ContentHorizontalAlign",
+                    properties.Text("DefaultHorizontalAlign")))
             .Trim();
         if (raw.Length > 0)
         {
@@ -2025,8 +2046,10 @@ public sealed class DyingLightLayoutEngine
         ICollection<XuiDiagnostic> diagnostics)
     {
         string raw = properties.Text(
-                "ContentVerticalAlign",
-                properties.Text("DefaultVerticalAlign"))
+                "VerticalAlign",
+                properties.Text(
+                    "ContentVerticalAlign",
+                    properties.Text("DefaultVerticalAlign")))
             .Trim();
         if (raw.Length > 0)
         {
@@ -2957,6 +2980,11 @@ public sealed class DyingLightLayoutEngine
         }
 
         public XuiSyntaxNode Syntax => _syntax;
+
+        public bool Contains(string name) =>
+            _runtimeOverrides?.ContainsKey(name) == true ||
+            _overrides?.ContainsKey(name) == true ||
+            _values.ContainsKey(name);
 
         public string Text(string name, string fallback = "")
         {

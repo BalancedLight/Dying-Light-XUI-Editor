@@ -14,6 +14,7 @@ using XuiEditor.Core.Animation;
 using XuiEditor.Core.Diagnostics;
 using XuiEditor.Core.Documents;
 using XuiEditor.Core.Layout;
+using XuiEditor.Core.Navigation;
 using XuiEditor.Core.Values;
 using XuiEditor.Wpf;
 using XuiEditor.Wpf.Controls;
@@ -2019,6 +2020,212 @@ public sealed class WpfSmokeTests
         Assert.IsGreaterThanOrEqualTo(
             (ushort)8,
             BitConverter.ToUInt16(icon, 4));
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void InspectorGhostDefaultsStayUnauthoredUntilEditAndReset()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<MyImage><Properties><Id>I</Id><Width>20</Width><Height>20</Height>" +
+            "</Properties></MyImage></XuiCanvas>");
+        XuiSyntaxNode image = XuiModelReader.VisualDescendants(document.Root)
+            .Single();
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        window.SelectNodeKeysForTesting([image.Key]);
+
+        InspectorPropertyRow opacity = window.InspectorProperties
+            .Single(row => row.Name == "Opacity");
+        Assert.IsTrue(opacity.IsGhostDefault);
+        Assert.AreEqual("1", opacity.Value);
+        Assert.IsNull(XuiModelReader.GetPropertyValue(
+            image,
+            document.Text,
+            "Opacity"));
+        Assert.IsFalse(window.InspectorProperties.Any(row =>
+            row.Name == "DesignTime"));
+
+        window.SetAdvancedInspectorForTesting(true);
+        Assert.IsTrue(window.InspectorProperties.Any(row =>
+            row.Name == "DesignTime" &&
+            row.IsGhostDefault));
+        window.SetInspectorValueForTesting("Opacity", "0.5");
+        Assert.AreEqual(
+            "0.5",
+            XuiModelReader.GetPropertyValue(
+                document.SyntaxTree.FindByKey(image.Key)!,
+                document.Text,
+                "Opacity"));
+
+        window.ResetInspectorPropertyForTesting("Opacity");
+        Assert.IsNull(XuiModelReader.GetPropertyValue(
+            document.SyntaxTree.FindByKey(image.Key)!,
+            document.Text,
+            "Opacity"));
+        document.Undo();
+        Assert.AreEqual(
+            "0.5",
+            XuiModelReader.GetPropertyValue(
+                document.SyntaxTree.FindByKey(image.Key)!,
+                document.Text,
+                "Opacity"));
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void PivotEditingRebasesTracksAndPreserveModeCompensatesPosition()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>200</Width><Height>200</Height></Properties>" +
+            "<MyImage><Properties><Id>I</Id><Width>20</Width><Height>20</Height>" +
+            "<Position>10,20,4</Position><Pivot>-5,8,3</Pivot>" +
+            "<Scale>2,2,1</Scale></Properties></MyImage>" +
+            "<Timelines><Timeline><Id>I</Id><TimelineProp>Pivot</TimelineProp>" +
+            "<TimelineProp>Position</TimelineProp><KeyFrame><Time>0</Time>" +
+            "<Interpolation>0</Interpolation><Prop>-5,8,3</Prop>" +
+            "<Prop>10,20,4</Prop></KeyFrame></Timeline></Timelines></XuiCanvas>");
+        XuiSyntaxNode image = XuiModelReader.VisualDescendants(document.Root)
+            .Single();
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+
+        window.CommitPivotForTesting(
+            image.Key,
+            new XuiVector3(5, 18, 3),
+            preserve: false);
+        XuiSyntaxNode current = document.SyntaxTree.FindByKey(image.Key)!;
+        Assert.AreEqual(
+            "5,18,3",
+            XuiModelReader.GetPropertyValue(current, document.Text, "Pivot"));
+        Assert.AreEqual(
+            "10,20,4",
+            XuiModelReader.GetPropertyValue(current, document.Text, "Position"));
+        XuiSyntaxNode keyFrame = document.Root.DescendantsAndSelf()
+            .Single(node => node.Name == "KeyFrame");
+        Assert.AreEqual(
+            "5,18,3",
+            keyFrame.Elements("Prop").First().GetDecodedValue(document.Text));
+
+        document.Undo();
+        window.CommitPivotForTesting(
+            image.Key,
+            new XuiVector3(5, 18, 3),
+            preserve: true);
+        current = document.SyntaxTree.FindByKey(image.Key)!;
+        Assert.AreEqual(
+            "20,30,4",
+            XuiModelReader.GetPropertyValue(current, document.Text, "Position"));
+        keyFrame = document.Root.DescendantsAndSelf()
+            .Single(node => node.Name == "KeyFrame");
+        Assert.AreEqual(
+            "20,30,4",
+            keyFrame.Elements("Prop").ElementAt(1).GetDecodedValue(document.Text));
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void NavigationCommitWritesStablePathClearsAndUndoes()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<AdvGroup><Properties><Id>G</Id></Properties>" +
+            "<MyImage><Properties><Id>A</Id></Properties></MyImage>" +
+            "<MyImage><Properties><Id>B</Id></Properties></MyImage>" +
+            "</AdvGroup></XuiCanvas>");
+        XuiSyntaxNode source = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node => XuiModelReader.GetId(node, document.Text) == "A");
+        XuiSyntaxNode target = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node => XuiModelReader.GetId(node, document.Text) == "B");
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+
+        window.CommitNavigationForTesting(
+            source.Key,
+            "NavRight",
+            target.Key);
+        Assert.AreEqual(
+            "B",
+            XuiModelReader.GetPropertyValue(
+                document.SyntaxTree.FindByKey(source.Key)!,
+                document.Text,
+                "NavRight"));
+        window.CommitNavigationForTesting(
+            source.Key,
+            "NavRight",
+            null);
+        Assert.IsNull(XuiModelReader.GetPropertyValue(
+            document.SyntaxTree.FindByKey(source.Key)!,
+            document.Text,
+            "NavRight"));
+        document.Undo();
+        Assert.AreEqual(
+            "B",
+            XuiModelReader.GetPropertyValue(
+                document.SyntaxTree.FindByKey(source.Key)!,
+                document.Text,
+                "NavRight"));
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void PivotHandleStaysTargetableAcrossZoomAndDesignTimeCanHide()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>200</Width><Height>100</Height></Properties>" +
+            "<MyImage><Properties><Id>I</Id><Width>40</Width><Height>20</Height>" +
+            "<Position>80,30,0</Position><Pivot>-25.5,33.25,9</Pivot>" +
+            "<Rotation>0,0,0.258819,0.965926</Rotation>" +
+            "<DesignTime>true</DesignTime></Properties></MyImage></XuiCanvas>");
+        XuiSyntaxNode image = XuiModelReader.VisualDescendants(document.Root)
+            .Single();
+        XuiRenderFrame frame = DyingLightLayoutEngine.Evaluate(
+            document,
+            XuiViewport.Default,
+            0);
+        XuiViewportControl viewport = new();
+        viewport.Measure(new Size(900, 600));
+        viewport.Arrange(new Rect(0, 0, 900, 600));
+        viewport.SetFrame(frame);
+        viewport.SetSelectedKeys([image.Key]);
+
+        Point before = viewport.PivotHandleControlForTesting(image.Key);
+        Assert.AreEqual(
+            XuiTransformKind.Pivot,
+            viewport.TransformKindAtControlPointForTesting(before));
+        viewport.ZoomBy(2);
+        Point after = viewport.PivotHandleControlForTesting(image.Key);
+        Assert.AreNotEqual(before, after);
+        Assert.AreEqual(
+            XuiTransformKind.Pivot,
+            viewport.TransformKindAtControlPointForTesting(after));
+
+        Assert.IsTrue(viewport.IsNodeVisibleForTesting(image.Key));
+        viewport.ShowDesignTimeElements = false;
+        Assert.IsFalse(viewport.IsNodeVisibleForTesting(image.Key));
+        viewport.ShowParentMask = true;
+        viewport.GrayOutsideSelectedGroup = true;
+        viewport.ShowNavigationConnections = true;
+        viewport.SetNavigationConnections(
+        [
+            new XuiNavigationConnection(
+                image.Key,
+                "NavRight",
+                "missing",
+                null,
+                XuiNavigationResolutionStatus.Missing,
+                "missing"),
+        ]);
+        Assert.AreEqual(1, viewport.NavigationConnectionCountForTesting);
     }
 
     private static IEnumerable<DependencyObject> Descendants(DependencyObject parent)

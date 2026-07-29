@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Net;
@@ -7,6 +8,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -14,7 +16,10 @@ using XuiEditor.Core.Animation;
 using XuiEditor.Core.Assets;
 using XuiEditor.Core.Diagnostics;
 using XuiEditor.Core.Documents;
+using XuiEditor.Core.Editing;
 using XuiEditor.Core.Layout;
+using XuiEditor.Core.Navigation;
+using XuiEditor.Core.Schema;
 using XuiEditor.Core.Values;
 using XuiEditor.Wpf.Controls;
 using XuiEditor.Wpf.Models;
@@ -27,74 +32,17 @@ public partial class MainWindow : Window, IDisposable
     private const string MixedValue = "— mixed —";
     private const int AutomaticRawXmlCharacterLimit = 256 * 1024;
     private const double SnapshotExportScale = 2;
-    private static readonly HashSet<string> KnownProperties = new(
-        StringComparer.Ordinal)
-    {
-        "Id", "Width", "Height", "Position", "Anchor", "Pivot", "Scale",
-        "Rotation", "Opacity", "Show", "Color", "TextColor", "OutlineColor",
-        "DefaultFontColor", "ImagePath", "Material", "Text", "Font",
-        "DefaultFont", "PointSize", "TextStyle", "Visual", "ClassOverride",
-        "NavUp", "NavDown", "NavLeft", "NavRight", "NavTabForward",
-        "NavTabBackward", "ClipChildren", "UseMask", "MaskSource",
-        "ForceMaterials", "ImageMaskMaterial", "TextMaskMaterial",
-        "AARectangleMaskMaterial",
-        "KeepPosX", "KeepPosY", "KeepWidth", "KeepHeight",
-        "KeepPosXOnParentSizeChange", "KeepPosYOnParentSizeChange",
-        "KeepWidthOnParentSizeChange", "KeepHeightOnParentSizeChange",
-        "KeepPosXOnResolutionChange", "KeepPosYOnResolutionChange",
-        "KeepWidthOnResolutionChange", "KeepHeightOnResolutionChange",
-        "HoldAspectRatio", "HoldAspectRatioX", "HoldAspectPivotPosition",
-        "RoundPosition", "DisableTimelineRecursion", "UseScreenTransform",
-        "ScaleWidthByResolution", "ScaleHeightByResolution",
-        "Outline", "TextProgress", "Const0",
-        "Const1", "Shadow", "DataAssociation", "ContentVerticalAlign",
-        "ContentHorizontalAlign", "MarginLeft", "MarginTop", "MarginRight",
-        "MarginBottom", "SizeMode", "Uppercase", "AutoAdjustWidth",
-        "AutoAdjustHeight", "ClipMaskChannel",
-        "ContentVerticalAlign", "DefaultHorizontalAlign",
-        "DefaultVerticalAlign", "ContentHorizontalBorder",
-        "ContentVerticalBorder", "SourceString", "MultiLine",
-        "VerticalAlignDown", "OutlineSize", "ShadowColor",
-        "DropShadowColor", "ShadowOffset", "Bold", "Italic", "Underline",
-        "Strike", "CharacterSpacingAdjust", "LineSpacingAdjust",
-        "AutoSizeToText", "AutoSizeParentToText",
-        "MultilineAutoSizeHeight", "ClipText",
-        "ColorControlSequenceEnabled",
-    };
-    private static readonly HashSet<string> BooleanProperties = new(
-        StringComparer.Ordinal)
-    {
-        "Show", "ClipChildren", "UseMask", "ForceMaterials",
-        "KeepPosX", "KeepPosY",
-        "KeepWidth", "KeepHeight", "KeepPosXOnParentSizeChange",
-        "KeepPosYOnParentSizeChange", "KeepWidthOnParentSizeChange",
-        "KeepHeightOnParentSizeChange", "KeepPosXOnResolutionChange",
-        "KeepPosYOnResolutionChange", "KeepWidthOnResolutionChange",
-        "KeepHeightOnResolutionChange", "HoldAspectRatio",
-        "HoldAspectRatioX", "HoldAspectPivotPosition", "RoundPosition",
-        "DisableTimelineRecursion", "UseScreenTransform",
-        "ScaleWidthByResolution", "ScaleHeightByResolution",
-        "Uppercase", "AutoAdjustWidth",
-        "AutoAdjustHeight", "MultiLine", "VerticalAlignDown", "Bold",
-        "Italic", "Underline", "Strike", "AutoSizeToText",
-        "AutoSizeParentToText", "MultilineAutoSizeHeight", "ClipText",
-        "ColorControlSequenceEnabled",
-    };
-    private static readonly HashSet<string> NumberProperties = new(
-        StringComparer.Ordinal)
-    {
-        "Width", "Height", "Opacity", "PointSize", "Outline",
-        "TextProgress", "Const0", "Const1", "Shadow", "MarginLeft",
-        "MarginTop", "MarginRight", "MarginBottom", "OutlineSize",
-        "ShadowOffset", "ContentHorizontalBorder", "ContentVerticalBorder",
-        "CharacterSpacingAdjust", "LineSpacingAdjust",
-    };
-    private static readonly HashSet<string> ColorProperties = new(
-        StringComparer.Ordinal)
-    {
-        "Color", "TextColor", "OutlineColor", "DefaultFontColor",
-        "ShadowColor", "DropShadowColor",
-    };
+    private static readonly string[] NavigationPropertyNames =
+    [
+        "NavLeft",
+        "NavRight",
+        "NavUp",
+        "NavDown",
+        "NavTabForward",
+        "NavTabBackward",
+    ];
+    private static readonly XuiClassCatalog ClassCatalog =
+        XuiClassCatalog.Default;
     private readonly EditorSettings _settings;
     private readonly HashSet<string> _expanded = new(StringComparer.Ordinal);
     private readonly HashSet<string> _selectedKeys = new(StringComparer.Ordinal);
@@ -116,6 +64,7 @@ public partial class MainWindow : Window, IDisposable
     private XuiDocument? _document;
     private DyingLightInstallIndex? _installIndex;
     private DyingLightAssetResolver? _assetResolver;
+    private DyingLightXuiAssetCatalog? _assetCatalog;
     private DyingLightLayoutSession? _layoutSession;
     private HierarchyIndex? _hierarchyIndex;
     private string? _lastHierarchyFilter;
@@ -125,6 +74,7 @@ public partial class MainWindow : Window, IDisposable
     private bool _syncingSelection;
     private bool _updatingTick;
     private bool _updatingTimelineEditors;
+    private bool _updatingSemanticEditors;
     private bool _suppressRefresh;
     private bool _refreshPending;
     private bool _filterActive;
@@ -141,8 +91,10 @@ public partial class MainWindow : Window, IDisposable
     private bool _allowClose;
     private string? _recoverySuggestedPath;
     private RecoverySnapshot? _activeRecovery;
+    private XuiReferenceTransactionResult? _lastReferenceTransaction;
     private int _viewportLoadingDepth;
     private bool _disposed;
+    private Point _assetDragStart;
 
     private int CurrentTimelineTick =>
         _timelineWorkspace?.ActiveTick ?? 0;
@@ -153,6 +105,7 @@ public partial class MainWindow : Window, IDisposable
         HierarchyRows = [];
         InspectorProperties = [];
         FilteredDiagnostics = [];
+        AssetRows = [];
         InitializeComponent();
         DataContext = this;
         ReferenceOpacitySlider.Value = _settings.ReferenceOverlayOpacity;
@@ -195,6 +148,8 @@ public partial class MainWindow : Window, IDisposable
     public BatchObservableCollection<InspectorPropertyRow> InspectorProperties { get; }
 
     public BatchObservableCollection<XuiDiagnostic> FilteredDiagnostics { get; }
+
+    public BatchObservableCollection<XuiCatalogAsset> AssetRows { get; }
 
     internal IReadOnlyCollection<string> ExpandedKeysForTesting => _expanded;
 
@@ -301,6 +256,8 @@ public partial class MainWindow : Window, IDisposable
     {
         _assetResolver = resolver ??
                          throw new ArgumentNullException(nameof(resolver));
+        _assetCatalog = new DyingLightXuiAssetCatalog(resolver);
+        RefreshAssetRows();
         _layoutSession = null;
         Viewport.SetAssetResolver(resolver);
         RefreshEvaluation();
@@ -402,6 +359,52 @@ public partial class MainWindow : Window, IDisposable
         CommitInspectorValue(row);
     }
 
+    internal void SetInspectorValueForTesting(
+        string propertyName,
+        string value)
+    {
+        InspectorPropertyRow row =
+            InspectorProperties.Single(property =>
+                property.Name.Equals(
+                    propertyName,
+                    StringComparison.Ordinal));
+        row.Value = value;
+        CommitInspectorValue(row);
+    }
+
+    internal void ResetInspectorPropertyForTesting(string propertyName)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        string[] keys = _selectedKeys.ToArray();
+        ExecuteBatch(
+            () =>
+            {
+                foreach (string key in keys)
+                {
+                    XuiSyntaxNode? node =
+                        _document.SyntaxTree.FindByKey(key);
+                    XuiPropertyEntry? property = node is null
+                        ? null
+                        : XuiModelReader.GetProperty(
+                            node,
+                            _document.Text,
+                            propertyName);
+                    if (property is not null)
+                    {
+                        _document.Execute(
+                            XuiCommandFactory.RemoveElement(
+                                _document,
+                                property.Element));
+                    }
+                }
+            },
+            $"Reset {propertyName}");
+    }
+
     internal void SetAllInScopeForTesting(bool enabled)
     {
         AllTracksToggle.IsChecked = enabled;
@@ -423,6 +426,34 @@ public partial class MainWindow : Window, IDisposable
     internal void CommitTransformForTesting(
         XuiTransformCommittedEventArgs eventArgs) =>
         Viewport_TransformCommitted(this, eventArgs);
+
+    internal void CommitPivotForTesting(
+        string nodeKey,
+        XuiVector3 pivot,
+        bool preserve) =>
+        CommitPivot(
+            nodeKey,
+            pivot,
+            "Test pivot edit",
+            preserve);
+
+    internal void CommitNavigationForTesting(
+        string sourceNodeKey,
+        string propertyName,
+        string? targetNodeKey) =>
+        Viewport_NavigationEditRequested(
+            this,
+            new XuiNavigationEditRequestedEventArgs(
+                sourceNodeKey,
+                propertyName,
+                targetNodeKey));
+
+    internal void SetAdvancedInspectorForTesting(bool advanced)
+    {
+        _settings.ShowAdvancedInspector = advanced;
+        AdvancedInspectorToggle.IsChecked = advanced;
+        BuildInspector();
+    }
 
     internal void AddChildForTesting(
         string parentKey,
@@ -490,7 +521,21 @@ public partial class MainWindow : Window, IDisposable
         SafeAreaMenuItem.IsChecked = _settings.ShowSafeArea;
         BoundsMenuItem.IsChecked = _settings.ShowUnknownBounds;
         SnapMenuItem.IsChecked = _settings.SnapEnabled;
+        ParentMaskMenuItem.IsChecked = _settings.ShowParentMask;
+        GrayOutsideGroupMenuItem.IsChecked =
+            _settings.GrayOutsideSelectedGroup;
+        DesignTimeMenuItem.IsChecked = _settings.ShowDesignTimeElements;
+        NavigationMenuItem.IsChecked =
+            _settings.ShowNavigationConnections;
+        NavigationAllMenuItem.IsChecked =
+            _settings.ShowAllNavigationConnections;
+        ForceShowGroupMenuItem.IsChecked =
+            _settings.ForceShowCurrentGroup;
         ToolbarSnap.IsChecked = _settings.SnapEnabled;
+        AdvancedInspectorToggle.IsChecked =
+            _settings.ShowAdvancedInspector;
+        PreservePivotPositionCheckBox.IsChecked =
+            _settings.PreservePivotVisualPosition;
         ApplyViewportSettings();
         RebuildRecentFilesMenu();
         await EnsureInstallIndexAsync(showErrors: false).ConfigureAwait(true);
@@ -800,7 +845,16 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
-        AddXuiPropertyWindow dialog = new(DisplayNode(element))
+        XuiResolvedClassDefinition resolvedClass =
+            ClassCatalog.ResolveClass(element, _document.Text);
+        string[] authoredNames = XuiModelReader
+            .GetProperties(element, _document.Text)
+            .Select(static property => property.Name)
+            .ToArray();
+        AddXuiPropertyWindow dialog = new(
+            DisplayNode(element),
+            resolvedClass.Properties,
+            authoredNames)
         {
             Owner = this,
         };
@@ -1118,6 +1172,97 @@ public partial class MainWindow : Window, IDisposable
         ApplyViewportSettings();
     }
 
+    private void GridSettings_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        GridSettingsWindow dialog = new(_settings)
+        {
+            Owner = this,
+        };
+        if (dialog.ShowDialog() == true)
+        {
+            ApplyViewportSettings();
+        }
+    }
+
+    private void ParentMask_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        _settings.ShowParentMask = ParentMaskMenuItem.IsChecked;
+        ApplyViewportSettings();
+    }
+
+    private void GrayOutsideGroup_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        _settings.GrayOutsideSelectedGroup =
+            GrayOutsideGroupMenuItem.IsChecked;
+        ApplyViewportSettings();
+    }
+
+    private void DesignTime_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        _settings.ShowDesignTimeElements = DesignTimeMenuItem.IsChecked;
+        ApplyViewportSettings();
+    }
+
+    private void Navigation_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        _settings.ShowNavigationConnections =
+            NavigationMenuItem.IsChecked;
+        if (!_settings.ShowNavigationConnections)
+        {
+            _settings.ShowAllNavigationConnections = false;
+            NavigationAllMenuItem.IsChecked = false;
+        }
+
+        ApplyViewportSettings();
+        UpdateNavigationConnections();
+    }
+
+    private void NavigationAll_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        _settings.ShowAllNavigationConnections =
+            NavigationAllMenuItem.IsChecked;
+        if (_settings.ShowAllNavigationConnections)
+        {
+            _settings.ShowNavigationConnections = true;
+            NavigationMenuItem.IsChecked = true;
+        }
+
+        ApplyViewportSettings();
+        UpdateNavigationConnections();
+    }
+
+    private void SelectParentGroup_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (_document is null ||
+            SelectedNodes() is not [XuiSyntaxNode selected] ||
+            FindVisualParent(selected) is not XuiSyntaxNode parent)
+        {
+            StatusText.Text = "The selection has no parent group.";
+            return;
+        }
+
+        _selectedKeys.Clear();
+        _selectedKeys.Add(parent.Key);
+        EnsureSelectedAncestorsExpanded();
+        BuildHierarchy();
+        SelectRowsFromKeys(scrollIntoView: true);
+        UpdateSelectionSurfaces();
+    }
+
     private void ToolbarSnap_Changed(object sender, RoutedEventArgs eventArgs)
     {
         if (SnapMenuItem is null)
@@ -1156,12 +1301,85 @@ public partial class MainWindow : Window, IDisposable
         RefreshEvaluation();
     }
 
+    private void ForceShowCurrentGroup_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        _settings.ForceShowCurrentGroup =
+            ForceShowGroupMenuItem.IsChecked;
+        RebuildCurrentGroupForceShow();
+        RefreshEvaluation();
+    }
+
+    private void ForceShowAll_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        _settings.ForceShowCurrentGroup = false;
+        ForceShowGroupMenuItem.IsChecked = false;
+        _forceShownKeys.Clear();
+        _forceShownKeys.Add(_document.Root.Key);
+        _forceShownKeys.UnionWith(
+            XuiModelReader.VisualDescendants(_document.Root)
+                .Select(static node => node.Key));
+        RefreshEvaluation();
+    }
+
     private void ClearForceShown_Click(
         object sender,
         RoutedEventArgs eventArgs)
     {
         _forceShownKeys.Clear();
+        _settings.ForceShowCurrentGroup = false;
+        ForceShowGroupMenuItem.IsChecked = false;
         RefreshEvaluation();
+    }
+
+    private void RebuildCurrentGroupForceShow()
+    {
+        _forceShownKeys.Clear();
+        if (!_settings.ForceShowCurrentGroup ||
+            _document is null ||
+            SelectedNodes() is not [XuiSyntaxNode selected])
+        {
+            return;
+        }
+
+        XuiSyntaxNode group =
+            XuiModelReader.VisualChildren(selected).Any()
+                ? selected
+                : FindVisualParent(selected) ?? selected;
+        XuiSyntaxNode? ancestor = group;
+        while (ancestor is not null)
+        {
+            if (!XuiModelReader.IsStructural(ancestor))
+            {
+                _forceShownKeys.Add(ancestor.Key);
+            }
+
+            ancestor = ancestor.Parent;
+        }
+
+        _forceShownKeys.UnionWith(
+            XuiModelReader.VisualDescendants(group)
+                .Select(static node => node.Key));
+    }
+
+    private static XuiSyntaxNode? FindVisualParent(XuiSyntaxNode node)
+    {
+        XuiSyntaxNode? parent = node.Parent;
+        while (parent is not null &&
+               XuiModelReader.IsStructural(parent))
+        {
+            parent = parent.Parent;
+        }
+
+        return parent;
     }
 
     private void RestoreComposedPose_Click(
@@ -1412,7 +1630,8 @@ public partial class MainWindow : Window, IDisposable
             XuiAnimatedValue? sampled = TimelineEvaluator.Sample(
                 track,
                 currentTick);
-            lines.Add($"<Prop>{sampled?.ToXuiString() ?? DefaultTimelineValue(track.Property)}</Prop>");
+            lines.Add(
+                $"<Prop>{sampled?.ToXuiString() ?? DefaultTimelineValue(track)}</Prop>");
         }
 
         lines.Add("</KeyFrame>");
@@ -1786,6 +2005,121 @@ public partial class MainWindow : Window, IDisposable
         UpdateSelectionSurfaces();
     }
 
+    private void UpdateNavigationConnections()
+    {
+        if (_document is null ||
+            !_settings.ShowNavigationConnections)
+        {
+            Viewport.SetNavigationConnections([]);
+            return;
+        }
+
+        XuiNavigationPathResolver resolver = new(
+            _document.Root,
+            _document.Text);
+        IEnumerable<XuiSyntaxNode> allNodes =
+            XuiModelReader.VisualDescendants(_document.Root)
+                .Prepend(_document.Root);
+        IEnumerable<XuiSyntaxNode> sources =
+            _settings.ShowAllNavigationConnections
+                ? allNodes.Where(node =>
+                    NavigationPropertyNames.Any(name =>
+                        !string.IsNullOrWhiteSpace(
+                            XuiModelReader.GetPropertyValue(
+                                node,
+                                _document.Text,
+                                name))) ||
+                    _selectedKeys.Contains(node.Key))
+                : SelectedNodes();
+
+        List<XuiNavigationConnection> connections = [];
+        foreach (XuiSyntaxNode source in sources
+                     .DistinctBy(static node => node.Key, StringComparer.Ordinal))
+        {
+            foreach (string propertyName in NavigationPropertyNames)
+            {
+                string authoredPath =
+                    XuiModelReader.GetPropertyValue(
+                        source,
+                        _document.Text,
+                        propertyName)?.Trim() ??
+                    string.Empty;
+                XuiNavigationResolution resolution =
+                    resolver.Resolve(source, authoredPath);
+                connections.Add(new XuiNavigationConnection(
+                    source.Key,
+                    propertyName,
+                    authoredPath,
+                    resolution.Target?.Key,
+                    resolution.Status,
+                    resolution.Message));
+            }
+        }
+
+        Viewport.SetNavigationConnections(connections);
+    }
+
+    private void Viewport_NavigationEditRequested(
+        object? sender,
+        XuiNavigationEditRequestedEventArgs eventArgs)
+    {
+        if (_document?.SyntaxTree.FindByKey(
+                eventArgs.SourceNodeKey) is not XuiSyntaxNode source ||
+            IsLocked(source.Key))
+        {
+            StatusText.Text =
+                "The navigation source is unavailable or locked.";
+            return;
+        }
+
+        if (eventArgs.TargetNodeKey is null)
+        {
+            XuiPropertyEntry? existing = XuiModelReader.GetProperty(
+                source,
+                _document.Text,
+                eventArgs.PropertyName);
+            if (existing is null)
+            {
+                StatusText.Text =
+                    $"{eventArgs.PropertyName} is already clear.";
+                return;
+            }
+
+            _document.Execute(XuiCommandFactory.RemoveElement(
+                _document,
+                existing.Element));
+            StatusText.Text = $"Cleared {eventArgs.PropertyName}.";
+            return;
+        }
+
+        XuiSyntaxNode? target =
+            _document.SyntaxTree.FindByKey(eventArgs.TargetNodeKey);
+        if (target is null)
+        {
+            StatusText.Text =
+                "The navigation target no longer exists.";
+            return;
+        }
+
+        XuiNavigationPathResolver resolver = new(
+            _document.Root,
+            _document.Text);
+        if (!resolver.TryCreateStablePath(
+                source,
+                target,
+                out string path,
+                out string? error))
+        {
+            StatusText.Text = error ??
+                "The navigation target is ambiguous.";
+            return;
+        }
+
+        SetNodeProperty(source, eventArgs.PropertyName, path);
+        StatusText.Text =
+            $"{eventArgs.PropertyName} now targets {path}.";
+    }
+
     private void Viewport_TransformCommitted(
         object? sender,
         XuiTransformCommittedEventArgs eventArgs)
@@ -1848,6 +2182,16 @@ public partial class MainWindow : Window, IDisposable
         if (selectedNode is null ||
             IsCanvasRoot(selectedNode))
         {
+            return;
+        }
+
+        if (eventArgs.Kind == XuiTransformKind.Pivot)
+        {
+            CommitPivot(
+                selectedNode.Key,
+                eventArgs.NewPivot,
+                "Move pivot",
+                eventArgs.PreservePivotVisualPosition);
             return;
         }
 
@@ -2020,7 +2364,7 @@ public partial class MainWindow : Window, IDisposable
                         .SelectMany(timeline =>
                             timeline.timeline.Tracks
                                 .Where(static track =>
-                                    track.Property ==
+                                    track.KnownProperty ==
                                     XuiTimelineProperty.Position)
                                 .Select(track => (
                                     timeline.scope,
@@ -2396,6 +2740,191 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
+    private void AdvancedInspector_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        _settings.ShowAdvancedInspector =
+            AdvancedInspectorToggle.IsChecked == true;
+        BuildInspector();
+    }
+
+    private void InspectorReset_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (_document is null ||
+            sender is not Button
+            {
+                Tag: InspectorPropertyRow
+                {
+                    CanReset: true,
+                } row,
+            })
+        {
+            return;
+        }
+
+        string[] keys = _selectedKeys.ToArray();
+        ExecuteBatch(
+            () =>
+            {
+                foreach (string key in keys)
+                {
+                    XuiSyntaxNode? node =
+                        _document.SyntaxTree.FindByKey(key);
+                    XuiPropertyEntry? property = node is null
+                        ? null
+                        : XuiModelReader.GetProperty(
+                            node,
+                            _document.Text,
+                            row.Name);
+                    if (property is not null)
+                    {
+                        _document.Execute(
+                            XuiCommandFactory.RemoveElement(
+                                _document,
+                                property.Element));
+                    }
+                }
+            },
+            $"Reset {row.Name}");
+    }
+
+    private void TextStyleFlag_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (_updatingSemanticEditors ||
+            sender is not CheckBox { IsChecked: bool enabled } checkBox)
+        {
+            return;
+        }
+
+        (string Name, XuiKnownTextStyle Flag) property = checkBox.Name switch
+        {
+            nameof(TextBoldCheckBox) =>
+                ("Bold", XuiKnownTextStyle.Bold),
+            nameof(TextItalicCheckBox) =>
+                ("Italic", XuiKnownTextStyle.Italic),
+            nameof(TextUnderlineCheckBox) =>
+                ("Underline", XuiKnownTextStyle.Underline),
+            _ => default,
+        };
+        if (property.Name is null)
+        {
+            return;
+        }
+
+        ApplyTextStyleFlag(property.Name, property.Flag, enabled);
+    }
+
+    private void TextHorizontal_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs eventArgs)
+    {
+        if (_updatingSemanticEditors ||
+            TextHorizontalComboBox.SelectedItem is not ComboBoxItem
+            {
+                Tag: string tag,
+            } ||
+            !Enum.TryParse(
+                tag,
+                ignoreCase: false,
+                out XuiTextHorizontalStyle alignment))
+        {
+            return;
+        }
+
+        ApplyHorizontalTextAlignment(alignment);
+    }
+
+    private void TextVertical_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs eventArgs)
+    {
+        if (_updatingSemanticEditors ||
+            TextVerticalComboBox.SelectedItem is not ComboBoxItem
+            {
+                Tag: string alignment,
+            })
+        {
+            return;
+        }
+
+        ApplyVerticalTextAlignment(alignment);
+    }
+
+    private void PivotValue_LostKeyboardFocus(
+        object sender,
+        KeyboardFocusChangedEventArgs eventArgs)
+    {
+        if (!_updatingSemanticEditors)
+        {
+            CommitPivotEditorValues();
+        }
+    }
+
+    private void PivotValue_KeyDown(
+        object sender,
+        KeyEventArgs eventArgs)
+    {
+        if (eventArgs.Key == Key.Enter)
+        {
+            CommitPivotEditorValues();
+            Keyboard.ClearFocus();
+            eventArgs.Handled = true;
+        }
+        else if (eventArgs.Key == Key.Escape)
+        {
+            RefreshSemanticEditors(SelectedNodes());
+            Keyboard.ClearFocus();
+            eventArgs.Handled = true;
+        }
+    }
+
+    private void PivotPreset_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (_document is null ||
+            sender is not Button { Tag: string tag } ||
+            !Enum.TryParse(
+                tag,
+                ignoreCase: false,
+                out XuiPivotPreset preset) ||
+            SelectedNodes() is not [XuiSyntaxNode node])
+        {
+            return;
+        }
+
+        XuiVector3 current = ReadVector3(node, "Pivot", default);
+        XuiVector2 size = ReadElementSize(node);
+        CommitPivot(
+            node.Key,
+            XuiPivotEditing.ApplyPreset(
+                preset,
+                size,
+                current.Z),
+            $"Set pivot to {tag}");
+    }
+
+    private void PreservePivotPosition_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (_updatingSemanticEditors)
+        {
+            return;
+        }
+
+        _settings.PreservePivotVisualPosition =
+            PreservePivotPositionCheckBox.IsChecked == true;
+        Viewport.PreservePivotVisualPosition =
+            _settings.PreservePivotVisualPosition;
+        RefreshSemanticEditors(SelectedNodes());
+    }
+
     private void RawXmlExpander_Expanded(
         object sender,
         RoutedEventArgs eventArgs) =>
@@ -2765,6 +3294,785 @@ public partial class MainWindow : Window, IDisposable
         TextChangedEventArgs eventArgs) =>
         FilterDiagnostics();
 
+    private void AssetSearch_TextChanged(
+        object sender,
+        TextChangedEventArgs eventArgs) =>
+        RefreshAssetRows();
+
+    private void AssetKind_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs eventArgs) =>
+        RefreshAssetRows();
+
+    private void RefreshAssetRows()
+    {
+        if (_assetCatalog is null ||
+            AssetSearchTextBox is null ||
+            AssetKindComboBox is null)
+        {
+            AssetRows.ReplaceAll([]);
+            return;
+        }
+
+        string query = AssetSearchTextBox.Text.Trim();
+        string kind = (AssetKindComboBox.SelectedItem as ComboBoxItem)?
+            .Tag?.ToString() ?? "All";
+        AssetRows.ReplaceAll(_assetCatalog.Assets.Where(asset =>
+            (kind == "All" ||
+             asset.Kind.ToString().Equals(
+                 kind,
+                 StringComparison.OrdinalIgnoreCase)) &&
+            (query.Length == 0 ||
+             asset.Name.Contains(
+                 query,
+                 StringComparison.OrdinalIgnoreCase) ||
+             asset.LogicalPath.Contains(
+                 query,
+                 StringComparison.OrdinalIgnoreCase) ||
+             asset.SourceDisplayPath.Contains(
+                 query,
+                 StringComparison.OrdinalIgnoreCase))));
+    }
+
+    private void AssetList_MouseLeftButtonDown(
+        object sender,
+        MouseButtonEventArgs eventArgs) =>
+        _assetDragStart = eventArgs.GetPosition(AssetList);
+
+    private void AssetList_MouseMove(
+        object sender,
+        MouseEventArgs eventArgs)
+    {
+        if (eventArgs.LeftButton != MouseButtonState.Pressed ||
+            AssetList.SelectedItem is not XuiCatalogAsset asset)
+        {
+            return;
+        }
+
+        Vector delta = eventArgs.GetPosition(AssetList) - _assetDragStart;
+        if (Math.Abs(delta.X) <
+                SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(delta.Y) <
+                SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        DataObject data = new(typeof(XuiCatalogAsset), asset);
+        DragDrop.DoDragDrop(
+            AssetList,
+            data,
+            DragDropEffects.Copy);
+        Viewport.ClearAssetDragPreview();
+    }
+
+    private async void AssetList_MouseDoubleClick(
+        object sender,
+        MouseButtonEventArgs eventArgs) =>
+        await OpenSelectedAssetAsync().ConfigureAwait(true);
+
+    private void Viewport_AssetDragOver(
+        object sender,
+        DragEventArgs eventArgs)
+    {
+        if (eventArgs.Data.GetData(typeof(XuiCatalogAsset)) is not
+                XuiCatalogAsset asset ||
+            asset.Kind == XuiCatalogAssetKind.Screen)
+        {
+            eventArgs.Effects = DragDropEffects.None;
+            Viewport.ClearAssetDragPreview();
+            eventArgs.Handled = true;
+            return;
+        }
+
+        XuiVector2 logical = Viewport.LogicalPointFromControl(
+            eventArgs.GetPosition(Viewport));
+        XuiVector2 size = asset.LogicalSize ??
+            new XuiVector2(160, 32);
+        Viewport.SetAssetDragPreview(asset.Name, logical, size);
+        eventArgs.Effects = DragDropEffects.Copy;
+        eventArgs.Handled = true;
+    }
+
+    private void Viewport_AssetDragLeave(
+        object sender,
+        DragEventArgs eventArgs) =>
+        Viewport.ClearAssetDragPreview();
+
+    private void Viewport_AssetDrop(
+        object sender,
+        DragEventArgs eventArgs)
+    {
+        Viewport.ClearAssetDragPreview();
+        if (_document is null ||
+            eventArgs.Data.GetData(typeof(XuiCatalogAsset)) is not
+                XuiCatalogAsset asset)
+        {
+            return;
+        }
+
+        XuiVector2 logical = Viewport.LogicalPointFromControl(
+            eventArgs.GetPosition(Viewport));
+        string? hitKey = Viewport.HitNodeKey(logical);
+        XuiSyntaxNode? hit = hitKey is null
+            ? null
+            : _document.SyntaxTree.FindByKey(hitKey);
+        bool autoSize =
+            AutoSizeAssetDropCheckBox.IsChecked == true ||
+            Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+
+        if (asset.Kind == XuiCatalogAssetKind.Texture)
+        {
+            XuiRenderNode? rendered = Viewport.FrameForTesting?.Nodes
+                .LastOrDefault(node =>
+                    node.SelectionKey.Equals(
+                        hitKey,
+                        StringComparison.Ordinal) &&
+                    !node.IsVisualTemplatePart);
+            if (hit is not null &&
+                rendered?.Kind == XuiRenderKind.Image &&
+                !IsLocked(hit.Key))
+            {
+                ExecuteBatch(
+                    () =>
+                    {
+                        SetNodeProperty(hit, "ImagePath", asset.Name);
+                        if (autoSize &&
+                            asset.LogicalSize is XuiVector2 textureSize &&
+                            _document.SyntaxTree.FindByKey(hit.Key) is
+                                XuiSyntaxNode current)
+                        {
+                            SetNodeProperty(
+                                current,
+                                "Width",
+                                textureSize.X.ToString(
+                                    "0.000000",
+                                    CultureInfo.InvariantCulture));
+                            XuiSyntaxNode? resized =
+                                _document.SyntaxTree.FindByKey(hit.Key);
+                            if (resized is not null)
+                            {
+                                SetNodeProperty(
+                                    resized,
+                                    "Height",
+                                    textureSize.Y.ToString(
+                                        "0.000000",
+                                        CultureInfo.InvariantCulture));
+                            }
+                        }
+                    },
+                    "Set image texture");
+                return;
+            }
+
+            XuiSyntaxNode parent =
+                hit is not null &&
+                (rendered?.Kind is
+                    XuiRenderKind.Group or
+                    XuiRenderKind.Scene ||
+                 XuiModelReader.VisualChildren(hit).Any())
+                    ? hit
+                    : hit is null
+                        ? _document.Root
+                        : FindVisualParent(hit) ?? _document.Root;
+            if (IsLocked(parent.Key))
+            {
+                StatusText.Text =
+                    "The texture drop target is locked.";
+                return;
+            }
+
+            XuiVector2 local = Viewport.WorldPointToNodeLocal(
+                parent.Key,
+                logical);
+            XuiVector2 textureSize =
+                asset.LogicalSize ?? new XuiVector2(128, 128);
+            InsertVisualChild(
+                parent,
+                new XuiElementCreationRequest
+                {
+                    Preset = XuiElementPreset.Image,
+                    Id = SuggestedUniqueId(XuiElementPreset.Image),
+                    Width = textureSize.X,
+                    Height = textureSize.Y,
+                    Position = new XuiVector3(local.X, local.Y, 0),
+                    ImagePath = asset.Name,
+                    Color = "0xffffffff",
+                });
+            return;
+        }
+
+        if (hit is null || IsCanvasRoot(hit) || IsLocked(hit.Key))
+        {
+            StatusText.Text =
+                "Drop this asset on an editable element.";
+            return;
+        }
+
+        if (asset.Kind == XuiCatalogAssetKind.Visual)
+        {
+            SetNodeProperty(hit, "Visual", asset.Name);
+        }
+        else if (asset.Kind == XuiCatalogAssetKind.Font)
+        {
+            SetNodeProperty(hit, "Font", asset.Name);
+        }
+    }
+
+    private async void AssetOpen_Click(
+        object sender,
+        RoutedEventArgs eventArgs) =>
+        await OpenSelectedAssetAsync().ConfigureAwait(true);
+
+    private async Task OpenSelectedAssetAsync()
+    {
+        if (AssetList.SelectedItem is not XuiCatalogAsset asset ||
+            asset.Kind is not (
+                XuiCatalogAssetKind.Screen or
+                XuiCatalogAssetKind.Visual) ||
+            asset.SourceFile is null ||
+            !await ConfirmDiscardAsync().ConfigureAwait(true))
+        {
+            return;
+        }
+
+        XuiResolvedFile source = asset.SourceFile;
+        if (!source.IsVirtual &&
+            !asset.IsReadOnly &&
+            File.Exists(source.Path))
+        {
+            await OpenDocumentAsync(source.Path).ConfigureAwait(true);
+            SelectOpenedVisual(asset);
+            return;
+        }
+
+        using DelegateDisposable loading = BeginViewportLoading();
+        try
+        {
+            byte[] bytes = await source.ReadAllBytesAsync()
+                .ConfigureAwait(true);
+            XuiDocument document = XuiDocument.FromBytes(
+                bytes,
+                new XuiDocumentSource(
+                    Path.GetFileName(source.RelativePath),
+                    source.DisplayPath,
+                    source.RelativePath,
+                    IsReadOnly: true),
+                CreateDocumentOptions());
+            AttachDocument(document);
+            _watcher?.Dispose();
+            _watcher = null;
+            RefreshAll();
+            await RebuildAssetResolverAsync().ConfigureAwait(true);
+            SelectOpenedVisual(asset);
+            StatusText.Text =
+                "Read-only asset opened; use Copy to Workspace or Save As to edit it.";
+        }
+        catch (Exception exception) when (
+            exception is IOException or
+            UnauthorizedAccessException or
+            XuiParseException)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Could not open asset",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private void SelectOpenedVisual(XuiCatalogAsset asset)
+    {
+        if (asset.Kind != XuiCatalogAssetKind.Visual ||
+            _document is null ||
+            asset.SourceFile is null)
+        {
+            return;
+        }
+
+        bool sameSource =
+            string.Equals(
+                _document.Path,
+                asset.SourceFile.Path,
+                StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(
+                _document.Source?.Origin,
+                asset.SourceFile.DisplayPath,
+                StringComparison.OrdinalIgnoreCase);
+        if (!sameSource)
+        {
+            return;
+        }
+
+        XuiSyntaxNode[] matches = _document.Root
+            .DescendantsAndSelf()
+            .Where(node =>
+                node.Name == "XuiVisual" &&
+                string.Equals(
+                    XuiModelReader.GetId(node, _document.Text),
+                    asset.Name,
+                    StringComparison.Ordinal))
+            .ToArray();
+        if (matches.Length == 1)
+        {
+            SelectNodeKeysForTesting([matches[0].Key]);
+        }
+    }
+
+    private async void AssetCopy_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (AssetList.SelectedItem is not XuiCatalogAsset asset ||
+            _assetCatalog is null ||
+            !TryGetWorkspaceRoot(out string workspace))
+        {
+            return;
+        }
+
+        try
+        {
+            string destination =
+                await _assetCatalog.CopyToWorkspaceAsync(
+                    asset,
+                    workspace).ConfigureAwait(true);
+            StatusText.Text = $"Copied to {destination}.";
+            await RebuildAssetResolverAsync().ConfigureAwait(true);
+        }
+        catch (Exception exception) when (
+            exception is IOException or
+            UnauthorizedAccessException or
+            InvalidOperationException)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Copy to Workspace failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private async void AssetNewScreen_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (!TryGetWorkspaceRoot(out string workspace))
+        {
+            return;
+        }
+
+        SaveFileDialog dialog = new()
+        {
+            Title = "Create Workspace XUI Screen",
+            InitialDirectory = workspace,
+            Filter = "Dying Light XUI (*.xui)|*.xui",
+            DefaultExt = ".xui",
+            AddExtension = true,
+            OverwritePrompt = false,
+            FileName = "NewScreen.xui",
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!PathIsInside(workspace, dialog.FileName))
+            {
+                throw new InvalidOperationException(
+                    "New screens must stay inside the configured workspace.");
+            }
+
+            XuiWorkspaceResourceService service = new(workspace);
+            string path = await service.CreateScreenAsync(
+                Path.GetRelativePath(workspace, dialog.FileName))
+                .ConfigureAwait(true);
+            await OpenDocumentAsync(path).ConfigureAwait(true);
+        }
+        catch (Exception exception) when (
+            exception is IOException or
+            UnauthorizedAccessException or
+            InvalidOperationException)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Could not create workspace screen",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private async void AssetNewVisual_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (!TryGetWorkspaceRoot(out string workspace))
+        {
+            return;
+        }
+
+        SaveFileDialog dialog = new()
+        {
+            Title = "Create Workspace XUI Visual Library",
+            InitialDirectory = workspace,
+            Filter = "Dying Light XUI (*.xui)|*.xui",
+            DefaultExt = ".xui",
+            AddExtension = true,
+            OverwritePrompt = false,
+            FileName = "NewVisual.xui",
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!PathIsInside(workspace, dialog.FileName))
+            {
+                throw new InvalidOperationException(
+                    "New visuals must stay inside the configured workspace.");
+            }
+
+            string visualId =
+                Path.GetFileNameWithoutExtension(dialog.FileName);
+            XuiWorkspaceResourceService service = new(workspace);
+            string path = await service.CreateVisualAsync(
+                Path.GetRelativePath(workspace, dialog.FileName),
+                visualId).ConfigureAwait(true);
+            await OpenDocumentAsync(path).ConfigureAwait(true);
+            if (_document is not null)
+            {
+                XuiSyntaxNode? visual = _document.Root
+                    .DescendantsAndSelf()
+                    .SingleOrDefault(node =>
+                        node.Name == "XuiVisual" &&
+                        XuiModelReader.GetId(
+                            node,
+                            _document.Text) == visualId);
+                if (visual is not null)
+                {
+                    SelectNodeKeysForTesting([visual.Key]);
+                }
+            }
+        }
+        catch (Exception exception) when (
+            exception is IOException or
+            UnauthorizedAccessException or
+            InvalidOperationException)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Could not create workspace visual",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private async void AssetRename_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (!TryGetEditableWorkspaceAsset(
+                out XuiCatalogAsset? asset,
+                out XuiWorkspaceResourceService? service))
+        {
+            return;
+        }
+
+        if (asset.Kind == XuiCatalogAssetKind.Visual)
+        {
+            if (!EnsureWorkspaceTransactionReady())
+            {
+                return;
+            }
+
+            ReferenceReplacementWindow visualDialog = new(
+                service,
+                asset.Name,
+                asset.SourceFile!.Path)
+            {
+                Owner = this,
+            };
+            if (visualDialog.ShowDialog() == true &&
+                visualDialog.Result is
+                    XuiReferenceTransactionResult result)
+            {
+                StatusText.Text =
+                    $"Renamed visual and rebound " +
+                    $"{Math.Max(0, result.ChangedReferences - 1)} " +
+                    $"workspace reference(s); backups: " +
+                    $"{result.BackupDirectory}.";
+                _lastReferenceTransaction = result;
+                UndoReferenceTransactionButton.IsEnabled = true;
+                await RefreshAfterWorkspaceTransactionAsync(result)
+                    .ConfigureAwait(true);
+            }
+
+            return;
+        }
+
+        SaveFileDialog dialog = new()
+        {
+            Title = "Rename Workspace XUI",
+            InitialDirectory =
+                Path.GetDirectoryName(asset.SourceFile!.Path),
+            Filter = "Dying Light XUI (*.xui)|*.xui",
+            DefaultExt = ".xui",
+            AddExtension = true,
+            OverwritePrompt = false,
+            FileName = Path.GetFileName(asset.SourceFile.Path),
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            string destination = service.RenameLooseXui(
+                asset.SourceFile.Path,
+                Path.GetRelativePath(
+                    service.WorkspaceRoot,
+                    dialog.FileName));
+            StatusText.Text = $"Renamed to {destination}.";
+            await RebuildAssetResolverAsync().ConfigureAwait(true);
+        }
+        catch (Exception exception) when (
+            exception is IOException or
+            UnauthorizedAccessException or
+            InvalidOperationException)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Could not rename workspace XUI",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private async void AssetDelete_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (!TryGetEditableWorkspaceAsset(
+                out XuiCatalogAsset? asset,
+                out XuiWorkspaceResourceService? service))
+        {
+            return;
+        }
+
+        if (_document?.Path is string current &&
+            current.Equals(
+                asset.SourceFile!.Path,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            StatusText.Text =
+                "Close or open another document before deleting this screen.";
+            return;
+        }
+
+        if (MessageBox.Show(
+                this,
+                asset.Kind == XuiCatalogAssetKind.Visual
+                    ? $"Delete visual '{asset.Name}' from its workspace library? The operation is refused while references remain and creates a recovery backup."
+                    : $"Move '{asset.Name}' to the workspace recovery trash?",
+                asset.Kind == XuiCatalogAssetKind.Visual
+                    ? "Delete workspace visual"
+                    : "Delete workspace XUI",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            if (asset.Kind == XuiCatalogAssetKind.Visual)
+            {
+                XuiVisualDeleteResult result =
+                    await service.DeleteLooseVisualAsync(
+                        asset.SourceFile!.Path,
+                        asset.Name).ConfigureAwait(true);
+                StatusText.Text =
+                    $"Deleted visual; recovery backup: {result.BackupFile}.";
+            }
+            else
+            {
+                string trash =
+                    service.DeleteLooseXui(asset.SourceFile!.Path);
+                StatusText.Text =
+                    $"Moved to recoverable trash: {trash}.";
+            }
+
+            await RebuildAssetResolverAsync().ConfigureAwait(true);
+        }
+        catch (Exception exception) when (
+            exception is IOException or
+            UnauthorizedAccessException or
+            InvalidOperationException)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Could not delete workspace XUI",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private async void AssetReferences_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (AssetList.SelectedItem is not XuiCatalogAsset asset ||
+            !TryGetWorkspaceRoot(out string workspace) ||
+            !EnsureWorkspaceTransactionReady())
+        {
+            return;
+        }
+
+        ReferenceReplacementWindow dialog = new(
+            new XuiWorkspaceResourceService(workspace),
+            asset.Name)
+        {
+            Owner = this,
+        };
+        if (dialog.ShowDialog() == true &&
+            dialog.Result is XuiReferenceTransactionResult result)
+        {
+            _lastReferenceTransaction = result;
+            UndoReferenceTransactionButton.IsEnabled = true;
+            StatusText.Text =
+                $"Rebound {result.ChangedReferences} references in " +
+                $"{result.ChangedFiles} files; backups: {result.BackupDirectory}.";
+            await RefreshAfterWorkspaceTransactionAsync(result)
+                .ConfigureAwait(true);
+        }
+    }
+
+    private async void AssetUndoReferenceTransaction_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (_lastReferenceTransaction is not
+                XuiReferenceTransactionResult transaction ||
+            !TryGetWorkspaceRoot(out string workspace) ||
+            !EnsureWorkspaceTransactionReady())
+        {
+            return;
+        }
+
+        try
+        {
+            XuiWorkspaceResourceService service = new(workspace);
+            int restored = await service.UndoReplacementAsync(
+                transaction).ConfigureAwait(true);
+            _lastReferenceTransaction = null;
+            UndoReferenceTransactionButton.IsEnabled = false;
+            StatusText.Text =
+                $"Undid the last workspace rebind across {restored} file(s).";
+            await RefreshAfterWorkspaceTransactionAsync(transaction)
+                .ConfigureAwait(true);
+        }
+        catch (Exception exception) when (
+            exception is IOException or
+            UnauthorizedAccessException or
+            InvalidOperationException)
+        {
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "Could not undo workspace rebind",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private bool EnsureWorkspaceTransactionReady()
+    {
+        if (_document?.IsDirty != true)
+        {
+            return true;
+        }
+
+        MessageBox.Show(
+            this,
+            "Save or discard the current document edits before changing workspace-wide references.",
+            "Unsaved document",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+        return false;
+    }
+
+    private async Task RefreshAfterWorkspaceTransactionAsync(
+        XuiReferenceTransactionResult transaction)
+    {
+        string? currentPath = _document?.Path;
+        if (currentPath is not null &&
+            transaction.CommittedFiles.Any(snapshot =>
+                snapshot.FilePath.Equals(
+                    currentPath,
+                    StringComparison.OrdinalIgnoreCase)))
+        {
+            _ignoreWatcherUntilUtc = DateTime.UtcNow.AddSeconds(2);
+            await OpenDocumentAsync(currentPath).ConfigureAwait(true);
+            return;
+        }
+
+        await RebuildAssetResolverAsync().ConfigureAwait(true);
+    }
+
+    private bool TryGetWorkspaceRoot(out string workspace)
+    {
+        workspace = _settings.WorkspaceRoot?.Trim() ?? string.Empty;
+        if (workspace.Length > 0)
+        {
+            workspace = Path.GetFullPath(workspace);
+            Directory.CreateDirectory(workspace);
+            return true;
+        }
+
+        MessageBox.Show(
+            this,
+            "Configure a writable Workspace Root in Settings → Dying Light Resources first.",
+            "Workspace required",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+        return false;
+    }
+
+    private bool TryGetEditableWorkspaceAsset(
+        [NotNullWhen(true)] out XuiCatalogAsset? asset,
+        [NotNullWhen(true)] out XuiWorkspaceResourceService? service)
+    {
+        asset = AssetList.SelectedItem as XuiCatalogAsset;
+        service = null;
+        if (asset is null ||
+            asset.Kind is not (
+                XuiCatalogAssetKind.Screen or
+                XuiCatalogAssetKind.Visual) ||
+            asset.SourceFile is null ||
+            asset.SourceFile.IsVirtual ||
+            asset.IsReadOnly ||
+            !TryGetWorkspaceRoot(out string workspace) ||
+            !PathIsInside(workspace, asset.SourceFile.Path))
+        {
+            StatusText.Text =
+                "Only loose screens or visuals inside the writable workspace can be renamed or deleted. Copy archive assets first.";
+            return false;
+        }
+
+        service = new XuiWorkspaceResourceService(workspace);
+        return true;
+    }
+
     private void Window_KeyDown(object sender, KeyEventArgs eventArgs)
     {
         bool editingText = Keyboard.FocusedElement is TextBoxBase;
@@ -3103,6 +4411,8 @@ public partial class MainWindow : Window, IDisposable
             sources: sources,
             locale: _settings.Locale,
             inputGlyphScheme: _settings.InputGlyphScheme);
+        _assetCatalog = null;
+        AssetRows.ReplaceAll([]);
         _textureDiagnostics.Clear();
         _layoutSession = null;
         Viewport.SetAssetResolver(null);
@@ -3110,6 +4420,8 @@ public partial class MainWindow : Window, IDisposable
         try
         {
             await _assetResolver.RebuildAsync().ConfigureAwait(true);
+            _assetCatalog = new DyingLightXuiAssetCatalog(_assetResolver);
+            RefreshAssetRows();
             Viewport.SetAssetResolver(_assetResolver);
             int diagnosticCount = _assetResolver.Diagnostics.Count;
             AssetStatusText.Text =
@@ -3301,6 +4613,7 @@ public partial class MainWindow : Window, IDisposable
             Viewport.SetSelectedKeys(_selectedKeys);
             Viewport.SetHiddenKeys(EditorHiddenKeys());
             Viewport.SetLockedKeys(EditorLockedKeys());
+            UpdateNavigationConnections();
             RefreshPreviewState();
             UpdateTimelinePositionChrome();
             if (!_evaluationDiagnosticsInitialized ||
@@ -3450,6 +4763,7 @@ public partial class MainWindow : Window, IDisposable
         if (_document is null)
         {
             RawXmlExpander.Visibility = Visibility.Collapsed;
+            RefreshSemanticEditors([]);
             return;
         }
 
@@ -3468,65 +4782,836 @@ public partial class MainWindow : Window, IDisposable
         {
             BreadcrumbText.Text = string.Empty;
             RawXmlExpander.Visibility = Visibility.Collapsed;
+            RefreshSemanticEditors(nodes);
             return;
         }
 
-        List<string> propertyNames = [];
-        foreach (XuiSyntaxNode node in nodes)
+        IReadOnlyList<XuiCatalogPropertySelection> selections =
+            ClassCatalog.SelectProperties(
+                nodes,
+                _document.Text,
+                _settings.ShowAdvancedInspector);
+        foreach (XuiCatalogPropertySelection propertySelection in selections)
         {
-            foreach (XuiPropertyEntry property in XuiModelReader.GetProperties(
-                         node,
-                         _document.Text))
-            {
-                if (!propertyNames.Contains(property.Name, StringComparer.Ordinal))
-                {
-                    propertyNames.Add(property.Name);
-                }
-            }
-        }
-
-        if (nodes.All(IsIuiTextNode) &&
-            !propertyNames.Contains(
-                "ColorControlSequenceEnabled",
-                StringComparer.Ordinal))
-        {
-            propertyNames.Add("ColorControlSequenceEnabled");
-        }
-
-        foreach (string name in propertyNames)
-        {
+            string name = propertySelection.Definition.Name;
             string?[] values = nodes
                 .Select(node => XuiModelReader.GetPropertyValue(
                     node,
                     _document.Text,
                     name))
                 .ToArray();
-            bool defaultDisabledColorControl =
-                name == "ColorControlSequenceEnabled" &&
-                values.All(static value => value is null);
-            bool mixed = !defaultDisabledColorControl &&
+            bool anyAuthored = values.Any(static value => value is not null);
+            bool mixed = anyAuthored &&
                          (values.Any(static value => value is null) ||
                           values.Distinct(StringComparer.Ordinal).Count() > 1);
             InspectorPropertyRow row = new(
                 name,
                 mixed
                     ? MixedValue
-                    : defaultDisabledColorControl
-                        ? "false"
-                        : values[0] ?? string.Empty,
-                PropertyCategory(name),
+                    : values[0] ??
+                      propertySelection.Definition.DefaultValue,
+                propertySelection.Definition.Category,
                 mixed,
-                !KnownProperties.Contains(name),
-                InspectorChoices(name),
+                ClassCatalog.FindProperty(name) is null,
+                propertySelection.Definition.Choices,
                 isBooleanToggle:
-                    name == "ColorControlSequenceEnabled");
+                    propertySelection.Definition.Type ==
+                    XuiPropertyType.Boolean,
+                isAuthored: anyAuthored,
+                propertySelection.Definition);
             row.Error = mixed ? null : ValidateProperty(name, row.Value);
             InspectorProperties.Add(row);
         }
 
         BreadcrumbText.Text = snapshot.Breadcrumb;
+        RefreshSemanticEditors(nodes);
         RefreshRawXmlEditor(nodes);
     }
+
+    private void RefreshSemanticEditors(XuiSyntaxNode[] nodes)
+    {
+        _updatingSemanticEditors = true;
+        try
+        {
+            bool textSelection =
+                nodes.Length > 0 &&
+                nodes.All(IsIuiTextNode);
+            TextStyleExpander.Visibility = textSelection
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            if (textSelection)
+            {
+                SetTriState(
+                    TextBoldCheckBox,
+                    nodes.Select(node => EffectiveTextFlag(
+                        node,
+                        "Bold",
+                        XuiKnownTextStyle.Bold)));
+                SetTriState(
+                    TextItalicCheckBox,
+                    nodes.Select(node => EffectiveTextFlag(
+                        node,
+                        "Italic",
+                        XuiKnownTextStyle.Italic)));
+                SetTriState(
+                    TextUnderlineCheckBox,
+                    nodes.Select(node => EffectiveTextFlag(
+                        node,
+                        "Underline",
+                        XuiKnownTextStyle.Underline)));
+                SelectComboTag(
+                    TextHorizontalComboBox,
+                    CommonValue(nodes.Select(EffectiveHorizontalAlignment)));
+                SelectComboTag(
+                    TextVerticalComboBox,
+                    CommonValue(nodes.Select(EffectiveVerticalAlignment)));
+                int[] styles = nodes
+                    .Select(ReadTextStyle)
+                    .Distinct()
+                    .ToArray();
+                TextStyleRawText.Text = styles.Length == 1
+                    ? string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"Raw {styles[0]} / {XuiTextStyleCodec.ToHexString(styles[0])} · unmapped {XuiTextStyleCodec.ToHexString(XuiTextStyleCodec.Decode(styles[0]).UnmappedBits)}")
+                    : "Raw TextStyle: mixed values";
+            }
+
+            bool pivotSelection = nodes.Length == 1;
+            PivotExpander.Visibility = pivotSelection
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            if (!pivotSelection)
+            {
+                return;
+            }
+
+            XuiSyntaxNode node = nodes[0];
+            XuiVector3 pivot = ReadVector3(node, "Pivot", default);
+            PivotXTextBox.Text = pivot.X.ToString(
+                "0.######",
+                CultureInfo.InvariantCulture);
+            PivotYTextBox.Text = pivot.Y.ToString(
+                "0.######",
+                CultureInfo.InvariantCulture);
+            PivotZTextBox.Text = pivot.Z.ToString(
+                "0.######",
+                CultureInfo.InvariantCulture);
+            bool canPreserve = CanPreservePivot(node, out string reason);
+            PreservePivotPositionCheckBox.IsEnabled = canPreserve;
+            PreservePivotPositionCheckBox.IsChecked =
+                _settings.PreservePivotVisualPosition;
+            PivotStatusText.Text = canPreserve
+                ? _settings.PreservePivotVisualPosition
+                    ? "Preserve mode compensates authored Position and Position keys."
+                    : "Raw runtime mode changes Pivot and Pivot keys."
+                : reason;
+            Viewport.PreservePivotVisualPosition =
+                _settings.PreservePivotVisualPosition && canPreserve;
+        }
+        finally
+        {
+            _updatingSemanticEditors = false;
+        }
+    }
+
+    private bool EffectiveTextFlag(
+        XuiSyntaxNode node,
+        string propertyName,
+        XuiKnownTextStyle style)
+    {
+        if (_document is not null &&
+            XuiModelReader.GetPropertyValue(
+                node,
+                _document.Text,
+                propertyName) is string authored &&
+            XuiValueParser.TryBoolean(authored, out bool value))
+        {
+            return value;
+        }
+
+        return XuiTextStyleCodec.Decode(ReadTextStyle(node)).Has(style);
+    }
+
+    private string EffectiveHorizontalAlignment(XuiSyntaxNode node)
+    {
+        string? explicitValue = FirstAuthoredValue(
+            node,
+            "HorizontalAlign",
+            "ContentHorizontalAlign",
+            "DefaultHorizontalAlign");
+        if (!string.IsNullOrWhiteSpace(explicitValue))
+        {
+            return explicitValue.Trim().ToLowerInvariant() switch
+            {
+                "left" or "0" => "Left",
+                "center" or "1" => "Center",
+                "right" or "2" => "Right",
+                _ => "Unspecified",
+            };
+        }
+
+        return XuiTextStyleCodec
+            .Decode(ReadTextStyle(node))
+            .HorizontalAlignment
+            .ToString();
+    }
+
+    private string EffectiveVerticalAlignment(XuiSyntaxNode node)
+    {
+        string? explicitValue = FirstAuthoredValue(
+            node,
+            "VerticalAlign",
+            "ContentVerticalAlign",
+            "DefaultVerticalAlign");
+        if (!string.IsNullOrWhiteSpace(explicitValue))
+        {
+            return explicitValue.Trim().ToLowerInvariant() switch
+            {
+                "middle" or "1" => "Middle",
+                "bottom" or "2" => "Bottom",
+                _ => "Top",
+            };
+        }
+
+        if (_document is not null &&
+            XuiModelReader.GetPropertyValue(
+                node,
+                _document.Text,
+                "VerticalAlignDown") is string bottom &&
+            XuiValueParser.TryBoolean(bottom, out bool isBottom) &&
+            isBottom)
+        {
+            return "Bottom";
+        }
+
+        return XuiTextStyleCodec.Decode(ReadTextStyle(node)).VerticalMiddle
+            ? "Middle"
+            : "Top";
+    }
+
+    private string? FirstAuthoredValue(
+        XuiSyntaxNode node,
+        params string[] propertyNames)
+    {
+        if (_document is null)
+        {
+            return null;
+        }
+
+        foreach (string propertyName in propertyNames)
+        {
+            string? value = XuiModelReader.GetPropertyValue(
+                node,
+                _document.Text,
+                propertyName);
+            if (value is not null)
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private int ReadTextStyle(XuiSyntaxNode node)
+    {
+        string? raw = _document is null
+            ? null
+            : XuiModelReader.GetPropertyValue(
+                node,
+                _document.Text,
+                "TextStyle");
+        return XuiTextStyleCodec.TryParse(
+            raw ?? "0",
+            out XuiDecodedTextStyle style)
+            ? style.RawValue
+            : 0;
+    }
+
+    private static void SetTriState(
+        CheckBox checkBox,
+        IEnumerable<bool> values)
+    {
+        bool[] distinct = values.Distinct().ToArray();
+        checkBox.IsThreeState = distinct.Length > 1;
+        checkBox.IsChecked = distinct.Length == 1
+            ? distinct[0]
+            : null;
+    }
+
+    private static string? CommonValue(IEnumerable<string> values)
+    {
+        string[] distinct = values
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return distinct.Length == 1
+            ? distinct[0]
+            : null;
+    }
+
+    private static void SelectComboTag(
+        ComboBox comboBox,
+        string? tag)
+    {
+        comboBox.SelectedItem = tag is null
+            ? null
+            : comboBox.Items
+                .OfType<ComboBoxItem>()
+                .FirstOrDefault(item =>
+                    string.Equals(
+                        item.Tag as string,
+                        tag,
+                        StringComparison.Ordinal));
+    }
+
+    private void ApplyTextStyleFlag(
+        string propertyName,
+        XuiKnownTextStyle style,
+        bool enabled)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        string[] keys = SelectedNodes()
+            .Where(IsIuiTextNode)
+            .Select(static node => node.Key)
+            .ToArray();
+        ExecuteBatch(
+            () =>
+            {
+                foreach (string key in keys)
+                {
+                    XuiSyntaxNode? node =
+                        _document.SyntaxTree.FindByKey(key);
+                    if (node is null)
+                    {
+                        continue;
+                    }
+
+                    if (XuiModelReader.GetProperty(
+                            node,
+                            _document.Text,
+                            propertyName) is not null)
+                    {
+                        SetNodeProperty(
+                            node,
+                            propertyName,
+                            enabled ? "true" : "false");
+                        continue;
+                    }
+
+                    SetLegacyTextStyle(
+                        key,
+                        raw => XuiTextStyleCodec.SetFlag(
+                            raw,
+                            style,
+                            enabled));
+                }
+            },
+            $"Set text {propertyName}");
+    }
+
+    private void ApplyHorizontalTextAlignment(
+        XuiTextHorizontalStyle alignment)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        string[] keys = SelectedNodes()
+            .Where(IsIuiTextNode)
+            .Select(static node => node.Key)
+            .ToArray();
+        ExecuteBatch(
+            () =>
+            {
+                foreach (string key in keys)
+                {
+                    XuiSyntaxNode? node =
+                        _document.SyntaxTree.FindByKey(key);
+                    if (node is null)
+                    {
+                        continue;
+                    }
+
+                    string? authoredName = FirstAuthoredPropertyName(
+                        node,
+                        "HorizontalAlign",
+                        "ContentHorizontalAlign",
+                        "DefaultHorizontalAlign");
+                    if (authoredName is not null)
+                    {
+                        SetNodeProperty(
+                            node,
+                            authoredName,
+                            alignment.ToString().ToLowerInvariant());
+                    }
+                    else
+                    {
+                        SetLegacyTextStyle(
+                            key,
+                            raw => XuiTextStyleCodec.SetHorizontalAlignment(
+                                raw,
+                                alignment));
+                    }
+                }
+            },
+            "Set horizontal text alignment");
+    }
+
+    private void ApplyVerticalTextAlignment(string alignment)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        string normalized = alignment.ToLowerInvariant();
+        string[] keys = SelectedNodes()
+            .Where(IsIuiTextNode)
+            .Select(static node => node.Key)
+            .ToArray();
+        ExecuteBatch(
+            () =>
+            {
+                foreach (string key in keys)
+                {
+                    XuiSyntaxNode? node =
+                        _document.SyntaxTree.FindByKey(key);
+                    if (node is null)
+                    {
+                        continue;
+                    }
+
+                    string? authoredName = FirstAuthoredPropertyName(
+                        node,
+                        "VerticalAlign",
+                        "ContentVerticalAlign",
+                        "DefaultVerticalAlign");
+                    if (authoredName is not null)
+                    {
+                        SetNodeProperty(node, authoredName, normalized);
+                        continue;
+                    }
+
+                    SetLegacyTextStyle(
+                        key,
+                        raw => XuiTextStyleCodec.SetVerticalMiddle(
+                            raw,
+                            normalized == "middle"));
+                    node = _document.SyntaxTree.FindByKey(key);
+                    if (node is null)
+                    {
+                        continue;
+                    }
+
+                    bool isBottom = normalized == "bottom";
+                    if (isBottom ||
+                        XuiModelReader.GetProperty(
+                            node,
+                            _document.Text,
+                            "VerticalAlignDown") is not null)
+                    {
+                        SetNodeProperty(
+                            node,
+                            "VerticalAlignDown",
+                            isBottom ? "true" : "false");
+                    }
+                }
+            },
+            "Set vertical text alignment");
+    }
+
+    private string? FirstAuthoredPropertyName(
+        XuiSyntaxNode node,
+        params string[] propertyNames)
+    {
+        if (_document is null)
+        {
+            return null;
+        }
+
+        return propertyNames.FirstOrDefault(name =>
+            XuiModelReader.GetProperty(
+                node,
+                _document.Text,
+                name) is not null);
+    }
+
+    private void SetLegacyTextStyle(
+        string nodeKey,
+        Func<int, int> update)
+    {
+        if (_document?.SyntaxTree.FindByKey(nodeKey) is not
+            XuiSyntaxNode node)
+        {
+            return;
+        }
+
+        string raw = XuiModelReader.GetPropertyValue(
+            node,
+            _document.Text,
+            "TextStyle") ?? "0";
+        if (!XuiTextStyleCodec.TryParse(
+                raw,
+                out XuiDecodedTextStyle current))
+        {
+            throw new InvalidOperationException(
+                $"TextStyle '{raw}' is invalid and cannot be edited semantically.");
+        }
+
+        int updated = update(current.RawValue);
+        if (updated == current.RawValue &&
+            XuiModelReader.GetProperty(
+                node,
+                _document.Text,
+                "TextStyle") is null)
+        {
+            return;
+        }
+
+        SetNodeProperty(
+            node,
+            "TextStyle",
+            XuiTextStyleCodec.ToDecimalString(updated));
+    }
+
+    private void CommitPivotEditorValues()
+    {
+        if (_document is null ||
+            SelectedNodes() is not [XuiSyntaxNode node] ||
+            !XuiValueParser.TryNumber(
+                PivotXTextBox.Text,
+                out double x) ||
+            !XuiValueParser.TryNumber(
+                PivotYTextBox.Text,
+                out double y) ||
+            !XuiValueParser.TryNumber(
+                PivotZTextBox.Text,
+                out double z))
+        {
+            PivotStatusText.Text =
+                "Pivot requires three finite numeric values.";
+            return;
+        }
+
+        CommitPivot(
+            node.Key,
+            new XuiVector3(x, y, z),
+            "Edit pivot");
+    }
+
+    private void CommitPivot(
+        string nodeKey,
+        XuiVector3 newPivot,
+        string description,
+        bool? preserveOverride = null)
+    {
+        if (_document?.SyntaxTree.FindByKey(nodeKey) is not
+            XuiSyntaxNode node)
+        {
+            return;
+        }
+
+        XuiVector3 oldPivot = ReadVector3(node, "Pivot", default);
+        XuiVector3 delta = newPivot - oldPivot;
+        if (Math.Abs(delta.X) <= 0.000001 &&
+            Math.Abs(delta.Y) <= 0.000001 &&
+            Math.Abs(delta.Z) <= 0.000001)
+        {
+            return;
+        }
+
+        string? targetId = XuiModelReader.GetId(node, _document.Text);
+        bool preserve =
+            (preserveOverride ??
+             _settings.PreservePivotVisualPosition) &&
+            CanPreservePivot(node, out _);
+        XuiVector3 oldPosition = ReadVector3(
+            node,
+            "Position",
+            default);
+        XuiVector3 newPosition = oldPosition;
+        XuiVector3 scale = ReadVector3(
+            node,
+            "Scale",
+            new XuiVector3(1, 1, 1));
+        double rotation = ReadRotationDegrees(node);
+        if (preserve)
+        {
+            newPosition = XuiPivotEditing.CompensatePosition(
+                oldPosition,
+                oldPivot,
+                newPivot,
+                scale,
+                rotation);
+        }
+
+        List<TimelineVectorEdit> timelineEdits = [];
+        if (!string.IsNullOrWhiteSpace(targetId))
+        {
+            timelineEdits.AddRange(PlanTimelineVectorEdits(
+                node,
+                targetId,
+                XuiTimelineProperty.Pivot,
+                value => value + delta));
+            if (preserve)
+            {
+                timelineEdits.AddRange(PlanTimelineVectorEdits(
+                    node,
+                    targetId,
+                    XuiTimelineProperty.Position,
+                    value => XuiPivotEditing.CompensatePosition(
+                        value,
+                        oldPivot,
+                        newPivot,
+                        scale,
+                        rotation)));
+            }
+        }
+
+        ExecuteBatch(
+            () =>
+            {
+                XuiSyntaxNode? current =
+                    _document.SyntaxTree.FindByKey(nodeKey);
+                if (current is null)
+                {
+                    return;
+                }
+
+                SetNodeProperty(
+                    current,
+                    "Pivot",
+                    FormatVector3(newPivot));
+                if (preserve)
+                {
+                    current = _document.SyntaxTree.FindByKey(nodeKey);
+                    if (current is not null)
+                    {
+                        SetNodeProperty(
+                            current,
+                            "Position",
+                            FormatVector3(newPosition));
+                    }
+                }
+
+                foreach (TimelineVectorEdit edit in timelineEdits)
+                {
+                    XuiSyntaxNode? propertyNode =
+                        _document.SyntaxTree.FindByKey(
+                            edit.PropertyNodeKey);
+                    if (propertyNode is not null)
+                    {
+                        _document.Execute(
+                            XuiCommandFactory.SetElementValue(
+                                _document,
+                                propertyNode,
+                                edit.Value));
+                    }
+                }
+            },
+            description);
+        StatusText.Text = preserve
+            ? "Pivot changed with visual-position compensation."
+            : "Pivot changed with raw runtime semantics.";
+    }
+
+    private List<TimelineVectorEdit> PlanTimelineVectorEdits(
+        XuiSyntaxNode node,
+        string targetId,
+        XuiTimelineProperty property,
+        Func<XuiVector3, XuiVector3> transform)
+    {
+        EnsureCompiledLayout();
+        if (_layoutSession is null)
+        {
+            return [];
+        }
+
+        string? recursionBarrier = TimelineRecursionBarrierFor(node);
+        List<TimelineVectorEdit> edits = [];
+        foreach (XuiTrack track in _layoutSession.TimelineScopes.Scopes
+                     .Where(scope =>
+                         KeyIsAncestorOrSelf(
+                             scope.ScopeKey,
+                             node.Key) &&
+                         (recursionBarrier is null ||
+                          KeyIsAncestorOrSelf(
+                              recursionBarrier,
+                              scope.ScopeKey)))
+                     .SelectMany(static scope => scope.Timelines)
+                     .Where(timeline => timeline.TargetId.Equals(
+                         targetId,
+                         StringComparison.Ordinal))
+                     .SelectMany(static timeline => timeline.Tracks)
+                     .Where(track => track.KnownProperty == property))
+        {
+            foreach (XuiSyntaxNode keyFrame in track.KeyFrames
+                         .Select(static frame => frame.Syntax))
+            {
+                XuiSyntaxNode? propertyNode = keyFrame
+                    .Elements("Prop")
+                    .ElementAtOrDefault(track.SourcePropertyIndex);
+                if (propertyNode is null)
+                {
+                    continue;
+                }
+
+                string raw = propertyNode.GetDecodedValue(_document!.Text);
+                XuiVector3 value;
+                bool authoredVector3 =
+                    XuiValueParser.TryVector3(raw, out value);
+                if (!authoredVector3 &&
+                    XuiValueParser.TryVector2(
+                        raw,
+                        out XuiVector2 vector2))
+                {
+                    value = new XuiVector3(vector2.X, vector2.Y, 0);
+                }
+                else if (!authoredVector3)
+                {
+                    throw new InvalidOperationException(
+                        $"{property} key '{raw}' is not a 2D or 3D vector.");
+                }
+
+                XuiVector3 updated = transform(value);
+                edits.Add(new TimelineVectorEdit(
+                    propertyNode.Key,
+                    authoredVector3
+                        ? FormatVector3(updated)
+                        : FormatVector2(new XuiVector2(
+                            updated.X,
+                            updated.Y))));
+            }
+        }
+
+        return edits;
+    }
+
+    private bool CanPreservePivot(
+        XuiSyntaxNode node,
+        out string reason)
+    {
+        string? targetId = _document is null
+            ? null
+            : XuiModelReader.GetId(node, _document.Text);
+        if (string.IsNullOrWhiteSpace(targetId))
+        {
+            reason =
+                "Preserve mode requires an authored Id so related animation tracks can be checked.";
+            return false;
+        }
+
+        if (_timelineSet is not null &&
+            !XuiPivotEditing.CanPreserveVisualPosition(
+                _timelineSet.Timelines,
+                targetId))
+        {
+            reason =
+                "Preserve mode is unavailable because Scale or Rotation is animated. Raw runtime mode remains available.";
+            return false;
+        }
+
+        reason = string.Empty;
+        return true;
+    }
+
+    private XuiVector2 ReadElementSize(XuiSyntaxNode node)
+    {
+        XuiRenderNode? rendered = Viewport.FrameForTesting?
+            .Nodes
+            .FirstOrDefault(candidate =>
+                candidate.SelectionKey.Equals(
+                    node.Key,
+                    StringComparison.Ordinal) &&
+                !candidate.IsVisualTemplatePart);
+        if (rendered is not null)
+        {
+            return rendered.AuthoredSize;
+        }
+
+        double width = ReadNumber(node, "Width", 40);
+        double height = ReadNumber(node, "Height", 20);
+        return new XuiVector2(width, height);
+    }
+
+    private double ReadNumber(
+        XuiSyntaxNode node,
+        string name,
+        double fallback)
+    {
+        string? raw = _document is null
+            ? null
+            : XuiModelReader.GetPropertyValue(
+                node,
+                _document.Text,
+                name);
+        return XuiValueParser.TryNumber(raw ?? string.Empty, out double value)
+            ? value
+            : fallback;
+    }
+
+    private XuiVector3 ReadVector3(
+        XuiSyntaxNode node,
+        string name,
+        XuiVector3 fallback)
+    {
+        string? raw = _document is null
+            ? null
+            : XuiModelReader.GetPropertyValue(
+                node,
+                _document.Text,
+                name);
+        if (XuiValueParser.TryVector3(raw ?? string.Empty, out XuiVector3 value))
+        {
+            return value;
+        }
+
+        return XuiValueParser.TryVector2(
+            raw ?? string.Empty,
+            out XuiVector2 vector2)
+            ? new XuiVector3(vector2.X, vector2.Y, fallback.Z)
+            : fallback;
+    }
+
+    private double ReadRotationDegrees(XuiSyntaxNode node)
+    {
+        string? raw = _document is null
+            ? null
+            : XuiModelReader.GetPropertyValue(
+                node,
+                _document.Text,
+                "Rotation");
+        if (XuiValueParser.TryNumber(raw ?? string.Empty, out double number))
+        {
+            return number;
+        }
+
+        if (XuiValueParser.TryVector3(
+                raw ?? string.Empty,
+                out XuiVector3 vector))
+        {
+            return vector.Z;
+        }
+
+        return XuiValueParser.TryQuaternion(
+            raw ?? string.Empty,
+            out XuiQuaternion quaternion)
+            ? quaternion.ZRotationDegrees
+            : 0;
+    }
+
+    private static string FormatVector2(XuiVector2 value) =>
+        FormattableString.Invariant(
+            $"{value.X:0.######},{value.Y:0.######}");
+
+    private static string FormatVector3(XuiVector3 value) =>
+        FormattableString.Invariant(
+            $"{value.X:0.######},{value.Y:0.######},{value.Z:0.######}");
 
     private void RefreshRawXmlEditor(
         XuiSyntaxNode[]? selectedNodes = null,
@@ -3615,6 +5700,13 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
+        string committedValue = row.Name == "TextStyle" &&
+                                XuiTextStyleCodec.TryParse(
+                                    row.Value,
+                                    out XuiDecodedTextStyle textStyle)
+            ? XuiTextStyleCodec.ToDecimalString(textStyle.RawValue)
+            : row.Value;
+        row.Value = committedValue;
         IReadOnlyList<string> keys = _selectedKeys.ToArray();
         bool needsChange = keys.Any(key =>
         {
@@ -3625,7 +5717,7 @@ public partial class MainWindow : Window, IDisposable
                            node,
                            _document.Text,
                            row.Name),
-                       row.Value,
+                       committedValue,
                        StringComparison.Ordinal);
         });
         if (!needsChange)
@@ -3652,11 +5744,11 @@ public partial class MainWindow : Window, IDisposable
                         _document,
                         node,
                         row.Name,
-                        row.Value)
+                        committedValue)
                     : XuiCommandFactory.SetElementValue(
                         _document,
                         property.Element,
-                        row.Value);
+                        committedValue);
                 _document.Execute(command);
             }
         });
@@ -3665,7 +5757,14 @@ public partial class MainWindow : Window, IDisposable
     private void UpdateSelectionSurfaces()
     {
         StopPlayback();
+        if (_settings.ForceShowCurrentGroup)
+        {
+            RebuildCurrentGroupForceShow();
+            RefreshEvaluation();
+        }
+
         Viewport.SetSelectedKeys(_selectedKeys);
+        UpdateNavigationConnections();
         SelectionSnapshot selection = CaptureSelection();
         BuildInspector(selection);
         ResolveTimelineScopeFromSelection(selection);
@@ -3848,7 +5947,7 @@ public partial class MainWindow : Window, IDisposable
                 return;
             }
 
-            KeyPropertyText.Text = track.Property.ToString();
+            KeyPropertyText.Text = track.PropertyName;
             XuiSyntaxNode? current =
                 _document?.SyntaxTree.FindByKey(selected.Syntax.Key);
             XuiSyntaxNode? prop = current?
@@ -3893,12 +5992,13 @@ public partial class MainWindow : Window, IDisposable
 
         string value = KeyValueTextBox.Text;
         if (!XuiTimelineParser.TryParsePropertyValue(
-                track.Property,
+                track.PropertyName,
+                track.KnownProperty,
                 value,
                 out _))
         {
             string message =
-                $"'{value}' is invalid for {track.Property}. The keyframe was not changed.";
+                $"'{value}' is invalid for {track.PropertyName}. The keyframe was not changed.";
             KeyValueErrorText.Text = message;
             StatusText.Text = message;
             return;
@@ -4669,6 +6769,33 @@ public partial class MainWindow : Window, IDisposable
         Viewport.ShowUnknownBounds = _settings.ShowUnknownBounds;
         Viewport.SnapEnabled = _settings.SnapEnabled;
         Viewport.GridSize = Math.Max(1, _settings.GridSize);
+        Viewport.MajorGridSize = _settings.MajorGridSize;
+        Viewport.CoarseGridSize = _settings.CoarseGridSize;
+        Viewport.SnapGridSize = _settings.SnapGridTier switch
+        {
+            XuiGridTier.Major => _settings.MajorGridSize,
+            XuiGridTier.Coarse => _settings.CoarseGridSize,
+            _ => _settings.GridSize,
+        };
+        Viewport.MinorGridColor = ParseGuideColor(
+            _settings.MinorGridColor,
+            Color.FromArgb(32, 54, 59, 64));
+        Viewport.MajorGridColor = ParseGuideColor(
+            _settings.MajorGridColor,
+            Color.FromArgb(64, 83, 90, 98));
+        Viewport.CoarseGridColor = ParseGuideColor(
+            _settings.CoarseGridColor,
+            Color.FromArgb(96, 112, 120, 130));
+        Viewport.PreservePivotVisualPosition =
+            _settings.PreservePivotVisualPosition;
+        Viewport.ShowParentMask = _settings.ShowParentMask;
+        Viewport.GrayOutsideSelectedGroup =
+            _settings.GrayOutsideSelectedGroup;
+        Viewport.ShowDesignTimeElements =
+            _settings.ShowDesignTimeElements;
+        Viewport.ShowNavigationConnections =
+            _settings.ShowNavigationConnections;
+        Viewport.RefreshEditorGuides();
         if (_document is null)
         {
             Viewport.SetFrame(null);
@@ -4676,6 +6803,26 @@ public partial class MainWindow : Window, IDisposable
         }
 
         RefreshEvaluation();
+    }
+
+    private static Color ParseGuideColor(
+        string? value,
+        Color fallback)
+    {
+        try
+        {
+            return ColorConverter.ConvertFromString(value) is Color color
+                ? color
+                : fallback;
+        }
+        catch (FormatException)
+        {
+            return fallback;
+        }
+        catch (NotSupportedException)
+        {
+            return fallback;
+        }
     }
 
     private void AddRecentFile(string path)
@@ -4870,58 +7017,6 @@ public partial class MainWindow : Window, IDisposable
         return string.Join("  ›  ", parts);
     }
 
-    private static string PropertyCategory(string name)
-    {
-        if (name is "Id" or "ClassOverride" or "Visual")
-        {
-            return "Identity";
-        }
-
-        if (name is "Width" or "Height" or "Position" or "Anchor" or "Pivot" or
-            "Scale" or "Rotation" || name.StartsWith("Keep", StringComparison.Ordinal) ||
-            name.StartsWith("HoldAspect", StringComparison.Ordinal) ||
-            name.Contains("Resolution", StringComparison.Ordinal) ||
-            name.Contains("ParentSize", StringComparison.Ordinal))
-        {
-            return "Layout";
-        }
-
-        if (name is "Opacity" or "Show" or "Color" or "Material" or "UseMask" or
-            "MaskSource" or "ClipChildren" or "ClipMaskChannel" or
-            "ForceMaterials" or "ImageMaskMaterial" or "TextMaskMaterial" or
-            "AARectangleMaskMaterial")
-        {
-            return "Appearance";
-        }
-
-        if (name.Contains("Text", StringComparison.Ordinal) ||
-            name.Contains("Font", StringComparison.Ordinal) ||
-            name.Contains("Image", StringComparison.Ordinal) ||
-            name is "PointSize" or "Uppercase" or "SizeMode" or
-            "MultiLine" or "VerticalAlignDown" or "Outline" or
-            "OutlineSize" or "OutlineColor" or "Shadow" or
-            "ShadowColor" or "DropShadowColor" or "ShadowOffset" or
-            "Bold" or "Italic" or "Underline" or "Strike" or
-            "SourceString" or "CharacterSpacingAdjust" or
-            "LineSpacingAdjust" or "ColorControlSequenceEnabled")
-        {
-            return "Text / Image";
-        }
-
-        if (name.StartsWith("Nav", StringComparison.Ordinal))
-        {
-            return "Navigation";
-        }
-
-        if (name is "TextProgress" or "Const0" or "Const1" or
-            "DisableTimelineRecursion")
-        {
-            return "Animation";
-        }
-
-        return "Raw / Unknown";
-    }
-
     private bool IsIuiTextNode(XuiSyntaxNode node)
     {
         if (_document is null)
@@ -4946,24 +7041,12 @@ public partial class MainWindow : Window, IDisposable
 
     private static string? ValidateProperty(string name, string value)
     {
-        if (BooleanProperties.Contains(name) &&
-            !XuiValueParser.TryBoolean(value, out _))
-        {
-            return $"{name} must be true or false.";
-        }
-
         if (name is "Outline" or "Shadow")
         {
             return XuiValueParser.TryBoolean(value, out _) ||
                    XuiValueParser.TryNumber(value, out _)
                 ? null
                 : $"{name} must be true, false, or a finite numeric strength.";
-        }
-
-        if (NumberProperties.Contains(name) &&
-            !XuiValueParser.TryNumber(value, out _))
-        {
-            return $"{name} must be a finite number.";
         }
 
         if (name == "Anchor" &&
@@ -4974,13 +7057,6 @@ public partial class MainWindow : Window, IDisposable
             return "Anchor must be a valid Dying Light bitmask (0–127).";
         }
 
-        if (name is "Position" or "Pivot" or "Scale" &&
-            !XuiValueParser.TryVector3(value, out _) &&
-            !XuiValueParser.TryVector2(value, out _))
-        {
-            return $"{name} must contain two or three comma-separated numbers.";
-        }
-
         if (name == "Rotation" &&
             !XuiValueParser.TryQuaternion(value, out _) &&
             !XuiValueParser.TryVector3(value, out _) &&
@@ -4989,13 +7065,15 @@ public partial class MainWindow : Window, IDisposable
             return "Rotation must be a quaternion, Euler vector, or numeric angle.";
         }
 
-        if (ColorProperties.Contains(name) &&
-            !XuiValueParser.TryColor(value, out _))
+        if (name == "TextStyle" &&
+            !XuiTextStyleCodec.TryParse(value, out _))
         {
-            return $"{name} must be 0xAARRGGBB, #AARRGGBB, or #RRGGBB.";
+            return "TextStyle must be a decimal or 0x-prefixed integer bitmask.";
         }
 
-        if ((name is "ContentHorizontalAlign" or "DefaultHorizontalAlign") &&
+        if ((name is "HorizontalAlign" or
+             "ContentHorizontalAlign" or
+             "DefaultHorizontalAlign") &&
             value.Trim().ToLowerInvariant() is not
                 ("left" or "center" or "right" or "justify" or
                  "0" or "1" or "2" or "3"))
@@ -5003,37 +7081,55 @@ public partial class MainWindow : Window, IDisposable
             return $"{name} must be left, center, right, or justify.";
         }
 
-        if ((name is "ContentVerticalAlign" or "DefaultVerticalAlign") &&
+        if ((name is "VerticalAlign" or
+             "ContentVerticalAlign" or
+             "DefaultVerticalAlign") &&
             value.Trim().ToLowerInvariant() is not
                 ("top" or "middle" or "bottom" or "0" or "1" or "2"))
         {
             return $"{name} must be top, middle, or bottom.";
         }
 
-        return null;
-    }
-
-    private static IReadOnlyList<string> InspectorChoices(string name)
-    {
-        if (BooleanProperties.Contains(name))
+        XuiPropertyDefinition? definition = ClassCatalog.FindProperty(name);
+        if (definition is null || name == "TextStyle")
         {
-            return ["true", "false"];
+            return null;
         }
 
-        if (name is "ContentHorizontalAlign" or "DefaultHorizontalAlign")
+        bool valid = definition.Type switch
         {
-            return ["left", "center", "right", "justify"];
-        }
-
-        return name is "ContentVerticalAlign" or "DefaultVerticalAlign"
-            ? ["top", "middle", "bottom"]
-            : [];
+            XuiPropertyType.Boolean =>
+                XuiValueParser.TryBoolean(value, out _),
+            XuiPropertyType.WholeNumber =>
+                XuiValueParser.TryInteger(value, out _),
+            XuiPropertyType.Number =>
+                XuiValueParser.TryNumber(value, out _),
+            XuiPropertyType.Vector2 =>
+                XuiValueParser.TryVector2(value, out _),
+            XuiPropertyType.Vector3 =>
+                XuiValueParser.TryVector3(value, out _) ||
+                XuiValueParser.TryVector2(value, out _),
+            XuiPropertyType.Vector4 =>
+                XuiValueParser.TryVector4(value, out _),
+            XuiPropertyType.Quaternion =>
+                XuiValueParser.TryQuaternion(value, out _) ||
+                XuiValueParser.TryVector3(value, out _) ||
+                XuiValueParser.TryVector2(value, out _) ||
+                XuiValueParser.TryNumber(value, out _),
+            XuiPropertyType.Color =>
+                XuiValueParser.TryColor(value, out _),
+            _ => true,
+        };
+        return valid
+            ? null
+            : $"{name} must be a valid {definition.Type} value.";
     }
 
-    private static string DefaultTimelineValue(XuiTimelineProperty property) =>
-        property switch
+    private static string DefaultTimelineValue(XuiTrack track) =>
+        track.KnownProperty switch
         {
             XuiTimelineProperty.Show => "true",
+            XuiTimelineProperty.Play => "false",
             XuiTimelineProperty.Scale => "1.000000,1.000000,1.000000",
             XuiTimelineProperty.Position or
             XuiTimelineProperty.Pivot => "0.000000,0.000000,0.000000",
@@ -5044,7 +7140,8 @@ public partial class MainWindow : Window, IDisposable
             XuiTimelineProperty.OutlineColor or
             XuiTimelineProperty.DefaultFontColor => "0xffffffff",
             XuiTimelineProperty.ImagePath or
-            XuiTimelineProperty.Material => string.Empty,
+            XuiTimelineProperty.Material or
+            XuiTimelineProperty.Text => string.Empty,
             _ => "0.000000",
         };
 
@@ -5085,6 +7182,10 @@ public partial class MainWindow : Window, IDisposable
 
     private sealed record PositionKeyMove(
         string PropKey,
+        string Value);
+
+    private sealed record TimelineVectorEdit(
+        string PropertyNodeKey,
         string Value);
 
     public void Dispose()

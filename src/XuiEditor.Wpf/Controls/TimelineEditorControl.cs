@@ -548,7 +548,7 @@ public sealed class TimelineEditorControl : FrameworkElement
                 new Point(ActualWidth, y + RowHeight));
             DrawText(
                 drawing,
-                $"{item.Timeline.TargetId}  ·  {item.Track.Property}",
+                $"{item.Timeline.TargetId}  ·  {item.Track.PropertyName}",
                 new Point(10, y + 5),
                 11,
                 Color.FromRgb(220, 223, 227));
