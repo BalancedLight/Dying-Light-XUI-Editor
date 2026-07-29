@@ -10,7 +10,7 @@
         MinHeight="680"
         Background="{StaticResource WindowBrush}"
         Foreground="{StaticResource TextBrush}"
-        WindowStartupLocation="CenterScreen"
+        WindowStartupLocation="Manual"
         Closing="Window_Closing"
         Loaded="Window_Loaded"
         KeyDown="Window_KeyDown">
@@ -379,7 +379,8 @@
                 <MenuItem Header="Clear Force-show"
                           Click="ClearForceShown_Click" />
             </MenuItem>
-            <MenuItem Header="_Animation">
+            <MenuItem x:Name="AnimationMenuItem"
+                      Header="_Animation">
                 <MenuItem Header="_Play / Pause" InputGestureText="Space"
                           Click="PlayPause_Click" />
                 <MenuItem Header="_Stop" Click="Stop_Click" />
@@ -1147,40 +1148,44 @@
                                                VerticalAlignment="Center"
                                                Margin="2,0,8,0"
                                                Text="No timeline scope" />
-                                    <Button x:Name="PlayPauseButton"
-                                            Content="Play"
-                                            Click="PlayPause_Click" />
-                                    <Button Content="Stop" Click="Stop_Click" />
-                                    <Button Content="‹ Tick" Click="PreviousTick_Click" />
-                                    <Button Content="Tick ›" Click="NextTick_Click" />
-                                    <CheckBox x:Name="LoopCheckBox"
-                                              Content="Loop"
-                                              IsChecked="True"
-                                              VerticalAlignment="Center"
-                                              Margin="9,0" />
-                                    <ToggleButton x:Name="AllTracksToggle"
-                                                  Content="All in scope"
-                                                  ToolTip="Show every target owned by the active timeline scope"
-                                                  Checked="AllTracksToggle_Changed"
-                                                  Unchecked="AllTracksToggle_Changed" />
-                                    <TextBlock Text="Speed"
-                                               Foreground="{StaticResource MutedTextBrush}"
-                                               VerticalAlignment="Center"
-                                               Margin="8,0,4,0" />
-                                    <ComboBox x:Name="SpeedComboBox"
-                                              Width="72"
-                                              SelectedIndex="2">
-                                        <ComboBoxItem Content="0.25×" Tag="0.25" />
-                                        <ComboBoxItem Content="0.5×" Tag="0.5" />
-                                        <ComboBoxItem Content="1×" Tag="1" />
-                                        <ComboBoxItem Content="2×" Tag="2" />
-                                        <ComboBoxItem Content="4×" Tag="4" />
-                                    </ComboBox>
-                                    <Separator Margin="5,3" />
-                                    <Button Content="+ Key" Click="AddKeyFrame_Click" />
-                                    <Button Content="Delete Key" Click="DeleteKeyFrame_Click" />
-                                    <Button Content="Copy" Click="CopyKeyFrame_Click" />
-                                    <Button Content="Paste" Click="PasteKeyFrame_Click" />
+                                    <ToggleButton x:Name="IncludeDescendantsToggle"
+                                                  Content="Include descendants"
+                                                  Margin="0,0,5,0"
+                                                  ToolTip="Show animation tracks for all selected elements and their descendants in this timeline scope"
+                                                  Checked="IncludeDescendantsToggle_Changed"
+                                                  Unchecked="IncludeDescendantsToggle_Changed" />
+                                    <StackPanel x:Name="TimelineActionsPanel"
+                                                Orientation="Horizontal">
+                                        <Button x:Name="PlayPauseButton"
+                                                Content="Play"
+                                                Click="PlayPause_Click" />
+                                        <Button Content="Stop" Click="Stop_Click" />
+                                        <Button Content="‹ Tick" Click="PreviousTick_Click" />
+                                        <Button Content="Tick ›" Click="NextTick_Click" />
+                                        <CheckBox x:Name="LoopCheckBox"
+                                                  Content="Loop"
+                                                  IsChecked="True"
+                                                  VerticalAlignment="Center"
+                                                  Margin="9,0" />
+                                        <TextBlock Text="Speed"
+                                                   Foreground="{StaticResource MutedTextBrush}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="8,0,4,0" />
+                                        <ComboBox x:Name="SpeedComboBox"
+                                                  Width="72"
+                                                  SelectedIndex="2">
+                                            <ComboBoxItem Content="0.25×" Tag="0.25" />
+                                            <ComboBoxItem Content="0.5×" Tag="0.5" />
+                                            <ComboBoxItem Content="1×" Tag="1" />
+                                            <ComboBoxItem Content="2×" Tag="2" />
+                                            <ComboBoxItem Content="4×" Tag="4" />
+                                        </ComboBox>
+                                        <Separator Margin="5,3" />
+                                        <Button Content="+ Key" Click="AddKeyFrame_Click" />
+                                        <Button Content="Delete Key" Click="DeleteKeyFrame_Click" />
+                                        <Button Content="Copy" Click="CopyKeyFrame_Click" />
+                                        <Button Content="Paste" Click="PasteKeyFrame_Click" />
+                                    </StackPanel>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1"
                                             Orientation="Horizontal"

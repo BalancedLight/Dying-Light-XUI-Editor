@@ -202,9 +202,15 @@ Every element that owns a `Timelines` child is compiled into an independent
 activates the deepest applicable owner for the current selection, and samples
 unrelated scopes at their own remembered ticks. A mixed-scope selection
 disables playback and mutation rather than synchronizing unrelated controllers.
-**All in scope** expands only the active owner's targets, and named-frame
-markers and commands are likewise scope-local. Visual-library animations are
-resolved independently at tick zero.
+The timeline lists only explicitly selected targets. **Include descendants**
+unions each selected visual subtree, deduplicates target IDs, and stops at
+nested independent scope boundaries; it never admits siblings merely because
+they share an owner. A selection with no matching tracks leaves the filter
+available but disables transport and timeline mutation. When tracks are
+available, playback still advances the owner's shared clock so hidden sibling
+tracks evaluate exactly as they do in game. Named-frame markers and commands
+remain scope-local. Visual-library animations are resolved independently at
+tick zero.
 
 For a useful first view, the desktop initializes each document scope to a
 deterministic editor-only composed tick. Candidate key ticks are scored from

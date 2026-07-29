@@ -51,7 +51,6 @@ public sealed class TimelineEditorControl : FrameworkElement
     private TrackKey? _selectedKey;
     private TrackKey? _dragKey;
     private int _dragTick;
-    private bool _waitingForSelection;
     private bool _mixedScopes;
 
     public TimelineEditorControl()
@@ -78,7 +77,15 @@ public sealed class TimelineEditorControl : FrameworkElement
 
     public XuiTimeline? SelectedTimeline => _selectedKey?.Timeline;
 
+    public bool HasVisibleTracks => _tracks.Count > 0;
+
     internal int VisibleTrackCountForTesting => _tracks.Count;
+
+    internal IReadOnlyCollection<string> VisibleTargetIdsForTesting =>
+        _tracks
+            .Select(static item => item.Timeline.TargetId)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
 
     internal IReadOnlyCollection<string> VisibleScopeKeysForTesting =>
         _tracks
@@ -93,15 +100,13 @@ public sealed class TimelineEditorControl : FrameworkElement
     public void SetData(
         XuiTimelineSet? timelineSet,
         IEnumerable<string> selectedIds,
-        int tick,
-        bool showAllWhenEmpty = false)
+        int tick)
     {
         SetScopeData(
             timelineSet,
             activeScopeKey: null,
             selectedIds,
             tick,
-            showAllWhenEmpty,
             mixedScopes: false);
     }
 
@@ -110,7 +115,6 @@ public sealed class TimelineEditorControl : FrameworkElement
         string? activeScopeKey,
         IEnumerable<string> selectedIds,
         int tick,
-        bool showAllInScope,
         bool mixedScopes)
     {
         ArgumentNullException.ThrowIfNull(selectedIds);
@@ -143,7 +147,6 @@ public sealed class TimelineEditorControl : FrameworkElement
             maximumTick,
             selectedIds,
             tick,
-            showAllInScope,
             mixedScopes);
     }
 
@@ -151,7 +154,6 @@ public sealed class TimelineEditorControl : FrameworkElement
         XuiTimelineScope? activeScope,
         IEnumerable<string> selectedIds,
         int tick,
-        bool showAllInScope,
         bool mixedScopes)
     {
         ArgumentNullException.ThrowIfNull(selectedIds);
@@ -163,7 +165,6 @@ public sealed class TimelineEditorControl : FrameworkElement
             activeScope?.MaximumTick ?? 0,
             selectedIds,
             tick,
-            showAllInScope,
             mixedScopes);
     }
 
@@ -175,7 +176,6 @@ public sealed class TimelineEditorControl : FrameworkElement
         int maximumTick,
         IEnumerable<string> selectedIds,
         int tick,
-        bool showAllInScope,
         bool mixedScopes)
     {
         string? selectedSyntaxKey = _selectedKey?.Frame.Syntax.Key;
@@ -186,21 +186,10 @@ public sealed class TimelineEditorControl : FrameworkElement
         _tick = Math.Max(0, tick);
         HashSet<string> targets = new(selectedIds, StringComparer.Ordinal);
         _tracks.Clear();
-        _waitingForSelection =
-            hasTimelineData &&
-            activeScopeKey is not null &&
-            targets.Count == 0 &&
-            !showAllInScope;
         if (hasTimelineData && !mixedScopes)
         {
-            IEnumerable<XuiTimeline> visibleTimelines = timelines;
-            if (!showAllInScope)
-            {
-                visibleTimelines = visibleTimelines.Where(timeline =>
-                    targets.Contains(timeline.TargetId));
-            }
-
-            foreach (XuiTimeline timeline in visibleTimelines)
+            foreach (XuiTimeline timeline in timelines.Where(timeline =>
+                         targets.Contains(timeline.TargetId)))
             {
                 foreach (XuiTrack track in timeline.Tracks)
                 {
@@ -393,9 +382,7 @@ public sealed class TimelineEditorControl : FrameworkElement
                     ? "Selected nodes belong to different timeline scopes"
                     : _activeScopeKey is null
                         ? "This document has no timeline scope"
-                        : _waitingForSelection
-                            ? "Select a node in this scope or enable All in scope"
-                            : "The current selection has no animated tracks");
+                        : "The current selection has no animated tracks");
         }
 
         DrawRows(drawing);

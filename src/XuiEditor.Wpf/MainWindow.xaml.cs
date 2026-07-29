@@ -108,6 +108,9 @@ public partial class MainWindow : Window, IDisposable
         FilteredDiagnostics = [];
         AssetRows = [];
         InitializeComponent();
+        Width = Math.Max(MinWidth, _settings.WindowWidth);
+        Height = Math.Max(MinHeight, _settings.WindowHeight);
+        CenterOnPrimaryWorkArea();
         DataContext = this;
         ReferenceOpacitySlider.Value = _settings.ReferenceOverlayOpacity;
 
@@ -171,8 +174,14 @@ public partial class MainWindow : Window, IDisposable
 
     internal bool TimelineEditingEnabledForTesting =>
         TimelineTransportPanel.IsEnabled &&
+        TimelineActionsPanel.IsEnabled &&
         TimelineEditPanel.IsEnabled &&
-        TimelineEditor.IsEnabled;
+        TimelineEditor.IsEnabled &&
+        TickSlider.IsEnabled &&
+        AnimationMenuItem.IsEnabled;
+
+    internal bool IncludeDescendantsEnabledForTesting =>
+        IncludeDescendantsToggle.IsEnabled;
 
     internal long LayoutEvaluationCountForTesting =>
         _layoutEvaluationCount;
@@ -460,9 +469,9 @@ public partial class MainWindow : Window, IDisposable
             $"Reset {propertyName}");
     }
 
-    internal void SetAllInScopeForTesting(bool enabled)
+    internal void SetIncludeDescendantsForTesting(bool enabled)
     {
-        AllTracksToggle.IsChecked = enabled;
+        IncludeDescendantsToggle.IsChecked = enabled;
         UpdateTimelineData();
     }
 
@@ -564,8 +573,6 @@ public partial class MainWindow : Window, IDisposable
 
     private async void Window_Loaded(object sender, RoutedEventArgs eventArgs)
     {
-        Width = Math.Max(MinWidth, _settings.WindowWidth);
-        Height = Math.Max(MinHeight, _settings.WindowHeight);
         HierarchyColumn.Width = new GridLength(
             Math.Max(180, _settings.HierarchyWidth));
         InspectorColumn.Width = new GridLength(
@@ -622,6 +629,13 @@ public partial class MainWindow : Window, IDisposable
                 await OpenRecoveryAsync(latest).ConfigureAwait(true);
             }
         }
+    }
+
+    private void CenterOnPrimaryWorkArea()
+    {
+        Rect workArea = SystemParameters.WorkArea;
+        Left = workArea.Left + (workArea.Width - Width) / 2;
+        Top = workArea.Top + (workArea.Height - Height) / 2;
     }
 
     private async void Open_Click(object sender, RoutedEventArgs eventArgs)
@@ -1441,6 +1455,11 @@ public partial class MainWindow : Window, IDisposable
         object sender,
         RoutedEventArgs eventArgs)
     {
+        if (!TimelineEditor.HasVisibleTracks)
+        {
+            return;
+        }
+
         StopPlayback();
         if (_timelineWorkspace?.RestoreActiveComposedTick() != true)
         {
@@ -1617,7 +1636,8 @@ public partial class MainWindow : Window, IDisposable
 
     private void PlayPause_Click(object sender, RoutedEventArgs eventArgs)
     {
-        if (_timelineWorkspace?.ActiveScope is not XuiTimelineScope scope ||
+        if (!TimelineEditor.HasVisibleTracks ||
+            _timelineWorkspace?.ActiveScope is not XuiTimelineScope scope ||
             scope.MaximumTick <= 0)
         {
             return;
@@ -1839,10 +1859,13 @@ public partial class MainWindow : Window, IDisposable
         eventArgs.Handled = true;
     }
 
-    private void AllTracksToggle_Changed(
+    private void IncludeDescendantsToggle_Changed(
         object sender,
-        RoutedEventArgs eventArgs) =>
+        RoutedEventArgs eventArgs)
+    {
+        StopPlayback();
         UpdateTimelineData();
+    }
 
     private void HierarchyVisibility_Click(
         object sender,
@@ -6338,24 +6361,51 @@ public partial class MainWindow : Window, IDisposable
                 activeScopeKey: null,
                 [],
                 tick: 0,
-                showAllInScope: false,
                 mixedScopes: false);
             RefreshKeyFrameEditor();
             UpdateTimelineScopeChrome();
             return;
         }
 
-        IReadOnlyList<string> selectedIds =
-            (selection ?? CaptureSelection()).Ids;
+        SelectionSnapshot snapshot = selection ?? CaptureSelection();
         TimelineEditor.SetScopeData(
             _timelineWorkspace?.ActiveScope,
-            selectedIds,
+            TimelineTargetIds(snapshot),
             CurrentTimelineTick,
-            AllTracksToggle.IsChecked == true,
             _timelineWorkspace?.HasMixedSelection == true);
         UpdateTimelineScopeChrome();
         RefreshKeyFrameEditor();
         UpdateTimelinePositionChrome();
+    }
+
+    private string[] TimelineTargetIds(
+        SelectionSnapshot selection)
+    {
+        if (_document is null ||
+            _timelineWorkspace?.ActiveScope is not XuiTimelineScope activeScope)
+        {
+            return [];
+        }
+
+        IEnumerable<XuiSyntaxNode> candidates =
+            IncludeDescendantsToggle.IsChecked == true
+                ? selection.Nodes.SelectMany(node =>
+                    new[] { node }.Concat(
+                        XuiModelReader.VisualDescendants(node)))
+                : selection.Nodes;
+        return candidates
+            .Where(node =>
+                _timelineWorkspace.Catalog.ResolveForNode(
+                    node,
+                    _document.Text) is XuiTimelineScope nodeScope &&
+                nodeScope.ScopeKey.Equals(
+                    activeScope.ScopeKey,
+                    StringComparison.Ordinal))
+            .Select(node => XuiModelReader.GetId(node, _document.Text))
+            .Where(static id => !string.IsNullOrEmpty(id))
+            .Cast<string>()
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
     }
 
     private void UpdateTimelinePositionChrome()
@@ -6378,18 +6428,28 @@ public partial class MainWindow : Window, IDisposable
     private void UpdateTimelineScopeChrome()
     {
         XuiTimelineScope? scope = _timelineWorkspace?.ActiveScope;
-        bool enabled = scope is not null &&
-                       _timelineWorkspace?.HasMixedSelection != true;
-        TimelineTransportPanel.IsEnabled = enabled;
-        TimelineEditPanel.IsEnabled = enabled;
-        TimelineEditor.IsEnabled = enabled;
+        bool hasScope = scope is not null &&
+                        _timelineWorkspace?.HasMixedSelection != true;
+        bool hasVisibleTracks =
+            hasScope && TimelineEditor.HasVisibleTracks;
+        TimelineTransportPanel.IsEnabled = hasScope;
+        IncludeDescendantsToggle.IsEnabled =
+            hasScope && _selectedKeys.Count > 0;
+        TimelineActionsPanel.IsEnabled = hasVisibleTracks;
+        TimelineEditPanel.IsEnabled = hasVisibleTracks;
+        TimelineEditor.IsEnabled = hasVisibleTracks;
+        TickSlider.IsEnabled = hasVisibleTracks;
+        AnimationMenuItem.IsEnabled = hasVisibleTracks;
+        RestoreComposedPoseButton.IsEnabled =
+            hasVisibleTracks &&
+            _timelineWorkspace?.ActiveTickIsComposed == false;
         TimelineScopeText.Text = _timelineWorkspace?.HasMixedSelection == true
             ? "Mixed timeline scopes"
             : scope is null
                 ? "No timeline scope"
                 : string.Create(
                     CultureInfo.InvariantCulture,
-                    $"{scope.DisplayName} · {CurrentTimelineTick} / {scope.MaximumTick}{(_timelineWorkspace?.ActiveTickIsComposed == true ? " · composed" : string.Empty)}");
+                    $"Scope: {scope.DisplayName} · {CurrentTimelineTick} / {scope.MaximumTick}{(_timelineWorkspace?.ActiveTickIsComposed == true ? " · composed" : string.Empty)}");
     }
 
     private void RefreshKeyFrameEditor()
@@ -6928,7 +6988,8 @@ public partial class MainWindow : Window, IDisposable
 
     private void SetCurrentTick(int tick)
     {
-        if (_timelineWorkspace?.ActiveScope is null)
+        if (!TimelineEditor.HasVisibleTracks ||
+            _timelineWorkspace?.ActiveScope is null)
         {
             return;
         }
@@ -6940,6 +7001,7 @@ public partial class MainWindow : Window, IDisposable
     private void PlaybackTimer_Tick(object? sender, EventArgs eventArgs)
     {
         if (!_isPlaying ||
+            !TimelineEditor.HasVisibleTracks ||
             _timelineSet is null ||
             _timelineWorkspace?.ActiveScope is not XuiTimelineScope scope)
         {

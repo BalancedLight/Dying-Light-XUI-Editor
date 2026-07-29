@@ -152,13 +152,16 @@ workspace before it can be saved.
 - Full 60 Hz timeline parsing with independent per-owner scope state,
   scope-local playback/scrubbing, exact stepped-key transitions,
   interpolation/easing, named frames, loop diagnostics, and undoable timeline
-  commands. **All in scope** exposes one owner without constructing every HUD
-  track, and switching selections remembers each scope's local tick. New
-  documents open in a non-destructive composed pose that settles each scope at
-  its earliest fully visible key; **Stop** returns the active scope to authored
-  tick 0 before playback. Safe timeline-only changes update just the affected
-  retained visuals and transform/show subtrees, with a full-layout fallback
-  for layout- or resource-sensitive changes.
+  commands. Tracks are filtered to the selected elements; **Include
+  descendants** expands each selected hierarchy subtree without crossing into
+  nested independent timeline scopes. Trackless selections disable transport
+  instead of playing unrelated owner targets, while switching selections
+  remembers each scope's local tick. New documents open in a non-destructive
+  composed pose that settles each scope at its earliest fully visible key;
+  **Stop** returns the active scope to authored tick 0 before playback. Safe
+  timeline-only changes update just the affected retained visuals and
+  transform/show subtrees, with a full-layout fallback for layout- or
+  resource-sensitive changes.
 - No background music, UI sounds, novelty transparency, or blocking alpha
   warning.
 

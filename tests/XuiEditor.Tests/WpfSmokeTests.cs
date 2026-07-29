@@ -30,6 +30,25 @@ public sealed class WpfSmokeTests
 {
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
+    public void MainWindowStartsCenteredOnPrimaryWorkArea()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        using MainWindow window = new();
+        Rect workArea = SystemParameters.WorkArea;
+
+        Assert.AreEqual(
+            workArea.Left + (workArea.Width - window.Width) / 2,
+            window.Left,
+            0.1);
+        Assert.AreEqual(
+            workArea.Top + (workArea.Height - window.Height) / 2,
+            window.Top,
+            0.1);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
     public void BitmapFontTextStyleFlagsProduceVisiblePreviewChanges()
     {
         App application = Application.Current as App ?? new App();
@@ -1596,7 +1615,7 @@ public sealed class WpfSmokeTests
 
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
-    public void TimelineWaitsForSelectionUnlessAllTracksIsExplicit()
+    public void TimelineEditorAlwaysFiltersToExplicitTargets()
     {
         XuiDocument document = XuiDocument.FromText(
             "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
@@ -1610,8 +1629,56 @@ public sealed class WpfSmokeTests
 
         control.SetData(timelines, [], 0);
         Assert.AreEqual(0, control.VisibleTrackCountForTesting);
-        control.SetData(timelines, [], 0, showAllWhenEmpty: true);
+        Assert.IsFalse(control.HasVisibleTracks);
+        control.SetData(timelines, ["Animated"], 0);
         Assert.AreEqual(1, control.VisibleTrackCountForTesting);
+        Assert.IsTrue(control.HasVisibleTracks);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void ResumeGameSelectionDoesNotExposeItsCanvasScopeTimeline()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>1280</Width><Height>720</Height></Properties>" +
+            "<XuiScene><Properties><Id>MenuCheat</Id></Properties>" +
+            "<UINaviButton><Properties><Id>B_ResumeGame</Id></Properties>" +
+            "</UINaviButton></XuiScene><Timelines>" +
+            "<Timeline><Id>MenuCheat</Id><TimelineProp>Opacity</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation><Prop>1</Prop>" +
+            "</KeyFrame><KeyFrame><Time>20</Time><Interpolation>0</Interpolation>" +
+            "<Prop>0</Prop></KeyFrame></Timeline></Timelines></XuiCanvas>");
+        XuiSyntaxNode menu = document.Root.DescendantsAndSelf().Single(node =>
+            XuiModelReader.GetId(node, document.Text) == "MenuCheat");
+        XuiSyntaxNode resume = document.Root.DescendantsAndSelf().Single(node =>
+            XuiModelReader.GetId(node, document.Text) == "B_ResumeGame");
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+
+        window.SelectNodeKeysForTesting([resume.Key]);
+
+        Assert.AreEqual(
+            "XuiCanvas",
+            window.TimelineWorkspaceForTesting!.ActiveScope?.Owner.Name);
+        Assert.AreEqual(0, window.TimelineForTesting.VisibleTrackCountForTesting);
+        Assert.IsFalse(window.TimelineEditingEnabledForTesting);
+        Assert.IsTrue(window.IncludeDescendantsEnabledForTesting);
+        StringAssert.Contains(
+            window.TimelineScopeLabelForTesting,
+            "Scope: XuiCanvas");
+        int activeTick = window.TimelineWorkspaceForTesting.ActiveTick;
+        window.SetTimelineTickForTesting(10);
+        Assert.AreEqual(activeTick, window.TimelineWorkspaceForTesting.ActiveTick);
+
+        window.SetIncludeDescendantsForTesting(true);
+        Assert.AreEqual(0, window.TimelineForTesting.VisibleTrackCountForTesting);
+        Assert.IsFalse(window.TimelineEditingEnabledForTesting);
+
+        window.SelectNodeKeysForTesting([menu.Key]);
+        Assert.AreEqual(1, window.TimelineForTesting.VisibleTrackCountForTesting);
+        Assert.IsTrue(window.TimelineEditingEnabledForTesting);
     }
 
     [STATestMethod]
@@ -1633,6 +1700,7 @@ public sealed class WpfSmokeTests
             "<Prop>false</Prop><Prop>20,0,0</Prop></KeyFrame></Timeline>" +
             "<Timeline><Id>I1</Id><TimelineProp>Opacity</TimelineProp>" +
             "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation><Prop>1</Prop>" +
+            "</KeyFrame><KeyFrame><Time>4</Time><Interpolation>0</Interpolation><Prop>0.25</Prop>" +
             "</KeyFrame></Timeline><NamedFrames>" +
             "<NamedFrame><Name>Idle</Name><Time>0</Time></NamedFrame>" +
             "<NamedFrame><Name>Show</Name><Time>1</Time><Command>goto</Command>" +
@@ -1650,6 +1718,8 @@ public sealed class WpfSmokeTests
             XuiModelReader.GetId(node, document.Text) == "HUD");
         XuiSyntaxNode first = document.Root.DescendantsAndSelf().Single(node =>
             XuiModelReader.GetId(node, document.Text) == "I0");
+        XuiSyntaxNode group = document.Root.DescendantsAndSelf().Single(node =>
+            XuiModelReader.GetId(node, document.Text) == "Group");
         using MainWindow window = new();
         window.AttachDocumentForTesting(document);
 
@@ -1667,6 +1737,13 @@ public sealed class WpfSmokeTests
         window.GoToNamedFrameForTesting("Show");
         Assert.AreEqual(1, window.TimelineWorkspaceForTesting.ActiveTick);
         window.SetTimelineTickForTesting(4);
+        Assert.AreEqual(
+            0.25,
+            window.ViewportForTesting.FrameForTesting!.Nodes
+                .Single(static node => node.Id == "I1")
+                .LocalOpacity,
+            0.0001,
+            "Hidden sibling tracks must still evaluate on the shared scope clock.");
 
         window.SelectNodeKeysForTesting([hud.Key]);
         Assert.AreEqual("HUD", window.TimelineWorkspaceForTesting!
@@ -1675,9 +1752,13 @@ public sealed class WpfSmokeTests
         window.SelectNodeKeysForTesting([first.Key]);
         Assert.AreEqual(4, window.TimelineWorkspaceForTesting!.ActiveTick);
 
-        window.SetAllInScopeForTesting(true);
+        window.SetIncludeDescendantsForTesting(true);
+        Assert.AreEqual(2, window.TimelineForTesting.VisibleTrackCountForTesting);
+        window.SelectNodeKeysForTesting([group.Key]);
         Assert.AreEqual(3, window.TimelineForTesting.VisibleTrackCountForTesting);
-        StringAssert.Contains(window.TimelineScopeLabelForTesting, "4 / 20");
+        StringAssert.Contains(
+            window.TimelineScopeLabelForTesting,
+            "Scope: Group · 4 / 20");
 
         window.SelectNodeKeysForTesting([hud.Key, first.Key]);
         Assert.IsTrue(window.TimelineWorkspaceForTesting!.HasMixedSelection);
@@ -1691,6 +1772,108 @@ public sealed class WpfSmokeTests
             window.TimelineWorkspaceForTesting.Catalog.RootScope?.ScopeKey,
             window.TimelineWorkspaceForTesting.ActiveScope?.ScopeKey);
         Assert.AreEqual(0, window.TimelineWorkspaceForTesting.RememberedTicks.Count);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void DescendantFilterUsesSelectedSubtreesWithinOneTimelineScope()
+    {
+        static string Timeline(string id) =>
+            $"<Timeline><Id>{id}</Id><TimelineProp>Opacity</TimelineProp>" +
+            "<KeyFrame><Time>0</Time><Interpolation>0</Interpolation>" +
+            "<Prop>1</Prop></KeyFrame></Timeline>";
+
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<AdvGroup><Properties><Id>A</Id></Properties>" +
+            "<MyImage><Properties><Id>A_Direct</Id></Properties></MyImage>" +
+            "<AdvGroup><Properties><Id>A_Inner</Id></Properties>" +
+            "<MyImage><Properties><Id>A_Deep</Id></Properties></MyImage>" +
+            "</AdvGroup><AdvGroup><Properties><Id>NestedOwner</Id></Properties>" +
+            "<MyImage><Properties><Id>NestedChild</Id></Properties></MyImage>" +
+            "<Timelines>" + Timeline("NestedChild") + "</Timelines>" +
+            "</AdvGroup></AdvGroup>" +
+            "<MyImage><Properties><Id>Sibling</Id></Properties></MyImage>" +
+            "<AdvGroup><Properties><Id>B</Id></Properties>" +
+            "<MyImage><Properties><Id>B_Child</Id></Properties></MyImage>" +
+            "</AdvGroup><Timelines>" +
+            Timeline("A") +
+            Timeline("A_Direct") +
+            Timeline("A_Deep") +
+            Timeline("Sibling") +
+            Timeline("B_Child") +
+            "</Timelines></XuiCanvas>");
+        XuiSyntaxNode Node(string id) =>
+            document.Root.DescendantsAndSelf().Single(node =>
+                XuiModelReader.GetId(node, document.Text) == id);
+        XuiSyntaxNode selected = Node("A");
+        XuiSyntaxNode direct = Node("A_Direct");
+        XuiSyntaxNode second = Node("B");
+        XuiSyntaxNode nestedChild = Node("NestedChild");
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+
+        window.SelectNodeKeysForTesting([selected.Key]);
+        Assert.AreEqual(1, window.TimelineForTesting.VisibleTrackCountForTesting);
+
+        window.SetIncludeDescendantsForTesting(true);
+        Assert.AreEqual(
+            3,
+            window.TimelineForTesting.VisibleTrackCountForTesting,
+            "The selected target and recursive same-scope descendants should be visible.");
+        Assert.AreEqual(
+            "A|A_Deep|A_Direct",
+            string.Join(
+                "|",
+                window.TimelineForTesting.VisibleTargetIdsForTesting
+                    .OrderBy(static id => id, StringComparer.Ordinal)));
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                window.TimelineWorkspaceForTesting!.ActiveScope!.ScopeKey,
+            },
+            window.TimelineForTesting.VisibleScopeKeysForTesting.ToArray());
+
+        window.SelectNodeKeysForTesting(
+            [selected.Key, direct.Key, second.Key]);
+        Assert.AreEqual(
+            4,
+            window.TimelineForTesting.VisibleTrackCountForTesting,
+            "Overlapping selected subtrees should be deduplicated and unioned.");
+        Assert.AreEqual(
+            "A|A_Deep|A_Direct|B_Child",
+            string.Join(
+                "|",
+                window.TimelineForTesting.VisibleTargetIdsForTesting
+                    .OrderBy(static id => id, StringComparer.Ordinal)));
+
+        window.SetIncludeDescendantsForTesting(false);
+        window.SelectNodeKeysForTesting([second.Key]);
+        Assert.AreEqual(0, window.TimelineForTesting.VisibleTrackCountForTesting);
+        Assert.IsFalse(window.TimelineEditingEnabledForTesting);
+        Assert.IsTrue(window.IncludeDescendantsEnabledForTesting);
+        window.SetIncludeDescendantsForTesting(true);
+        Assert.AreEqual(1, window.TimelineForTesting.VisibleTrackCountForTesting);
+        Assert.AreEqual(
+            "B_Child",
+            string.Join(
+                "|",
+                window.TimelineForTesting.VisibleTargetIdsForTesting));
+        Assert.IsTrue(window.TimelineEditingEnabledForTesting);
+
+        window.SelectNodeKeysForTesting([nestedChild.Key]);
+        Assert.AreEqual(
+            "NestedOwner",
+            window.TimelineWorkspaceForTesting!.ActiveScope?.OwnerId);
+        Assert.AreEqual(1, window.TimelineForTesting.VisibleTrackCountForTesting);
+        Assert.AreEqual(
+            "NestedChild",
+            string.Join(
+                "|",
+                window.TimelineForTesting.VisibleTargetIdsForTesting));
+        Assert.IsTrue(window.TimelineEditingEnabledForTesting);
     }
 
     [STATestMethod]

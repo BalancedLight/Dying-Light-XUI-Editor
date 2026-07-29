@@ -85,7 +85,9 @@ Coverage includes:
   stepped `Text` and preserved/editable boolean `Play` tracks without audio
 - independent timeline-owner scopes, remembered per-scope ticks,
   synchronized compatibility sampling, mixed-scope selection, scoped
-  playback, and the `All in scope` track filter
+  playback, exact selected-target filtering, recursive same-scope descendant
+  expansion, nested-scope boundaries, and disabled transport for trackless
+  selections
 - deterministic composed first poses for fade/expand-in scopes, including
   truthful scope-wide handling of mutually exclusive alternatives
 - the deterministic stock 0/1/11/12/22-tick fixture
