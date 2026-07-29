@@ -11,8 +11,10 @@ public partial class GridSettingsWindow : Window
 
     public GridSettingsWindow(EditorSettings settings)
     {
+        UiLocalization.EnsureApplied();
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         InitializeComponent();
+        Language = UiLocalization.XmlLanguage;
         MinorSizeText.Text = Number(settings.GridSize);
         MajorSizeText.Text = Number(settings.MajorGridSize);
         CoarseSizeText.Text = Number(settings.CoarseGridSize);
@@ -31,18 +33,30 @@ public partial class GridSettingsWindow : Window
     {
         try
         {
-            double minor = ParseSpacing(MinorSizeText.Text, "Minor spacing");
-            double major = ParseSpacing(MajorSizeText.Text, "Major spacing");
-            double coarse = ParseSpacing(CoarseSizeText.Text, "Coarse spacing");
+            double minor = ParseSpacing(
+                MinorSizeText.Text,
+                UiLocalization.Text("Ui.Grid.MinorSpacing"));
+            double major = ParseSpacing(
+                MajorSizeText.Text,
+                UiLocalization.Text("Ui.Grid.MajorSpacing"));
+            double coarse = ParseSpacing(
+                CoarseSizeText.Text,
+                UiLocalization.Text("Ui.Grid.CoarseSpacing"));
             if (major < minor || coarse < major)
             {
                 throw new InvalidOperationException(
-                    "Grid spacings must be ordered minor ≤ major ≤ coarse.");
+                    UiLocalization.Text("Ui.Grid.SpacingOrder"));
             }
 
-            string minorColor = ParseColor(MinorColorText.Text, "Minor color");
-            string majorColor = ParseColor(MajorColorText.Text, "Major color");
-            string coarseColor = ParseColor(CoarseColorText.Text, "Coarse color");
+            string minorColor = ParseColor(
+                MinorColorText.Text,
+                UiLocalization.Text("Ui.Grid.MinorColor"));
+            string majorColor = ParseColor(
+                MajorColorText.Text,
+                UiLocalization.Text("Ui.Grid.MajorColor"));
+            string coarseColor = ParseColor(
+                CoarseColorText.Text,
+                UiLocalization.Text("Ui.Grid.CoarseColor"));
             _settings.GridSize = minor;
             _settings.MajorGridSize = major;
             _settings.CoarseGridSize = coarse;
@@ -74,7 +88,9 @@ public partial class GridSettingsWindow : Window
             value > 4096)
         {
             throw new InvalidOperationException(
-                $"{label} must be between 0.25 and 4096.");
+                UiLocalization.Format(
+                    "Ui.Grid.SpacingRange",
+                    label));
         }
 
         return value;
@@ -94,7 +110,9 @@ public partial class GridSettingsWindow : Window
         }
 
         throw new InvalidOperationException(
-            $"{label} must be #AARRGGBB or a WPF color name.");
+            UiLocalization.Format(
+                "Ui.Grid.ColorFormat",
+                label));
     }
 
     private static string Number(double value) =>

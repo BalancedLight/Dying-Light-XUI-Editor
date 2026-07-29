@@ -160,8 +160,14 @@ public sealed class XuiDocument
 
     public void Execute(IXuiCommand command) => History.Execute(command);
 
-    public void ExecuteBatch(string description, Action edits) =>
-        History.ExecuteBatch(description, edits);
+    public void ExecuteBatch(
+        string description,
+        Action edits,
+        XuiMessageDescriptor? descriptionDescriptor = null) =>
+        History.ExecuteBatch(
+            description,
+            edits,
+            descriptionDescriptor);
 
     public void Undo() => History.Undo();
 

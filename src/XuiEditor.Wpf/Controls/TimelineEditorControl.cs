@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using XuiEditor.Core.Animation;
+using XuiEditor.Wpf.Services;
 
 namespace XuiEditor.Wpf.Controls;
 
@@ -370,7 +371,9 @@ public sealed class TimelineEditorControl : FrameworkElement
         DrawHeader(drawing);
         if (!_hasTimelineData)
         {
-            DrawEmpty(drawing, "No timeline data");
+            DrawEmpty(
+                drawing,
+                UiLocalization.Text("Ui.Timeline.Empty"));
             return;
         }
 
@@ -379,10 +382,13 @@ public sealed class TimelineEditorControl : FrameworkElement
             DrawEmpty(
                 drawing,
                 _mixedScopes
-                    ? "Selected nodes belong to different timeline scopes"
+                    ? UiLocalization.Text(
+                        "Ui.Timeline.MixedScopes")
                     : _activeScopeKey is null
-                        ? "This document has no timeline scope"
-                        : "The current selection has no animated tracks");
+                        ? UiLocalization.Text(
+                            "Ui.Timeline.DocumentHasNoScope")
+                        : UiLocalization.Text(
+                            "Ui.Timeline.SelectionHasNoTracks"));
         }
 
         DrawRows(drawing);
@@ -397,7 +403,7 @@ public sealed class TimelineEditorControl : FrameworkElement
             new Rect(0, 0, ActualWidth, HeaderHeight));
         DrawText(
             drawing,
-            "Target / property",
+            UiLocalization.Text("Ui.Timeline.TargetProperty"),
             new Point(10, 8),
             11,
             Color.FromRgb(200, 204, 210));
@@ -715,7 +721,7 @@ public sealed class TimelineEditorControl : FrameworkElement
             value,
             CultureInfo.CurrentUICulture,
             FlowDirection.LeftToRight,
-            new Typeface("Segoe UI"),
+            UiTypeface(),
             size,
             new SolidColorBrush(color),
             VisualTreeHelper.GetDpi(this).PixelsPerDip)
@@ -724,6 +730,18 @@ public sealed class TimelineEditorControl : FrameworkElement
             Trimming = TextTrimming.CharacterEllipsis,
         };
         drawing.DrawText(text, origin);
+    }
+
+    private Typeface UiTypeface()
+    {
+        FontFamily family =
+            TryFindResource("Ui.FontFamily") as FontFamily ??
+            new FontFamily("Segoe UI");
+        return new Typeface(
+            family,
+            FontStyles.Normal,
+            FontWeights.Normal,
+            FontStretches.Normal);
     }
 
     private sealed record TrackItem(

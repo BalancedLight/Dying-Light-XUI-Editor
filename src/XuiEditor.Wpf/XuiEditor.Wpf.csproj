@@ -27,6 +27,8 @@
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Assets\MovingGears.gif" />
+    <EmbeddedResource Include="Localization\Strings.En.json"
+                      WithCulture="false" />
   </ItemGroup>
   <Target Name="PublishStandaloneExecutableAfterReleaseBuild" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(DesignTimeBuild)' != 'true' and '$(_IsPublishing)' != 'true'">
     <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" BuildInParallel="false" Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=true;PublishDir=$(StandalonePublishDirectory);_IsPublishing=true" />

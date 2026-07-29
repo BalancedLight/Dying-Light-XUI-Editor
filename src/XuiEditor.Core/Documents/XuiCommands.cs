@@ -7,6 +7,8 @@ public interface IXuiCommand
 {
     string Description { get; }
 
+    XuiMessageDescriptor? DescriptionDescriptor => null;
+
     void Execute(XuiDocument document);
 
     void Undo(XuiDocument document);
@@ -36,6 +38,16 @@ public sealed class XuiCommandHistory
         ? command.Description
         : null;
 
+    public XuiMessageDescriptor? UndoDescriptionDescriptor =>
+        _undo.TryPeek(out IXuiCommand? command)
+            ? command.DescriptionDescriptor
+            : null;
+
+    public XuiMessageDescriptor? RedoDescriptionDescriptor =>
+        _redo.TryPeek(out IXuiCommand? command)
+            ? command.DescriptionDescriptor
+            : null;
+
     public void Execute(IXuiCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -51,7 +63,10 @@ public sealed class XuiCommandHistory
         HistoryChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    public void ExecuteBatch(string description, Action edits)
+    public void ExecuteBatch(
+        string description,
+        Action edits,
+        XuiMessageDescriptor? descriptionDescriptor = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(description);
         ArgumentNullException.ThrowIfNull(edits);
@@ -88,7 +103,10 @@ public sealed class XuiCommandHistory
 
         IXuiCommand command = commands.Count == 1
             ? commands[0]
-            : new XuiCompositeCommand(description, commands);
+            : new XuiCompositeCommand(
+                description,
+                commands,
+                descriptionDescriptor);
         _undo.Push(command);
         _redo.Clear();
         HistoryChanged?.Invoke(this, EventArgs.Empty);
@@ -152,7 +170,8 @@ public sealed class XuiCompositeCommand : IXuiCommand
 
     public XuiCompositeCommand(
         string description,
-        IReadOnlyList<IXuiCommand> commands)
+        IReadOnlyList<IXuiCommand> commands,
+        XuiMessageDescriptor? descriptionDescriptor = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(description);
         ArgumentNullException.ThrowIfNull(commands);
@@ -164,10 +183,13 @@ public sealed class XuiCompositeCommand : IXuiCommand
         }
 
         Description = description;
+        DescriptionDescriptor = descriptionDescriptor;
         _commands = commands.ToArray();
     }
 
     public string Description { get; }
+
+    public XuiMessageDescriptor? DescriptionDescriptor { get; }
 
     public void Execute(XuiDocument document)
     {
@@ -223,15 +245,19 @@ public sealed class XuiTextEditCommand : IXuiCommand
         string description,
         int start,
         string oldText,
-        string newText)
+        string newText,
+        XuiMessageDescriptor? descriptionDescriptor = null)
     {
         Description = description;
         _start = start;
         _oldText = oldText;
         _newText = newText;
+        DescriptionDescriptor = descriptionDescriptor;
     }
 
     public string Description { get; }
+
+    public XuiMessageDescriptor? DescriptionDescriptor { get; }
 
     public void Execute(XuiDocument document) =>
         document.ApplyValidatedEdit(_start, _oldText, _newText);
@@ -258,7 +284,11 @@ public static class XuiCommandFactory
                 $"Set {element.Name}",
                 contentSpan.Start,
                 previous,
-                encoded);
+                encoded,
+                new XuiMessageDescriptor(
+                    "Ui.Command.Set",
+                    "Set {0}",
+                    element.Name));
         }
 
         if (!element.IsSelfClosing)
@@ -286,7 +316,11 @@ public static class XuiCommandFactory
             $"Set {element.Name}",
             element.Start,
             raw,
-            expanded);
+            expanded,
+            new XuiMessageDescriptor(
+                "Ui.Command.Set",
+                "Set {0}",
+                element.Name));
     }
 
     public static IXuiCommand ReplaceElementXml(
@@ -315,7 +349,11 @@ public static class XuiCommandFactory
             $"Replace raw XML for {element.Name}",
             element.Start,
             oldText,
-            normalized);
+            normalized,
+            new XuiMessageDescriptor(
+                "Ui.Command.ReplaceRawXml",
+                "Replace raw XML for {0}",
+                element.Name));
     }
 
     public static IXuiCommand AddProperty(
@@ -355,7 +393,11 @@ public static class XuiCommandFactory
             $"Add {name}",
             insertionOffset,
             string.Empty,
-            insertion);
+            insertion,
+            new XuiMessageDescriptor(
+                "Ui.Command.Add",
+                "Add {0}",
+                name));
     }
 
     public static IXuiCommand RemoveElement(
@@ -370,7 +412,11 @@ public static class XuiCommandFactory
             $"Remove {element.Name}",
             span.Start,
             oldText,
-            string.Empty);
+            string.Empty,
+            new XuiMessageDescriptor(
+                "Ui.Command.Remove",
+                "Remove {0}",
+                element.Name));
     }
 
     public static IXuiCommand DuplicateElement(
@@ -386,7 +432,11 @@ public static class XuiCommandFactory
             $"Duplicate {element.Name}",
             element.End,
             string.Empty,
-            duplicate);
+            duplicate,
+            new XuiMessageDescriptor(
+                "Ui.Command.Duplicate",
+                "Duplicate {0}",
+                element.Name));
     }
 
     public static IXuiCommand InsertChildXml(
@@ -715,7 +765,15 @@ public static class XuiCommandFactory
                 : $"Move {element.Name} down",
             first.Start,
             oldText,
-            newText);
+            newText,
+            new XuiMessageDescriptor(
+                direction < 0
+                    ? "Ui.Command.MoveUp"
+                    : "Ui.Command.MoveDown",
+                direction < 0
+                    ? "Move {0} up"
+                    : "Move {0} down",
+                element.Name));
     }
 
     public static IXuiCommand ReparentElement(
@@ -819,7 +877,11 @@ public static class XuiCommandFactory
             $"Reparent {element.Name}",
             0,
             document.Text,
-            replacement);
+            replacement,
+            new XuiMessageDescriptor(
+                "Ui.Command.Reparent",
+                "Reparent {0}",
+                element.Name));
     }
 
     private static string EncodeXmlText(string value) =>

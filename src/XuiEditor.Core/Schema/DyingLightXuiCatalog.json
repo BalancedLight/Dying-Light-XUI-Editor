@@ -449,7 +449,7 @@
                            "type":  "Boolean",
                            "category":  "Text / Image",
                            "defaultValue":  "false",
-                           "description":  "Standalone text property exposed by Dying Light binary metadata; it overrides the equivalent legacy TextStyle state when authored.",
+                           "description":  "Enables bold text and overrides the equivalent legacy TextStyle bit when authored.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -571,7 +571,7 @@
                            "type":  "Textual",
                            "category":  "Identity",
                            "defaultValue":  "",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Uses the named Chrome 6 or Dying Light class instead of the XML element name when resolving inherited properties.",
                            "choices":  [
 
                                        ],
@@ -588,7 +588,7 @@
                            "type":  "Boolean",
                            "category":  "Appearance",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Clips descendant rendering to this element's transformed bounds.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -623,7 +623,7 @@
                            "type":  "Color",
                            "category":  "Appearance",
                            "defaultValue":  "0xffffffff",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Applies the element's ARGB color or vertex tint.",
                            "choices":  [
 
                                        ],
@@ -640,7 +640,7 @@
                            "type":  "Boolean",
                            "category":  "Text / Image",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Enables inline %COLOR(...) control sequences in displayed text.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1082,7 +1082,7 @@
                            "type":  "AssetReference",
                            "category":  "Text / Image",
                            "defaultValue":  "",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Selects the engine font ID or font resource used for text.",
                            "choices":  [
 
                                        ],
@@ -1099,7 +1099,7 @@
                            "type":  "Number",
                            "category":  "Text / Image",
                            "defaultValue":  "0",
-                           "description":  "Standalone text property exposed by Dying Light binary metadata; it overrides the equivalent legacy TextStyle state when authored.",
+                           "description":  "Overrides the legacy TextStyle vertical font offset when authored.",
                            "choices":  [
 
                                        ],
@@ -1134,7 +1134,7 @@
                            "type":  "Number",
                            "category":  "Layout",
                            "defaultValue":  "20",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Sets the element's local design height.",
                            "choices":  [
 
                                        ],
@@ -1168,7 +1168,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Scales the pivot with the same uniform ratio used by HoldAspectRatio.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1186,7 +1186,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Uses one uniform scale ratio for both axes when parent or resolution size changes.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1204,7 +1204,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Uses the horizontal ratio, instead of the vertical ratio, when HoldAspectRatio chooses its uniform scale.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1240,7 +1240,7 @@
                            "type":  "Textual",
                            "category":  "Text / Image",
                            "defaultValue":  "",
-                           "description":  "Standalone text property exposed by Dying Light binary metadata; it overrides the equivalent legacy TextStyle state when authored.",
+                           "description":  "Sets left, center, or right text alignment and overrides legacy TextStyle alignment when authored.",
                            "choices":  [
                                            "left",
                                            "center",
@@ -1276,7 +1276,7 @@
                            "type":  "Identifier",
                            "category":  "Identity",
                            "defaultValue":  "",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Identifies the element for timelines, navigation, references, and editor selection.",
                            "choices":  [
 
                                        ],
@@ -1310,7 +1310,7 @@
                            "type":  "AssetReference",
                            "category":  "Text / Image",
                            "defaultValue":  "",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Selects the image or texture-region resource rendered by an image element.",
                            "choices":  [
 
                                        ],
@@ -1345,7 +1345,7 @@
                            "type":  "Boolean",
                            "category":  "Text / Image",
                            "defaultValue":  "false",
-                           "description":  "Standalone text property exposed by Dying Light binary metadata; it overrides the equivalent legacy TextStyle state when authored.",
+                           "description":  "Enables italic text and overrides the equivalent legacy TextStyle bit when authored.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1399,7 +1399,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Keeps the authored height when the parent size changes.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1417,7 +1417,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Keeps the authored height when the parent size changes.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1435,7 +1435,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Keeps the authored height when preview resolution changes.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1453,7 +1453,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Keeps the authored X position when the parent size changes.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1471,7 +1471,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Keeps the authored X position when the parent size changes.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1489,7 +1489,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Keeps the authored X position when preview resolution changes.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1507,7 +1507,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Keeps the authored Y position when the parent size changes.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1525,7 +1525,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Keeps the authored Y position when the parent size changes.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1543,7 +1543,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Keeps the authored Y position when preview resolution changes.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1561,7 +1561,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Keeps the authored width when the parent size changes.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1579,7 +1579,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Keeps the authored width when the parent size changes.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1597,7 +1597,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Keeps the authored width when preview resolution changes.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1820,7 +1820,7 @@
                            "type":  "AssetReference",
                            "category":  "Appearance",
                            "defaultValue":  "",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Selects the material resource used to render this element.",
                            "choices":  [
 
                                        ],
@@ -1908,7 +1908,7 @@
                            "type":  "Boolean",
                            "category":  "Text / Image",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Allows text to wrap and occupy multiple lines.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -1944,7 +1944,7 @@
                            "type":  "Identifier",
                            "category":  "Navigation",
                            "defaultValue":  "",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Names the element that receives focus when navigation moves down.",
                            "choices":  [
 
                                        ],
@@ -1961,7 +1961,7 @@
                            "type":  "Identifier",
                            "category":  "Navigation",
                            "defaultValue":  "",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Names the element that receives focus when navigation moves left.",
                            "choices":  [
 
                                        ],
@@ -1978,7 +1978,7 @@
                            "type":  "Identifier",
                            "category":  "Navigation",
                            "defaultValue":  "",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Names the element that receives focus when navigation moves right.",
                            "choices":  [
 
                                        ],
@@ -1995,7 +1995,7 @@
                            "type":  "Identifier",
                            "category":  "Navigation",
                            "defaultValue":  "",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Names the element that receives focus when tab navigation moves backward.",
                            "choices":  [
 
                                        ],
@@ -2012,7 +2012,7 @@
                            "type":  "Identifier",
                            "category":  "Navigation",
                            "defaultValue":  "",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Names the element that receives focus when tab navigation moves forward.",
                            "choices":  [
 
                                        ],
@@ -2029,7 +2029,7 @@
                            "type":  "Identifier",
                            "category":  "Navigation",
                            "defaultValue":  "",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Names the element that receives focus when navigation moves up.",
                            "choices":  [
 
                                        ],
@@ -2097,7 +2097,7 @@
                            "type":  "Number",
                            "category":  "Appearance",
                            "defaultValue":  "1",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Sets local opacity from 0 (transparent) to 1 (opaque); parent opacity also applies.",
                            "choices":  [
 
                                        ],
@@ -2114,7 +2114,7 @@
                            "type":  "Number",
                            "category":  "Text / Image",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Enables text outline rendering.",
                            "choices":  [
 
                                        ],
@@ -2131,7 +2131,7 @@
                            "type":  "Color",
                            "category":  "Text / Image",
                            "defaultValue":  "0xff000000",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Sets the outline's ARGB color.",
                            "choices":  [
 
                                        ],
@@ -2148,7 +2148,7 @@
                            "type":  "Number",
                            "category":  "Text / Image",
                            "defaultValue":  "1.0",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Sets the thickness of the text outline.",
                            "choices":  [
 
                                        ],
@@ -2183,7 +2183,7 @@
                            "type":  "Vector3",
                            "category":  "Layout",
                            "defaultValue":  "0,0,0",
-                           "description":  "Unrestricted local-space XYZ origin used for scale and rotation.",
+                           "description":  "Sets the unrestricted local-space XYZ origin used for scale and rotation.",
                            "choices":  [
 
                                        ],
@@ -2200,7 +2200,7 @@
                            "type":  "Number",
                            "category":  "Text / Image",
                            "defaultValue":  "20",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Sets the text point size.",
                            "choices":  [
 
                                        ],
@@ -2217,7 +2217,7 @@
                            "type":  "Vector3",
                            "category":  "Layout",
                            "defaultValue":  "0,0,0",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Sets the element's local XYZ position relative to its parent.",
                            "choices":  [
 
                                        ],
@@ -2410,7 +2410,7 @@
                            "type":  "Quaternion",
                            "category":  "Layout",
                            "defaultValue":  "0,0,0,1",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Sets quaternion rotation around Pivot.",
                            "choices":  [
 
                                        ],
@@ -2481,7 +2481,7 @@
                            "type":  "Vector3",
                            "category":  "Layout",
                            "defaultValue":  "1,1,1",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Sets local XYZ scale around Pivot.",
                            "choices":  [
 
                                        ],
@@ -2498,7 +2498,7 @@
                            "type":  "Boolean",
                            "category":  "Layout",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Scales width by the preview resolution's horizontal factor.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -2551,7 +2551,7 @@
                            "type":  "Boolean",
                            "category":  "Text / Image",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Enables text shadow rendering.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -2569,7 +2569,7 @@
                            "type":  "Color",
                            "category":  "Text / Image",
                            "defaultValue":  "0xa0000000",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Sets the shadow's ARGB color.",
                            "choices":  [
 
                                        ],
@@ -2586,7 +2586,7 @@
                            "type":  "Number",
                            "category":  "Text / Image",
                            "defaultValue":  "2.0",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Offsets the text shadow from the glyphs.",
                            "choices":  [
 
                                        ],
@@ -2603,7 +2603,7 @@
                            "type":  "Boolean",
                            "category":  "Appearance",
                            "defaultValue":  "true",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Controls whether this element and its descendants are shown.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -2710,7 +2710,7 @@
                            "type":  "Number",
                            "category":  "Behavior",
                            "defaultValue":  "0",
-                           "description":  "Standalone text property exposed by Dying Light binary metadata; it overrides the equivalent legacy TextStyle state when authored.",
+                           "description":  "Overrides legacy TextStyle scaling for special-sign glyphs when authored.",
                            "choices":  [
 
                                        ],
@@ -2727,7 +2727,7 @@
                            "type":  "Boolean",
                            "category":  "Text / Image",
                            "defaultValue":  "false",
-                           "description":  "Standalone strike formatting exposed by Dying Light binary metadata; retained for compatibility.",
+                           "description":  "Enables standalone strike-through formatting when supported; the value is preserved for compatibility.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -2745,7 +2745,7 @@
                            "type":  "Textual",
                            "category":  "Text / Image",
                            "defaultValue":  "",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Sets literal text or a localization key resolved by the selected preview language.",
                            "choices":  [
 
                                        ],
@@ -2762,7 +2762,7 @@
                            "type":  "Color",
                            "category":  "Text / Image",
                            "defaultValue":  "0xffffffff",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Sets the text's ARGB color.",
                            "choices":  [
 
                                        ],
@@ -2813,7 +2813,7 @@
                            "type":  "WholeNumber",
                            "category":  "Text / Image",
                            "defaultValue":  "0",
-                           "description":  "Packed Chrome 6 text formatting and alignment bitmask. Unknown compatibility bits must be preserved.",
+                           "description":  "Stores the packed Chrome 6 formatting and alignment bitmask; unknown compatibility bits are preserved.",
                            "choices":  [
 
                                        ],
@@ -2848,7 +2848,7 @@
                            "type":  "Boolean",
                            "category":  "Text / Image",
                            "defaultValue":  "false",
-                           "description":  "Standalone text property exposed by Dying Light binary metadata; it overrides the equivalent legacy TextStyle state when authored.",
+                           "description":  "Enables underlined text and overrides the equivalent legacy TextStyle bit when authored.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -2884,7 +2884,7 @@
                            "type":  "Boolean",
                            "category":  "Text / Image",
                            "defaultValue":  "false",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Transforms displayed text to uppercase using the preview language.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -3082,7 +3082,7 @@
                            "type":  "Textual",
                            "category":  "Text / Image",
                            "defaultValue":  "",
-                           "description":  "Standalone text property exposed by Dying Light binary metadata; it overrides the equivalent legacy TextStyle state when authored.",
+                           "description":  "Sets top, middle, or bottom text alignment and overrides legacy TextStyle alignment when authored.",
                            "choices":  [
                                            "top",
                                            "middle",
@@ -3101,7 +3101,7 @@
                            "type":  "Boolean",
                            "category":  "Text / Image",
                            "defaultValue":  "false",
-                           "description":  "Legacy Dying Light bottom-alignment property, separate from TextStyle.",
+                           "description":  "Enables Dying Light's legacy bottom-alignment behavior, separately from TextStyle.",
                            "choices":  [
                                            "false",
                                            "true"
@@ -3137,7 +3137,7 @@
                            "type":  "AssetReference",
                            "category":  "Identity",
                            "defaultValue":  "",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "References a reusable XuiVisual template; the editor composes this behavior approximately.",
                            "choices":  [
 
                                        ],
@@ -3154,7 +3154,7 @@
                            "type":  "Number",
                            "category":  "Layout",
                            "defaultValue":  "40",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "description":  "Sets the element's local design width.",
                            "choices":  [
 
                                        ],

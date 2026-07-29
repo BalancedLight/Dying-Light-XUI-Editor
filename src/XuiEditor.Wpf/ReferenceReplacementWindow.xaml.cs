@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using XuiEditor.Core.Assets;
+using XuiEditor.Wpf.Services;
 
 namespace XuiEditor.Wpf;
 
@@ -16,17 +17,19 @@ public partial class ReferenceReplacementWindow : Window
         string currentValue,
         string? visualDefinitionSourcePath = null)
     {
+        UiLocalization.EnsureApplied();
         _service = service ??
             throw new ArgumentNullException(nameof(service));
         _visualDefinitionSourcePath = visualDefinitionSourcePath;
         ArgumentException.ThrowIfNullOrWhiteSpace(currentValue);
         InitializeComponent();
+        Language = UiLocalization.XmlLanguage;
         CurrentValueText.Text = currentValue;
         if (_visualDefinitionSourcePath is not null)
         {
-            Title = "Rename Workspace XUI Visual";
+            Title = UiLocalization.Text("Ui.ReferenceRename.Title");
             InstructionText.Text =
-                "Preview includes the XuiVisual Id and every exact workspace reference. Apply creates backups and rolls back all committed files on failure.";
+                UiLocalization.Text("Ui.ReferenceRename.Instruction");
         }
     }
 
@@ -40,7 +43,7 @@ public partial class ReferenceReplacementWindow : Window
         ApplyButton.IsEnabled = false;
         PreflightGrid.ItemsSource = null;
         StatusText.Text =
-            "Replacement changed; preview the diff again before applying.";
+            UiLocalization.Text("Ui.ReferenceReplace.Changed");
     }
 
     private async void Preview_Click(
@@ -54,7 +57,7 @@ public partial class ReferenceReplacementWindow : Window
                 StringComparison.Ordinal))
         {
             StatusText.Text =
-                "Enter a non-empty replacement different from the current value.";
+                UiLocalization.Text("Ui.ReferenceReplace.InvalidValue");
             return;
         }
 
@@ -72,16 +75,23 @@ public partial class ReferenceReplacementWindow : Window
             PreflightGrid.ItemsSource = _preflight.Replacements;
             ApplyButton.IsEnabled = _preflight.Replacements.Count > 0;
             StatusText.Text = _preflight.Replacements.Count == 0
-                ? "No matching workspace references were found."
-                : $"{_preflight.Replacements.Count} exact references in " +
-                  $"{_preflight.Replacements.Select(static item => item.FilePath).Distinct(StringComparer.OrdinalIgnoreCase).Count()} files. Review every row before applying.";
+                ? UiLocalization.Text("Ui.ReferenceReplace.NoMatches")
+                : UiLocalization.Format(
+                    "Ui.ReferenceReplace.MatchSummary",
+                    _preflight.Replacements.Count,
+                    _preflight.Replacements
+                        .Select(static item => item.FilePath)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .Count());
         }
         catch (Exception exception) when (
             exception is IOException or
             UnauthorizedAccessException or
             InvalidOperationException)
         {
-            StatusText.Text = exception.Message;
+            StatusText.Text = UiLocalization.Format(
+                "Ui.Common.ErrorDetails",
+                exception.Message);
         }
         finally
         {
@@ -99,14 +109,16 @@ public partial class ReferenceReplacementWindow : Window
                 StringComparison.Ordinal))
         {
             StatusText.Text =
-                "Preview the current replacement before applying.";
+                UiLocalization.Text("Ui.ReferenceReplace.PreviewFirst");
             return;
         }
 
         if (MessageBox.Show(
                 this,
-                $"Apply {_preflight.Replacements.Count} exact replacements with backups?",
-                "Apply reference transaction",
+                UiLocalization.Format(
+                    "Ui.ReferenceReplace.Confirm",
+                    _preflight.Replacements.Count),
+                UiLocalization.Text("Ui.ReferenceReplace.ConfirmTitle"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning) != MessageBoxResult.Yes)
         {
@@ -127,7 +139,9 @@ public partial class ReferenceReplacementWindow : Window
         {
             IsEnabled = true;
             StatusText.Text =
-                $"Transaction failed and committed files were rolled back: {exception.Message}";
+                UiLocalization.Format(
+                    "Ui.ReferenceReplace.Failed",
+                    exception.Message);
         }
     }
 }

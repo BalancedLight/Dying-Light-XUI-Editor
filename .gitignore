@@ -3,6 +3,8 @@
 artifacts/
 .vs/
 TestResults/
+__pycache__/
+*.pyc
 *.user
 *.suo
 

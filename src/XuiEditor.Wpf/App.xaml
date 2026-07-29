@@ -475,7 +475,8 @@
             <Style TargetType="Window">
                 <Setter Property="Background" Value="{StaticResource WindowBrush}" />
                 <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontFamily"
+                        Value="{DynamicResource Ui.FontFamily}" />
                 <Setter Property="FontSize" Value="13" />
             </Style>
             <Style TargetType="TextBlock">
@@ -645,6 +646,7 @@
                 </Setter>
             </Style>
             <Style TargetType="ToolTip">
+                <Setter Property="MaxWidth" Value="520" />
                 <Setter Property="Background" Value="{StaticResource PanelRaisedBrush}" />
                 <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
                 <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
@@ -659,7 +661,10 @@
                                     BorderThickness="{TemplateBinding BorderThickness}"
                                     CornerRadius="2"
                                     Padding="{TemplateBinding Padding}">
-                                <ContentPresenter />
+                                <TextBlock Text="{TemplateBinding Content}"
+                                           TextWrapping="Wrap"
+                                           FontFamily="{TemplateBinding FontFamily}"
+                                           FontSize="{TemplateBinding FontSize}" />
                             </Border>
                         </ControlTemplate>
                     </Setter.Value>

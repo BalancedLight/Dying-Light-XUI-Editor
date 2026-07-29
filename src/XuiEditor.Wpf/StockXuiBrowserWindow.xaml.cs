@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Input;
 using XuiEditor.Core.Assets;
+using XuiEditor.Wpf.Services;
 
 namespace XuiEditor.Wpf;
 
@@ -11,12 +12,14 @@ public partial class StockXuiBrowserWindow : Window
 
     public StockXuiBrowserWindow(IDyingLightInstallIndex index)
     {
+        UiLocalization.EnsureApplied();
         ArgumentNullException.ThrowIfNull(index);
         _allFiles = index.StockXuiFiles
             .Select(static entry => new StockXuiRow(entry))
             .ToArray();
         Files = [];
         InitializeComponent();
+        Language = UiLocalization.XmlLanguage;
         DataContext = this;
         ApplyFilter();
         SearchText.Focus();
@@ -82,7 +85,10 @@ public partial class StockXuiBrowserWindow : Window
             Files.Add(row);
         }
 
-        CountText.Text = $"{matching.Length:N0} of {_allFiles.Length:N0}";
+        CountText.Text = UiLocalization.Format(
+            "Ui.StockBrowser.Count",
+            matching.Length,
+            _allFiles.Length);
         if (matching.Length > 0)
         {
             FilesGrid.SelectedIndex = 0;
@@ -107,7 +113,7 @@ public sealed class StockXuiRow
 
     public string FormattedSize =>
         Entry.Length <= 0
-            ? "packed"
+            ? UiLocalization.Text("Ui.StockBrowser.Packed")
             : Entry.Length < 1024
                 ? $"{Entry.Length:N0} B"
                 : $"{Entry.Length / 1024.0:N1} KiB";

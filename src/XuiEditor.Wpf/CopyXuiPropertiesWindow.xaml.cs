@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using XuiEditor.Core.Schema;
 using XuiEditor.Wpf.Models;
+using XuiEditor.Wpf.Services;
 
 namespace XuiEditor.Wpf;
 
@@ -14,10 +15,12 @@ public partial class CopyXuiPropertiesWindow : Window
         string sourceClassName,
         IReadOnlyList<XuiCatalogPropertySelection> properties)
     {
+        UiLocalization.EnsureApplied();
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceDisplayName);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceClassName);
         ArgumentNullException.ThrowIfNull(properties);
         InitializeComponent();
+        Language = UiLocalization.XmlLanguage;
         _options = properties
             .Select(property => new XuiCopyPropertyOption(
                 property.Definition,
@@ -30,10 +33,10 @@ public partial class CopyXuiPropertiesWindow : Window
                 property.Name,
                 StringComparer.Ordinal)
             .ToArray();
-        SourceText.Text =
-            $"Source: {sourceDisplayName} ({sourceClassName}). " +
-            "Authored values are selected by default. Id and ClassOverride are protected; " +
-            "paste will skip properties that do not apply to the destination class.";
+        SourceText.Text = UiLocalization.Format(
+            "Ui.CopyProperties.Source",
+            sourceDisplayName,
+            sourceClassName);
         ApplyFilter();
         UpdateSummary();
         SearchTextBox.Focus();
@@ -137,8 +140,11 @@ public partial class CopyXuiPropertiesWindow : Window
         int authored = _options.Count(static option =>
             option.IsSelected && option.IsAuthored);
         SelectionSummaryText.Text =
-            $"{selected:N0} selected · {authored:N0} authored · " +
-            $"{selected - authored:N0} inherited defaults";
+            UiLocalization.Format(
+                "Ui.CopyProperties.Summary",
+                selected,
+                authored,
+                selected - authored);
         ErrorText.Text = string.Empty;
     }
 
@@ -152,7 +158,8 @@ public partial class CopyXuiPropertiesWindow : Window
             .ToArray();
         if (SelectedProperties.Count == 0)
         {
-            ErrorText.Text = "Select at least one copyable property.";
+            ErrorText.Text =
+                UiLocalization.Text("Ui.CopyProperties.SelectOne");
             return;
         }
 

@@ -77,6 +77,8 @@ public sealed class EditorSettings
 
     public string Locale { get; set; } = "En";
 
+    public string UiLanguage { get; set; } = UiLocalization.AutomaticLanguage;
+
     [JsonConverter(typeof(JsonStringEnumConverter<XuiInputGlyphScheme>))]
     public XuiInputGlyphScheme InputGlyphScheme { get; set; } =
         XuiInputGlyphScheme.KeyboardAndMouse;
@@ -128,7 +130,7 @@ public sealed class AdditionalAssetSourceSetting
     public string DisplayKind => Kind switch
     {
         XuiConfiguredAssetSourceKind.TextureDefinitionFile =>
-            "Texture definitions",
+            UiLocalization.Text("Ui.AssetRoots.Kind.TextureDefinitions"),
         XuiConfiguredAssetSourceKind.Rp6ResourcePack =>
             "RPACK",
         _ => Kind.ToString(),
@@ -246,6 +248,8 @@ public static class EditorSettingsStore
         settings.RecentFiles ??= [];
         settings.Locale = DyingLightInstallProfile.NormalizeLocale(
             settings.Locale);
+        settings.UiLanguage = UiLocalization.NormalizeSelection(
+            settings.UiLanguage);
         settings.PreviewScenarioId =
             string.IsNullOrWhiteSpace(settings.PreviewScenarioId)
                 ? "authored"

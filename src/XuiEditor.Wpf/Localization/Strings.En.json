@@ -1,0 +1,819 @@
+{
+    "Ui.FontFamily":  "Segoe UI",
+    "Ui.Xaml.AddXuiElementWindow.001":  "Add XUI Child",
+    "Ui.Xaml.AddXuiElementWindow.002":  "Preset",
+    "Ui.Xaml.AddXuiElementWindow.003":  "Id",
+    "Ui.Xaml.AddXuiElementWindow.004":  "Size",
+    "Ui.Xaml.AddXuiElementWindow.005":  "x",
+    "Ui.Xaml.AddXuiElementWindow.006":  "Position",
+    "Ui.Xaml.AddXuiElementWindow.007":  "Text",
+    "Ui.Xaml.AddXuiElementWindow.008":  "Image path",
+    "Ui.Xaml.AddXuiElementWindow.009":  "Color (ARGB)",
+    "Ui.Xaml.AddXuiElementWindow.010":  "Font",
+    "Ui.Xaml.AddXuiElementWindow.011":  "Visual",
+    "Ui.Xaml.AddXuiElementWindow.012":  "Advanced custom XML",
+    "Ui.Xaml.AddXuiElementWindow.013":  "Custom mode inserts exactly one visual element. It must contain a unique Properties/Id.",
+    "Ui.Xaml.AddXuiElementWindow.014":  "Cancel",
+    "Ui.Xaml.AddXuiElementWindow.015":  "Add child",
+    "Ui.Xaml.AddXuiPropertyWindow.001":  "Add XUI Property",
+    "Ui.Xaml.AddXuiPropertyWindow.002":  "Search",
+    "Ui.Xaml.AddXuiPropertyWindow.003":  "Raw custom property",
+    "Ui.Xaml.AddXuiPropertyWindow.004":  "Property name",
+    "Ui.Xaml.AddXuiPropertyWindow.005":  "Value",
+    "Ui.Xaml.AddXuiPropertyWindow.006":  "Cancel",
+    "Ui.Xaml.AddXuiPropertyWindow.007":  "Add property",
+    "Ui.Xaml.AssetRootsWindow.001":  "Dying Light Resource Settings",
+    "Ui.Xaml.AssetRootsWindow.002":  "Dying Light installation",
+    "Ui.Xaml.AssetRootsWindow.003":  "Folder containing DyingLightGame.exe and DW\\Data0.pak",
+    "Ui.Xaml.AssetRootsWindow.004":  "Browse…",
+    "Ui.Xaml.AssetRootsWindow.005":  "Language",
+    "Ui.Xaml.AssetRootsWindow.006":  "Selected catalog with English fallback",
+    "Ui.Xaml.AssetRootsWindow.007":  "Input prompts",
+    "Ui.Xaml.AssetRootsWindow.008":  "Keyboard/mouse, Xbox, or DualShock glyph catalog",
+    "Ui.Xaml.AssetRootsWindow.009":  "Writable workspace",
+    "Ui.Xaml.AssetRootsWindow.010":  "Stock XUIs must be saved here or another writable location",
+    "Ui.Xaml.AssetRootsWindow.011":  "Browse…",
+    "Ui.Xaml.AssetRootsWindow.012":  "Resource folders",
+    "Ui.Xaml.AssetRootsWindow.013":  "Higher rows override lower rows and installed game data",
+    "Ui.Xaml.AssetRootsWindow.014":  "Path",
+    "Ui.Xaml.AssetRootsWindow.015":  "Kind",
+    "Ui.Xaml.AssetRootsWindow.016":  "Read only",
+    "Ui.Xaml.AssetRootsWindow.017":  "Add DL project…",
+    "Ui.Xaml.AssetRootsWindow.018":  "Add a Workshop or Developer Tools project folder",
+    "Ui.Xaml.AssetRootsWindow.019":  "Add loose resources…",
+    "Ui.Xaml.AssetRootsWindow.020":  "Add loose mod…",
+    "Ui.Xaml.AssetRootsWindow.021":  "Add extracted…",
+    "Ui.Xaml.AssetRootsWindow.022":  "Remove",
+    "Ui.Xaml.AssetRootsWindow.023":  "Move up",
+    "Ui.Xaml.AssetRootsWindow.024":  "Move down",
+    "Ui.Xaml.AssetRootsWindow.025":  "Definitions and RPACKs",
+    "Ui.Xaml.AssetRootsWindow.026":  "Additional files are indexed read-only before installed game assets",
+    "Ui.Xaml.AssetRootsWindow.027":  "Path",
+    "Ui.Xaml.AssetRootsWindow.028":  "Kind",
+    "Ui.Xaml.AssetRootsWindow.029":  "Add texture definitions…",
+    "Ui.Xaml.AssetRootsWindow.030":  "Add a .def or texture-definition .scr file",
+    "Ui.Xaml.AssetRootsWindow.031":  "Add RPACK…",
+    "Ui.Xaml.AssetRootsWindow.032":  "Add a Dying Light RP6L .rpack resource container",
+    "Ui.Xaml.AssetRootsWindow.033":  "Remove",
+    "Ui.Xaml.AssetRootsWindow.034":  "Move up",
+    "Ui.Xaml.AssetRootsWindow.035":  "Move down",
+    "Ui.Xaml.AssetRootsWindow.036":  "Optional font overrides (engine ID or family → installed family or font file)",
+    "Ui.Xaml.AssetRootsWindow.037":  "Engine font",
+    "Ui.Xaml.AssetRootsWindow.038":  "Installed family or .ttf/.otf path",
+    "Ui.Xaml.AssetRootsWindow.039":  "PAKs and RPACKs are indexed read-only. The editor never modifies the game install.",
+    "Ui.Xaml.AssetRootsWindow.040":  "Cancel",
+    "Ui.Xaml.AssetRootsWindow.041":  "OK",
+    "Ui.Xaml.CopyXuiPropertiesWindow.001":  "Advanced Copy XUI Properties",
+    "Ui.Xaml.CopyXuiPropertiesWindow.002":  "Search",
+    "Ui.Xaml.CopyXuiPropertiesWindow.003":  "Authored",
+    "Ui.Xaml.CopyXuiPropertiesWindow.004":  "Select all copyable properties authored by the source element",
+    "Ui.Xaml.CopyXuiPropertiesWindow.005":  "All values",
+    "Ui.Xaml.CopyXuiPropertiesWindow.006":  "Select authored properties and inherited defaults",
+    "Ui.Xaml.CopyXuiPropertiesWindow.007":  "Clear",
+    "Ui.Xaml.CopyXuiPropertiesWindow.008":  "Property",
+    "Ui.Xaml.CopyXuiPropertiesWindow.009":  "Category",
+    "Ui.Xaml.CopyXuiPropertiesWindow.010":  "Source",
+    "Ui.Xaml.CopyXuiPropertiesWindow.011":  "Value",
+    "Ui.Xaml.CopyXuiPropertiesWindow.012":  "Cancel",
+    "Ui.Xaml.CopyXuiPropertiesWindow.013":  "Copy selected",
+    "Ui.Xaml.GridSettingsWindow.001":  "Grid Settings",
+    "Ui.Xaml.GridSettingsWindow.002":  "Chrome 6 editor grid tiers. Colors use #AARRGGBB; choose which tier receives snapping.",
+    "Ui.Xaml.GridSettingsWindow.003":  "Tier",
+    "Ui.Xaml.GridSettingsWindow.004":  "Spacing",
+    "Ui.Xaml.GridSettingsWindow.005":  "Color",
+    "Ui.Xaml.GridSettingsWindow.006":  "Snap",
+    "Ui.Xaml.GridSettingsWindow.007":  "Minor",
+    "Ui.Xaml.GridSettingsWindow.008":  "Use",
+    "Ui.Xaml.GridSettingsWindow.009":  "Major",
+    "Ui.Xaml.GridSettingsWindow.010":  "Use",
+    "Ui.Xaml.GridSettingsWindow.011":  "Coarse",
+    "Ui.Xaml.GridSettingsWindow.012":  "Use",
+    "Ui.Xaml.GridSettingsWindow.013":  "Cancel",
+    "Ui.Xaml.GridSettingsWindow.014":  "Apply",
+    "Ui.Xaml.MainWindow.001":  "Dying Light XUI Editor",
+    "Ui.Xaml.MainWindow.002":  "_File",
+    "Ui.Xaml.MainWindow.003":  "_Open…",
+    "Ui.Xaml.MainWindow.004":  "Open _Stock XUI…",
+    "Ui.Xaml.MainWindow.005":  "Open _Recent",
+    "Ui.Xaml.MainWindow.006":  "_Save",
+    "Ui.Xaml.MainWindow.007":  "Save _As…",
+    "Ui.Xaml.MainWindow.008":  "Export Transparent _PNG…",
+    "Ui.Xaml.MainWindow.009":  "Export the current visible XUI at 2× design resolution with transparency",
+    "Ui.Xaml.MainWindow.010":  "E_xit",
+    "Ui.Xaml.MainWindow.011":  "_Edit",
+    "Ui.Xaml.MainWindow.012":  "_Undo",
+    "Ui.Xaml.MainWindow.013":  "_Redo",
+    "Ui.Xaml.MainWindow.014":  "_Duplicate",
+    "Ui.Xaml.MainWindow.015":  "_Delete",
+    "Ui.Xaml.MainWindow.016":  "Copy Authored _Properties",
+    "Ui.Xaml.MainWindow.017":  "Advanced Copy Properties…",
+    "Ui.Xaml.MainWindow.018":  "Paste Applicable Properties",
+    "Ui.Xaml.MainWindow.019":  "Move _Up",
+    "Ui.Xaml.MainWindow.020":  "Move _Down",
+    "Ui.Xaml.MainWindow.021":  "_Indent under Previous",
+    "Ui.Xaml.MainWindow.022":  "_Outdent",
+    "Ui.Xaml.MainWindow.023":  "_View",
+    "Ui.Xaml.MainWindow.024":  "Show _Grid",
+    "Ui.Xaml.MainWindow.025":  "Show _Safe Area",
+    "Ui.Xaml.MainWindow.026":  "Unknown-control _Bounds",
+    "Ui.Xaml.MainWindow.027":  "_Snap to Grid",
+    "Ui.Xaml.MainWindow.028":  "Grid Settings...",
+    "Ui.Xaml.MainWindow.029":  "Select Parent Group",
+    "Ui.Xaml.MainWindow.030":  "Parent-bounds Mask",
+    "Ui.Xaml.MainWindow.031":  "Gray Outside Selected Group",
+    "Ui.Xaml.MainWindow.032":  "Show Design-time Elements",
+    "Ui.Xaml.MainWindow.033":  "Show Navigation Connections",
+    "Ui.Xaml.MainWindow.034":  "Navigation: Show All",
+    "Ui.Xaml.MainWindow.035":  "_Fit Canvas",
+    "Ui.Xaml.MainWindow.036":  "Zoom _In",
+    "Ui.Xaml.MainWindow.037":  "Zoom _Out",
+    "Ui.Xaml.MainWindow.038":  "Load _Reference Image…",
+    "Ui.Xaml.MainWindow.039":  "Clear Reference Image",
+    "Ui.Xaml.MainWindow.040":  "Force-show Selection",
+    "Ui.Xaml.MainWindow.041":  "Force-show Current Group",
+    "Ui.Xaml.MainWindow.042":  "Force-show All",
+    "Ui.Xaml.MainWindow.043":  "Clear Force-show",
+    "Ui.Xaml.MainWindow.044":  "_Animation",
+    "Ui.Xaml.MainWindow.045":  "_Play / Pause",
+    "Ui.Xaml.MainWindow.046":  "_Stop",
+    "Ui.Xaml.MainWindow.047":  "Previous Tick",
+    "Ui.Xaml.MainWindow.048":  "Next Tick",
+    "Ui.Xaml.MainWindow.049":  "Add _Keyframe",
+    "Ui.Xaml.MainWindow.050":  "Delete Keyframe",
+    "Ui.Xaml.MainWindow.051":  "_Copy Keyframe",
+    "Ui.Xaml.MainWindow.052":  "_Paste Keyframe",
+    "Ui.Xaml.MainWindow.053":  "_Settings",
+    "Ui.Xaml.MainWindow.054":  "Dying Light _Resources…",
+    "Ui.Xaml.MainWindow.055":  "Configure the install, project folders, loose resources, texture definitions, and RPACKs",
+    "Ui.Xaml.MainWindow.056":  "Open",
+    "Ui.Xaml.MainWindow.057":  "Open XUI (Ctrl+O)",
+    "Ui.Xaml.MainWindow.058":  "Stock",
+    "Ui.Xaml.MainWindow.059":  "Browse read-only stock XUIs from the selected game install",
+    "Ui.Xaml.MainWindow.060":  "Save",
+    "Ui.Xaml.MainWindow.061":  "Save (Ctrl+S)",
+    "Ui.Xaml.MainWindow.062":  "Undo",
+    "Ui.Xaml.MainWindow.063":  "Undo (Ctrl+Z)",
+    "Ui.Xaml.MainWindow.064":  "Redo",
+    "Ui.Xaml.MainWindow.065":  "Redo (Ctrl+Y)",
+    "Ui.Xaml.MainWindow.066":  "Fit",
+    "Ui.Xaml.MainWindow.067":  "Fit canvas (F)",
+    "Ui.Xaml.MainWindow.068":  "Actual pixels (0)",
+    "Ui.Xaml.MainWindow.069":  "Zoom out",
+    "Ui.Xaml.MainWindow.070":  "Zoom in",
+    "Ui.Xaml.MainWindow.071":  "PNG",
+    "Ui.Xaml.MainWindow.072":  "Export a transparent 2× PNG of the current visible XUI",
+    "Ui.Xaml.MainWindow.073":  "Snap",
+    "Ui.Xaml.MainWindow.074":  "Reference",
+    "Ui.Xaml.MainWindow.075":  "Reference image opacity",
+    "Ui.Xaml.MainWindow.076":  "Collapse",
+    "Ui.Xaml.MainWindow.077":  "Collapse all hierarchy branches",
+    "Ui.Xaml.MainWindow.078":  "Reveal",
+    "Ui.Xaml.MainWindow.079":  "Reveal the current canvas selection",
+    "Ui.Xaml.MainWindow.080":  "Hierarchy",
+    "Ui.Xaml.MainWindow.081":  "Filter by Id, type, Visual, or ClassOverride",
+    "Ui.Xaml.MainWindow.082":  "Add child...",
+    "Ui.Xaml.MainWindow.083":  "Hide all except this",
+    "Ui.Xaml.MainWindow.084":  "Isolate this item and its descendants",
+    "Ui.Xaml.MainWindow.085":  "Restore visibility before isolate",
+    "Ui.Xaml.MainWindow.086":  "Show all",
+    "Ui.Xaml.MainWindow.087":  "Loading animation",
+    "Ui.Xaml.MainWindow.088":  "Loading XUI and assets...",
+    "Ui.Xaml.MainWindow.089":  "Advanced",
+    "Ui.Xaml.MainWindow.090":  "Show the full inherited Chrome 6 property schema",
+    "Ui.Xaml.MainWindow.091":  "+ Property",
+    "Ui.Xaml.MainWindow.092":  "Add an authored property to the selected element",
+    "Ui.Xaml.MainWindow.093":  "+ Parent",
+    "Ui.Xaml.MainWindow.094":  "Wrap the selected element in a new parent",
+    "Ui.Xaml.MainWindow.095":  "+ Child",
+    "Ui.Xaml.MainWindow.096":  "Add a visual child to the selected element (Ctrl+Insert)",
+    "Ui.Xaml.MainWindow.097":  "Inspector",
+    "Ui.Xaml.MainWindow.098":  "Copy",
+    "Ui.Xaml.MainWindow.099":  "Copy all authored properties except Id and ClassOverride (Ctrl+C)",
+    "Ui.Xaml.MainWindow.100":  "Copy…",
+    "Ui.Xaml.MainWindow.101":  "Choose authored properties or inherited defaults to copy (Ctrl+Shift+C)",
+    "Ui.Xaml.MainWindow.102":  "Paste",
+    "Ui.Xaml.MainWindow.103":  "Paste only properties applicable to the selected destination elements (Ctrl+V)",
+    "Ui.Xaml.MainWindow.104":  "No copied properties",
+    "Ui.Xaml.MainWindow.105":  "Select an element to edit its authored properties.",
+    "Ui.Xaml.MainWindow.106":  "Semantic text style",
+    "Ui.Xaml.MainWindow.107":  "Bold",
+    "Ui.Xaml.MainWindow.108":  "Italic",
+    "Ui.Xaml.MainWindow.109":  "Underline",
+    "Ui.Xaml.MainWindow.110":  "Horizontal",
+    "Ui.Xaml.MainWindow.111":  "Unspecified",
+    "Ui.Xaml.MainWindow.112":  "Left",
+    "Ui.Xaml.MainWindow.113":  "Center",
+    "Ui.Xaml.MainWindow.114":  "Right",
+    "Ui.Xaml.MainWindow.115":  "Vertical",
+    "Ui.Xaml.MainWindow.116":  "Top",
+    "Ui.Xaml.MainWindow.117":  "Middle",
+    "Ui.Xaml.MainWindow.118":  "Bottom",
+    "Ui.Xaml.MainWindow.119":  "Pivot",
+    "Ui.Xaml.MainWindow.120":  "X",
+    "Ui.Xaml.MainWindow.121":  "Y",
+    "Ui.Xaml.MainWindow.122":  "Z",
+    "Ui.Xaml.MainWindow.123":  "Top left",
+    "Ui.Xaml.MainWindow.124":  "Top center",
+    "Ui.Xaml.MainWindow.125":  "Top right",
+    "Ui.Xaml.MainWindow.126":  "Middle left",
+    "Ui.Xaml.MainWindow.127":  "Center",
+    "Ui.Xaml.MainWindow.128":  "Middle right",
+    "Ui.Xaml.MainWindow.129":  "Bottom left",
+    "Ui.Xaml.MainWindow.130":  "Bottom center",
+    "Ui.Xaml.MainWindow.131":  "Bottom right",
+    "Ui.Xaml.MainWindow.132":  "Reset pivot to origin",
+    "Ui.Xaml.MainWindow.133":  "Reset X and Y to zero while preserving Z",
+    "Ui.Xaml.MainWindow.134":  "Preserve visual position",
+    "Ui.Xaml.MainWindow.135":  "Compensate Position while Scale and Rotation are static",
+    "Ui.Xaml.MainWindow.136":  "Raw XML",
+    "Ui.Xaml.MainWindow.137":  "Load large XML",
+    "Ui.Xaml.MainWindow.138":  "Reset",
+    "Ui.Xaml.MainWindow.139":  "Apply XML",
+    "Ui.Xaml.MainWindow.140":  "Copy only this property value",
+    "Ui.Xaml.MainWindow.141":  "Copy property",
+    "Ui.Xaml.MainWindow.142":  "Reset to the inherited default by removing the authored property",
+    "Ui.Xaml.MainWindow.143":  "Animation",
+    "Ui.Xaml.MainWindow.144":  "No timeline scope",
+    "Ui.Xaml.MainWindow.145":  "Include descendants",
+    "Ui.Xaml.MainWindow.146":  "Show animation tracks for all selected elements and their descendants in this timeline scope",
+    "Ui.Xaml.MainWindow.147":  "Play",
+    "Ui.Xaml.MainWindow.148":  "Stop",
+    "Ui.Xaml.MainWindow.149":  "‹ Tick",
+    "Ui.Xaml.MainWindow.150":  "Tick ›",
+    "Ui.Xaml.MainWindow.151":  "Loop",
+    "Ui.Xaml.MainWindow.152":  "Speed",
+    "Ui.Xaml.MainWindow.153":  "+ Key",
+    "Ui.Xaml.MainWindow.154":  "Delete Key",
+    "Ui.Xaml.MainWindow.155":  "Copy",
+    "Ui.Xaml.MainWindow.156":  "Paste",
+    "Ui.Xaml.MainWindow.157":  "Force show",
+    "Ui.Xaml.MainWindow.158":  "Composed pose",
+    "Ui.Xaml.MainWindow.159":  "Return the active animation scope to its automatically composed visible pose",
+    "Ui.Xaml.MainWindow.160":  "Effective preview state",
+    "Ui.Xaml.MainWindow.161":  "Selected key",
+    "Ui.Xaml.MainWindow.162":  "Value for the selected property track",
+    "Ui.Xaml.MainWindow.163":  "Linear",
+    "Ui.Xaml.MainWindow.164":  "Eased",
+    "Ui.Xaml.MainWindow.165":  "In",
+    "Ui.Xaml.MainWindow.166":  "Out",
+    "Ui.Xaml.MainWindow.167":  "Scale",
+    "Ui.Xaml.MainWindow.168":  "Named frame",
+    "Ui.Xaml.MainWindow.169":  "Name",
+    "Ui.Xaml.MainWindow.170":  "Tick",
+    "Ui.Xaml.MainWindow.171":  "Command",
+    "Ui.Xaml.MainWindow.172":  "Command target",
+    "Ui.Xaml.MainWindow.173":  "+ Marker",
+    "Ui.Xaml.MainWindow.174":  "Go to",
+    "Ui.Xaml.MainWindow.175":  "Apply",
+    "Ui.Xaml.MainWindow.176":  "Delete",
+    "Ui.Xaml.MainWindow.177":  "Assets",
+    "Ui.Xaml.MainWindow.178":  "Search screens, visuals, textures, and fonts",
+    "Ui.Xaml.MainWindow.179":  "All",
+    "Ui.Xaml.MainWindow.180":  "Screens",
+    "Ui.Xaml.MainWindow.181":  "Visuals",
+    "Ui.Xaml.MainWindow.182":  "Textures",
+    "Ui.Xaml.MainWindow.183":  "Fonts",
+    "Ui.Xaml.MainWindow.184":  "Auto-size on drop",
+    "Ui.Xaml.MainWindow.185":  "Explicitly resize an existing image to the texture dimensions when dropping",
+    "Ui.Xaml.MainWindow.186":  "Open",
+    "Ui.Xaml.MainWindow.187":  "Copy to Workspace",
+    "Ui.Xaml.MainWindow.188":  "New Screen",
+    "Ui.Xaml.MainWindow.189":  "New Visual",
+    "Ui.Xaml.MainWindow.190":  "Rename",
+    "Ui.Xaml.MainWindow.191":  "Delete",
+    "Ui.Xaml.MainWindow.192":  "References / Replace",
+    "Ui.Xaml.MainWindow.193":  "Undo Replace",
+    "Ui.Xaml.MainWindow.194":  "Kind",
+    "Ui.Xaml.MainWindow.195":  "Name",
+    "Ui.Xaml.MainWindow.196":  "Size",
+    "Ui.Xaml.MainWindow.197":  "Access",
+    "Ui.Xaml.MainWindow.198":  "Source",
+    "Ui.Xaml.MainWindow.199":  "Diagnostics",
+    "Ui.Xaml.MainWindow.200":  "Filter diagnostics",
+    "Ui.Xaml.MainWindow.201":  "Severity",
+    "Ui.Xaml.MainWindow.202":  "Code",
+    "Ui.Xaml.MainWindow.203":  "Message",
+    "Ui.Xaml.MainWindow.204":  "Node",
+    "Ui.Xaml.MainWindow.205":  "Ready",
+    "Ui.Xaml.ReferenceReplacementWindow.001":  "Inspect / Replace Workspace References",
+    "Ui.Xaml.ReferenceReplacementWindow.002":  "Workspace XUI files only. Preview is required; archives are excluded. Apply creates file backups and rolls back atomically on failure.",
+    "Ui.Xaml.ReferenceReplacementWindow.003":  "Current value",
+    "Ui.Xaml.ReferenceReplacementWindow.004":  "Replacement",
+    "Ui.Xaml.ReferenceReplacementWindow.005":  "Preview diff",
+    "Ui.Xaml.ReferenceReplacementWindow.006":  "File",
+    "Ui.Xaml.ReferenceReplacementWindow.007":  "Node",
+    "Ui.Xaml.ReferenceReplacementWindow.008":  "Property",
+    "Ui.Xaml.ReferenceReplacementWindow.009":  "Old",
+    "Ui.Xaml.ReferenceReplacementWindow.010":  "New",
+    "Ui.Xaml.ReferenceReplacementWindow.011":  "Cancel",
+    "Ui.Xaml.ReferenceReplacementWindow.012":  "Apply with backups",
+    "Ui.Xaml.StockXuiBrowserWindow.001":  "Open Stock Dying Light XUI",
+    "Ui.Xaml.StockXuiBrowserWindow.002":  "Stock XUI browser",
+    "Ui.Xaml.StockXuiBrowserWindow.003":  "Search by file name, virtual path, or source archive",
+    "Ui.Xaml.StockXuiBrowserWindow.004":  "File",
+    "Ui.Xaml.StockXuiBrowserWindow.005":  "Virtual path",
+    "Ui.Xaml.StockXuiBrowserWindow.006":  "Source",
+    "Ui.Xaml.StockXuiBrowserWindow.007":  "Size",
+    "Ui.Xaml.StockXuiBrowserWindow.008":  "Stock documents open read-only. Use Save As to create a mod copy.",
+    "Ui.Xaml.StockXuiBrowserWindow.009":  "Cancel",
+    "Ui.Xaml.StockXuiBrowserWindow.010":  "Open read-only",
+    "Ui.Settings.InterfaceLanguage":  "Interface _Language",
+    "Ui.Settings.Language.Automatic":  "Automatic (Windows)",
+    "Ui.Schema.Category.Animation":  "Animation",
+    "Ui.Schema.Category.Appearance":  "Appearance",
+    "Ui.Schema.Category.Behavior":  "Behavior",
+    "Ui.Schema.Category.Identity":  "Identity",
+    "Ui.Schema.Category.Layout":  "Layout",
+    "Ui.Schema.Category.Navigation":  "Navigation",
+    "Ui.Schema.Category.Sound":  "Sound",
+    "Ui.Schema.Category.TextImage":  "Text / Image",
+    "Ui.Schema.Category.RawUnknown":  "Raw / Unknown",
+    "Ui.Schema.Evidence.DyingLightBinary":  "Dying Light binary",
+    "Ui.Schema.Evidence.DyingLightStock":  "Dying Light stock XUI",
+    "Ui.Schema.Evidence.SharedChrome6":  "Shared Chrome 6",
+    "Ui.Schema.Evidence.Chrome6Reference":  "Chrome 6 reference only",
+    "Ui.Schema.Evidence.Unknown":  "Unknown / custom",
+    "Ui.Schema.PreviewSupport.Exact":  "Exact",
+    "Ui.Schema.PreviewSupport.Approximate":  "Approximate",
+    "Ui.Schema.PreviewSupport.PreserveOnly":  "Preserve only",
+    "Ui.Schema.PropertyType.Textual":  "Text",
+    "Ui.Schema.PropertyType.Boolean":  "Boolean",
+    "Ui.Schema.PropertyType.WholeNumber":  "Whole number",
+    "Ui.Schema.PropertyType.Number":  "Number",
+    "Ui.Schema.PropertyType.Vector2":  "2D vector",
+    "Ui.Schema.PropertyType.Vector3":  "3D vector",
+    "Ui.Schema.PropertyType.Vector4":  "4D vector",
+    "Ui.Schema.PropertyType.Quaternion":  "Quaternion",
+    "Ui.Schema.PropertyType.Color":  "Color",
+    "Ui.Schema.PropertyType.Identifier":  "Identifier",
+    "Ui.Schema.PropertyType.AssetReference":  "Asset reference",
+    "Ui.Inspector.UnknownProperty":  "Unknown mod-authored property. It will be preserved losslessly.",
+    "Ui.Inspector.Evidence":  "Evidence: {0}",
+    "Ui.Inspector.Preview":  "Preview: {0}",
+    "Ui.Inspector.Timeline.Animatable":  "Timeline: animatable",
+    "Ui.Inspector.Timeline.NotAnimatable":  "Timeline: not animatable",
+    "Ui.Inspector.Authored":  "Authored in the selected XML.",
+    "Ui.Inspector.InheritedDefault":  "Inherited default: {0}",
+    "Ui.Inspector.Source.Authored":  "authored",
+    "Ui.Inspector.Source.InheritedDefault":  "inherited default",
+    "Ui.Inspector.CopySource":  "{0}: {1}",
+    "Ui.Inspector.ProtectedProperty":  "{0} is protected because pasting it could change element identity or class compatibility.",
+    "Ui.Inspector.ObservedStock":  "Observed in Dying Light stock XUI; its exact engine behavior is not documented.",
+    "Ui.Common.Empty":  "(empty)",
+    "Ui.AddProperty.Owner":  "Add one authored property to {0}. Catalog defaults stay ghosted until you edit them.",
+    "Ui.AddProperty.TypeSummary":  "{0} • {1} • {2} • {3} preview",
+    "Ui.AddProperty.Animatable":  "animatable",
+    "Ui.AddProperty.NotAnimatable":  "not animatable",
+    "Ui.AddProperty.DescriptionDefault":  "{0} Default: {1}",
+    "Ui.AddProperty.RawType":  "Raw custom property • preserved losslessly • preview support unknown",
+    "Ui.AddProperty.RawDescription":  "Use this explicit route only for mod-authored or otherwise unclassified engine properties.",
+    "Ui.AddProperty.InvalidName":  "Choose a catalog property or enter a valid raw XML name such as Opacity.",
+    "Ui.AddProperty.ChooseApplicable":  "Choose an applicable catalog property.",
+    "Ui.AddProperty.InvalidValue":  "\u0027{0}\u0027 is not a valid {1} value for {2}.",
+    "Ui.Inspector.Property.ClipChildren.Purpose":  "Clips descendant rendering to this element\u0027s transformed bounds.",
+    "Ui.Inspector.Property.Color.Purpose":  "Applies the element\u0027s ARGB color or vertex tint.",
+    "Ui.Inspector.Property.Material.Purpose":  "Selects the material resource used to render this element.",
+    "Ui.Inspector.Property.Opacity.Purpose":  "Sets local opacity from 0 (transparent) to 1 (opaque); parent opacity also applies.",
+    "Ui.Inspector.Property.Show.Purpose":  "Controls whether this element and its descendants are shown.",
+    "Ui.Inspector.Property.Id.Purpose":  "Identifies the element for timelines, navigation, references, and editor selection.",
+    "Ui.Inspector.Property.ClassOverride.Purpose":  "Uses the named Chrome 6 or Dying Light class instead of the XML element name when resolving inherited properties.",
+    "Ui.Inspector.Property.Visual.Purpose":  "References a reusable XuiVisual template; the editor composes this behavior approximately.",
+    "Ui.Inspector.Property.NavLeft.Purpose":  "Names the element that receives focus when navigation moves left.",
+    "Ui.Inspector.Property.NavRight.Purpose":  "Names the element that receives focus when navigation moves right.",
+    "Ui.Inspector.Property.NavUp.Purpose":  "Names the element that receives focus when navigation moves up.",
+    "Ui.Inspector.Property.NavDown.Purpose":  "Names the element that receives focus when navigation moves down.",
+    "Ui.Inspector.Property.NavTabForward.Purpose":  "Names the element that receives focus when tab navigation moves forward.",
+    "Ui.Inspector.Property.NavTabBackward.Purpose":  "Names the element that receives focus when tab navigation moves backward.",
+    "Ui.Inspector.Property.Width.Purpose":  "Sets the element\u0027s local design width.",
+    "Ui.Inspector.Property.Height.Purpose":  "Sets the element\u0027s local design height.",
+    "Ui.Inspector.Property.Position.Purpose":  "Sets the element\u0027s local XYZ position relative to its parent.",
+    "Ui.Inspector.Property.Scale.Purpose":  "Sets local XYZ scale around Pivot.",
+    "Ui.Inspector.Property.Rotation.Purpose":  "Sets quaternion rotation around Pivot.",
+    "Ui.Inspector.Property.Pivot.Purpose":  "Sets the unrestricted local-space XYZ origin used for scale and rotation.",
+    "Ui.Inspector.Property.HoldAspectRatio.Purpose":  "Uses one uniform scale ratio for both axes when parent or resolution size changes.",
+    "Ui.Inspector.Property.HoldAspectRatioX.Purpose":  "Uses the horizontal ratio, instead of the vertical ratio, when HoldAspectRatio chooses its uniform scale.",
+    "Ui.Inspector.Property.HoldAspectPivotPosition.Purpose":  "Scales the pivot with the same uniform ratio used by HoldAspectRatio.",
+    "Ui.Inspector.Property.KeepWidth.Purpose":  "Keeps the authored width when the parent size changes.",
+    "Ui.Inspector.Property.KeepWidthOnParentSizeChange.Purpose":  "Keeps the authored width when the parent size changes.",
+    "Ui.Inspector.Property.KeepWidthOnResolutionChange.Purpose":  "Keeps the authored width when preview resolution changes.",
+    "Ui.Inspector.Property.KeepHeight.Purpose":  "Keeps the authored height when the parent size changes.",
+    "Ui.Inspector.Property.KeepHeightOnParentSizeChange.Purpose":  "Keeps the authored height when the parent size changes.",
+    "Ui.Inspector.Property.KeepHeightOnResolutionChange.Purpose":  "Keeps the authored height when preview resolution changes.",
+    "Ui.Inspector.Property.KeepPosX.Purpose":  "Keeps the authored X position when the parent size changes.",
+    "Ui.Inspector.Property.KeepPosXOnParentSizeChange.Purpose":  "Keeps the authored X position when the parent size changes.",
+    "Ui.Inspector.Property.KeepPosXOnResolutionChange.Purpose":  "Keeps the authored X position when preview resolution changes.",
+    "Ui.Inspector.Property.KeepPosY.Purpose":  "Keeps the authored Y position when the parent size changes.",
+    "Ui.Inspector.Property.KeepPosYOnParentSizeChange.Purpose":  "Keeps the authored Y position when the parent size changes.",
+    "Ui.Inspector.Property.KeepPosYOnResolutionChange.Purpose":  "Keeps the authored Y position when preview resolution changes.",
+    "Ui.Inspector.Property.ScaleWidthByResolution.Purpose":  "Scales width by the preview resolution\u0027s horizontal factor.",
+    "Ui.Inspector.Property.Text.Purpose":  "Sets literal text or a localization key resolved by the selected preview language.",
+    "Ui.Inspector.Property.Font.Purpose":  "Selects the engine font ID or font resource used for text.",
+    "Ui.Inspector.Property.ImagePath.Purpose":  "Selects the image or texture-region resource rendered by an image element.",
+    "Ui.Inspector.Property.PointSize.Purpose":  "Sets the text point size.",
+    "Ui.Inspector.Property.TextColor.Purpose":  "Sets the text\u0027s ARGB color.",
+    "Ui.Inspector.Property.TextStyle.Purpose":  "Stores the packed Chrome 6 formatting and alignment bitmask; unknown compatibility bits are preserved.",
+    "Ui.Inspector.Property.Bold.Purpose":  "Enables bold text and overrides the equivalent legacy TextStyle bit when authored.",
+    "Ui.Inspector.Property.Italic.Purpose":  "Enables italic text and overrides the equivalent legacy TextStyle bit when authored.",
+    "Ui.Inspector.Property.Underline.Purpose":  "Enables underlined text and overrides the equivalent legacy TextStyle bit when authored.",
+    "Ui.Inspector.Property.HorizontalAlign.Purpose":  "Sets left, center, or right text alignment and overrides legacy TextStyle alignment when authored.",
+    "Ui.Inspector.Property.VerticalAlign.Purpose":  "Sets top, middle, or bottom text alignment and overrides legacy TextStyle alignment when authored.",
+    "Ui.Inspector.Property.VerticalAlignDown.Purpose":  "Enables Dying Light\u0027s legacy bottom-alignment behavior, separately from TextStyle.",
+    "Ui.Inspector.Property.MultiLine.Purpose":  "Allows text to wrap and occupy multiple lines.",
+    "Ui.Inspector.Property.Uppercase.Purpose":  "Transforms displayed text to uppercase using the preview language.",
+    "Ui.Inspector.Property.Outline.Purpose":  "Enables text outline rendering.",
+    "Ui.Inspector.Property.OutlineColor.Purpose":  "Sets the outline\u0027s ARGB color.",
+    "Ui.Inspector.Property.OutlineSize.Purpose":  "Sets the thickness of the text outline.",
+    "Ui.Inspector.Property.Shadow.Purpose":  "Enables text shadow rendering.",
+    "Ui.Inspector.Property.ShadowColor.Purpose":  "Sets the shadow\u0027s ARGB color.",
+    "Ui.Inspector.Property.ShadowOffset.Purpose":  "Offsets the text shadow from the glyphs.",
+    "Ui.Inspector.Property.ColorControlSequenceEnabled.Purpose":  "Enables inline %COLOR(...) control sequences in displayed text.",
+    "Ui.Inspector.Property.FontYOffset.Purpose":  "Overrides the legacy TextStyle vertical font offset when authored.",
+    "Ui.Inspector.Property.SpecialSignsScale.Purpose":  "Overrides legacy TextStyle scaling for special-sign glyphs when authored.",
+    "Ui.Inspector.Property.Strike.Purpose":  "Enables standalone strike-through formatting when supported; the value is preserved for compatibility."
+    ,"Ui.Common.ErrorDetails": "Error: {0}"
+    ,"Ui.CopyProperties.Source": "Source: {0} ({1}). Authored values are selected by default. Id and ClassOverride are protected; paste skips properties that do not apply to the destination class."
+    ,"Ui.CopyProperties.Summary": "Selected: {0:N0} • Authored: {1:N0} • Inherited defaults: {2:N0}"
+    ,"Ui.CopyProperties.SelectOne": "Select at least one copyable property."
+    ,"Ui.ReferenceRename.Title": "Rename Workspace XUI Visual"
+    ,"Ui.ReferenceRename.Instruction": "Preview includes the XuiVisual Id and every exact workspace reference. Apply creates backups and rolls back all committed files on failure."
+    ,"Ui.ReferenceReplace.Changed": "Replacement changed; preview the diff again before applying."
+    ,"Ui.ReferenceReplace.InvalidValue": "Enter a non-empty replacement different from the current value."
+    ,"Ui.ReferenceReplace.NoMatches": "No matching workspace references were found."
+    ,"Ui.ReferenceReplace.MatchSummary": "References: {0:N0} • Files: {1:N0}. Review every row before applying."
+    ,"Ui.ReferenceReplace.PreviewFirst": "Preview the current replacement before applying."
+    ,"Ui.ReferenceReplace.Confirm": "Apply {0:N0} exact replacements with backups?"
+    ,"Ui.ReferenceReplace.ConfirmTitle": "Apply reference transaction"
+    ,"Ui.ReferenceReplace.Failed": "Transaction failed and committed files were rolled back: {0}"
+    ,"Ui.Grid.MinorSpacing": "Minor spacing"
+    ,"Ui.Grid.MajorSpacing": "Major spacing"
+    ,"Ui.Grid.CoarseSpacing": "Coarse spacing"
+    ,"Ui.Grid.MinorColor": "Minor color"
+    ,"Ui.Grid.MajorColor": "Major color"
+    ,"Ui.Grid.CoarseColor": "Coarse color"
+    ,"Ui.Grid.SpacingOrder": "Grid spacings must be ordered minor ≤ major ≤ coarse."
+    ,"Ui.Grid.SpacingRange": "{0} must be between 0.25 and 4096."
+    ,"Ui.Grid.ColorFormat": "{0} must be #AARRGGBB or a WPF color name."
+    ,"Ui.Hierarchy.AnAncestor": "an ancestor"
+    ,"Ui.Hierarchy.Hidden": "Hidden in editor — click to show"
+    ,"Ui.Hierarchy.HiddenBy": "Hidden by {0}"
+    ,"Ui.Hierarchy.Visible": "Visible in editor — click to hide"
+    ,"Ui.Hierarchy.Locked": "Locked in editor — click to unlock"
+    ,"Ui.Hierarchy.LockedBy": "Locked by {0}"
+    ,"Ui.Hierarchy.Unlocked": "Unlocked in editor — click to lock"
+    ,"Ui.Hierarchy.Automation.Hidden": "{0}, hidden in editor. Activate to show."
+    ,"Ui.Hierarchy.Automation.HiddenBy": "{0}, hidden by {1}."
+    ,"Ui.Hierarchy.Automation.Visible": "{0}, visible in editor. Activate to hide."
+    ,"Ui.Hierarchy.Automation.Locked": "{0}, locked in editor. Activate to unlock."
+    ,"Ui.Hierarchy.Automation.LockedBy": "{0}, locked by {1}."
+    ,"Ui.Hierarchy.Automation.Unlocked": "{0}, unlocked in editor. Activate to lock."
+    ,"Ui.Common.None": "(none)"
+    ,"Ui.AddElement.ParentInstruction": "Add a visual child under {0}. The edit is lossless and undoable."
+    ,"Ui.AddElement.Help.Group": "A lightweight AdvGroup container."
+    ,"Ui.AddElement.Help.Image": "A MyImage node. 'white' draws the selected color without requiring a texture."
+    ,"Ui.AddElement.Help.Text": "A MyText node using the selected engine font and text color."
+    ,"Ui.AddElement.Help.Rectangle": "An antialiased color rectangle using menu_antialias.mat and the white-image contract."
+    ,"Ui.AddElement.Help.Button": "An AdvButton using the stock ButtonV visual and auto-width behavior."
+    ,"Ui.AddElement.Help.CatalogClass": "Choose a class observed in Dying Light stock XUI. The palette uses its catalog dimensions and emits only the common authored geometry."
+    ,"Ui.AddElement.Help.CustomXml": "Edit the raw XML below. Preset fields are ignored in custom mode."
+    ,"Ui.AddElement.CatalogSummary": "{0}: {1}. Evidence: {2}; base: {3}."
+    ,"Ui.AddElement.Error.CustomXmlRequired": "Enter one visual XUI element in the custom XML box."
+    ,"Ui.AddElement.Field.Width": "Width"
+    ,"Ui.AddElement.Field.Height": "Height"
+    ,"Ui.AddElement.Field.XPosition": "X position"
+    ,"Ui.AddElement.Field.YPosition": "Y position"
+    ,"Ui.AddElement.Error.ColorArgb": "Color must be an ARGB value such as 0xffffffff."
+    ,"Ui.AddElement.Error.FiniteNumber": "{0} must be a finite number."
+    ,"Ui.AssetRoots.ChooseInstallFolder": "Choose the Dying Light installation folder"
+    ,"Ui.AssetRoots.ChooseWorkspace": "Choose writable XUI workspace"
+    ,"Ui.AssetRoots.Filter.TextureDefinitions": "Dying Light texture definitions (*.def;*.scr)|*.def;*.scr|All files (*.*)|*.*"
+    ,"Ui.AssetRoots.Filter.ResourcePacks": "Dying Light resource packs (*.rpack)|*.rpack|All files (*.*)|*.*"
+    ,"Ui.AssetRoots.Error.InstallContents": "Choose the folder containing DyingLightGame.exe and DW\\Data0.pak."
+    ,"Ui.AssetRoots.Error.InvalidWorkspace": "Invalid workspace"
+    ,"Ui.AssetRoots.Error.FolderMissing": "The configured resource folder does not exist."
+    ,"Ui.AssetRoots.Error.FileMissing": "The configured resource file does not exist."
+    ,"Ui.AssetRoots.Choose.Project": "Choose a Dying Light Workshop or Developer Tools project"
+    ,"Ui.AssetRoots.Choose.LooseResources": "Choose a loose resource folder"
+    ,"Ui.AssetRoots.Choose.LooseMod": "Choose a loose Dying Light mod root"
+    ,"Ui.AssetRoots.Choose.Extracted": "Choose an extracted Dying Light asset root"
+    ,"Ui.AssetRoots.Choose.RpackFiles": "Choose Dying Light RPACK files"
+    ,"Ui.AssetRoots.Choose.TextureDefinitionFiles": "Choose additional texture-definition files"
+    ,"Ui.AssetRoots.Install.NotConfigured": "Not configured — stock browser disabled"
+    ,"Ui.AssetRoots.Install.Valid": "Valid Dying Light install · read-only"
+    ,"Ui.AssetRoots.Install.Invalid": "Not a Dying Light install"
+    ,"Ui.AssetRoots.Error.InvalidInstall": "Invalid Dying Light installation"
+    ,"Ui.AssetRoots.Error.InvalidResourcePath": "Invalid resource path"
+    ,"Ui.AssetRoots.Kind.TextureDefinitions": "Texture definitions"
+    ,"Ui.StockBrowser.Count": "{0:N0} of {1:N0}"
+    ,"Ui.StockBrowser.Packed": "packed"
+    ,"Ui.Viewport.Empty": "Open a Dying Light .xui file to begin"
+    ,"Ui.Command.Set": "Set {0}"
+    ,"Ui.Command.ReplaceRawXml": "Replace raw XML for {0}"
+    ,"Ui.Command.Add": "Add {0}"
+    ,"Ui.Command.Remove": "Remove {0}"
+    ,"Ui.Command.Duplicate": "Duplicate {0}"
+    ,"Ui.Command.MoveUp": "Move {0} up"
+    ,"Ui.Command.MoveDown": "Move {0} down"
+    ,"Ui.Command.Reparent": "Reparent {0}"
+    ,"Ui.Command.EditSelection": "Edit selection"
+    ,"Ui.Command.Reset": "Reset {0}"
+    ,"Ui.Command.MoveSelection": "Move selection"
+    ,"Ui.Command.ResizeElement": "Resize element"
+    ,"Ui.Command.RotateSelection": "Rotate selection"
+    ,"Ui.Command.PasteProperty": "Paste {0}"
+    ,"Ui.Command.PasteInspectorProperties": "Paste {0:N0} inspector properties"
+    ,"Ui.Command.SetImageTexture": "Set image texture"
+    ,"Ui.Command.SetTextProperty": "Set text {0}"
+    ,"Ui.Command.SetHorizontalTextAlignment": "Set horizontal text alignment"
+    ,"Ui.Command.SetVerticalTextAlignment": "Set vertical text alignment"
+    ,"Ui.Command.EditPivot": "Edit pivot"
+    ,"Ui.Command.SetPivotPreset": "Set pivot preset"
+    ,"Ui.Command.Undo": "_Undo {0}"
+    ,"Ui.Command.Redo": "_Redo {0}"
+    ,"Ui.Diagnostic.Severity.Info": "Info"
+    ,"Ui.Diagnostic.Severity.Warning": "Warning"
+    ,"Ui.Diagnostic.Severity.Error": "Error"
+    ,"Ui.Diagnostic.XUI-ASSET001": "A texture declaration is invalid."
+    ,"Ui.Diagnostic.XUI-ASSET002": "A font declaration is invalid."
+    ,"Ui.Diagnostic.XUI-ASSET003": "A tileset has no resolvable tile declarations."
+    ,"Ui.Diagnostic.XUI-ASSET004": "A tileset has multiple runtime variants; the editor chose one deterministically."
+    ,"Ui.Diagnostic.XUI-ASSET005": "A referenced DDS texture was not found."
+    ,"Ui.Diagnostic.XUI-ASSET006": "An asset root does not exist."
+    ,"Ui.Diagnostic.XUI-ASSET007": "A texture region exceeded its declared texture space and was clipped."
+    ,"Ui.Diagnostic.XUI-ASSET008": "An asset file could not be read."
+    ,"Ui.Diagnostic.XUI-ASSET009": "An XuiVisual has no Id and cannot be resolved."
+    ,"Ui.Diagnostic.XUI-ASSET010": "A visual library contains a duplicate template Id."
+    ,"Ui.Diagnostic.XUI-ASSET011": "A tileset uses an unknown rotation mode."
+    ,"Ui.Diagnostic.XUI-ASSET012": "A DDS texture could not be decoded."
+    ,"Ui.Diagnostic.XUI-ASSET013": "A DDS basename matched multiple files; one was selected deterministically."
+    ,"Ui.Diagnostic.XUI-FONT001": "An engine font is shown with an approximate font."
+    ,"Ui.Diagnostic.XUI-FONT002": "A mapped font path is invalid; an approximate fallback is used."
+    ,"Ui.Diagnostic.XUI-FONT003": "A bitmap glyph declaration is invalid."
+    ,"Ui.Diagnostic.XUI-FONT004": "Bitmap font metrics are incomplete."
+    ,"Ui.Diagnostic.XUI-FONT005": "A bitmap font atlas could not be decoded."
+    ,"Ui.Diagnostic.XUI-GLYPH001": "An input-glyph catalog has an unsafe entry count."
+    ,"Ui.Diagnostic.XUI-INSTALL000": "Dying Light installation indexing completed."
+    ,"Ui.Diagnostic.XUI-INSTALL001": "The selected folder is not a Dying Light installation."
+    ,"Ui.Diagnostic.XUI-INSTALL002": "A PAK could not be indexed."
+    ,"Ui.Diagnostic.XUI-INSTALL003": "An RP6L menu pack could not be indexed."
+    ,"Ui.Diagnostic.XUI-INSTALL004": "A loose installation asset could not be indexed."
+    ,"Ui.Diagnostic.XUI-LAYOUT001": "The canvas design size is invalid; a safe fallback is used."
+    ,"Ui.Diagnostic.XUI-LAYOUT002": "A duplicate Id makes targets ambiguous."
+    ,"Ui.Diagnostic.XUI-LAYOUT003": "An engine-only or unknown element is represented by its bounds and children."
+    ,"Ui.Diagnostic.XUI-LAYOUT004": "A material uses a static editor approximation."
+    ,"Ui.Diagnostic.XUI-LAYOUT005": "A property value is invalid; its raw value is preserved."
+    ,"Ui.Diagnostic.XUI-LAYOUT006": "A visual template was not found."
+    ,"Ui.Diagnostic.XUI-LAYOUT007": "Visual-template nesting exceeded the supported depth."
+    ,"Ui.Diagnostic.XUI-LAYOUT008": "A visual-template cycle was detected."
+    ,"Ui.Diagnostic.XUI-LAYOUT009": "An image was not found and is transparent in the preview."
+    ,"Ui.Diagnostic.XUI-LAYOUT010": "Resolution-change behavior includes an explicit editor approximation."
+    ,"Ui.Diagnostic.XUI-LAYOUT011": "Mask sampling includes an explicit editor approximation."
+    ,"Ui.Diagnostic.XUI-LAYOUT012": "Vertical text alignment is unknown; top alignment is used."
+    ,"Ui.Diagnostic.XUI-LAYOUT013": "Button auto-width was invalid; authored geometry is retained."
+    ,"Ui.Diagnostic.XUI-LAYOUT014": "The active controller profile changes the effective preview state."
+    ,"Ui.Diagnostic.XUI-LOC001": "A localization catalog could not be read."
+    ,"Ui.Diagnostic.XUI-LOC002": "A localization key is declared more than once."
+    ,"Ui.Diagnostic.XUI-LOC003": "A localization catalog has trailing bytes."
+    ,"Ui.Diagnostic.XUI-LOC004": "A localization source line is malformed."
+    ,"Ui.Diagnostic.XUI-SOURCE001": "A configured resource source does not exist."
+    ,"Ui.Diagnostic.XUI-SOURCE002": "A configured resource source could not be indexed."
+    ,"Ui.Diagnostic.XUI-TEXT001": "Color markup is present but is not enabled."
+    ,"Ui.Diagnostic.XUI-TEXT002": "Malformed or unsupported color markup is displayed literally."
+    ,"Ui.Diagnostic.XUI-TEXT003": "Color markup is attached to a non-text element."
+    ,"Ui.Diagnostic.XUI-TL001": "A timeline has no target Id."
+    ,"Ui.Diagnostic.XUI-TL002": "An unknown timeline property is preserved as raw text."
+    ,"Ui.Diagnostic.XUI-TL003": "A keyframe has an invalid Time."
+    ,"Ui.Diagnostic.XUI-TL004": "An interpolation code is unknown; step behavior is used."
+    ,"Ui.Diagnostic.XUI-TL005": "A timeline property value is invalid."
+    ,"Ui.Diagnostic.XUI-TL006": "A keyframe value count does not match its property count."
+    ,"Ui.Diagnostic.XUI-TL007": "A named frame requires a name and valid Time."
+    ,"Ui.Diagnostic.XUI-TL008": "An unknown named-frame command is preserved and ignored."
+    ,"Ui.Diagnostic.XUI-TL009": "A named-frame target is duplicated in the same scope."
+    ,"Ui.Diagnostic.XUI-TL010": "A named-frame command cycle was detected."
+    ,"Ui.Diagnostic.XUI-TL011": "A named-frame target was not found."
+    ,"Ui.Common.Mixed": "— mixed —"
+    ,"Ui.Main.AddParent.Action": "Wrap element"
+    ,"Ui.Main.AddParent.Instruction": "Wrap {0} in a new visual parent. The default group has an identity transform and the old parent size, so the child does not jump."
+    ,"Ui.Main.AddParent.Title": "Add XUI Parent"
+    ,"Ui.Main.Asset.ConfigureInstall": "Choose the Dying Light installation folder from Settings → Dying Light Resources first."
+    ,"Ui.Main.Asset.DataRequiredTitle": "Dying Light data required"
+    ,"Ui.Main.Asset.IndexingCancelled": "Asset indexing cancelled"
+    ,"Ui.Main.Asset.IndexingExternal": "Indexing external assets…"
+    ,"Ui.Main.Asset.IndexingFailed": "Dying Light indexing failed"
+    ,"Ui.Main.Asset.IndexingGame": "Indexing Dying Light PAKs and RPACKs…"
+    ,"Ui.Main.Asset.InstallNotConfigured": "Dying Light install not configured"
+    ,"Ui.Main.Asset.InstallSummary": "{0:N0} stock XUIs · {1:N0} install assets · {2}"
+    ,"Ui.Main.Asset.Summary": "{0:N0} assets · {1:N0} strings · {2} · {3:N0} diagnostics"
+    ,"Ui.Main.Clipboard.Empty": "No copied properties"
+    ,"Ui.Main.Clipboard.Help": "Copy authored properties from a source element."
+    ,"Ui.Main.Clipboard.More": "…and {0:N0} more"
+    ,"Ui.Main.Clipboard.Summary": "{0:N0} copied from {1}"
+    ,"Ui.Main.Delete.VisualPrompt": "Delete visual '{0}' from its workspace library? The operation is refused while references remain and creates a recovery backup."
+    ,"Ui.Main.Delete.VisualTitle": "Delete workspace visual"
+    ,"Ui.Main.Delete.XuiPrompt": "Move '{0}' to the workspace recovery trash?"
+    ,"Ui.Main.Delete.XuiTitle": "Delete workspace XUI"
+    ,"Ui.Main.Document.Modified": "Modified"
+    ,"Ui.Main.Document.ReadOnly": "Read-only stock"
+    ,"Ui.Main.Document.Saved": "Saved"
+    ,"Ui.Main.DocumentStats": "{0:N0} nodes · {1:N0} timelines"
+    ,"Ui.Main.Error.AddChild": "Could not add XUI child"
+    ,"Ui.Main.Error.AddParent": "Could not add XUI parent"
+    ,"Ui.Main.Error.AddProperty": "Could not add XUI property"
+    ,"Ui.Main.Error.CopyWorkspace": "Copy to Workspace failed"
+    ,"Ui.Main.Error.CreateScreen": "Could not create workspace screen"
+    ,"Ui.Main.Error.CreateVisual": "Could not create workspace visual"
+    ,"Ui.Main.Error.DeleteXui": "Could not delete workspace XUI"
+    ,"Ui.Main.Error.ExportPng": "Could not export PNG"
+    ,"Ui.Main.Error.IndexGame": "Could not index Dying Light"
+    ,"Ui.Main.Error.LoadReference": "Could not load reference image"
+    ,"Ui.Main.Error.OpenAsset": "Could not open asset"
+    ,"Ui.Main.Error.OpenRecovery": "Could not open recovery"
+    ,"Ui.Main.Error.OpenStock": "Could not open stock XUI"
+    ,"Ui.Main.Error.OpenXui": "Could not open XUI"
+    ,"Ui.Main.Error.RenameXui": "Could not rename workspace XUI"
+    ,"Ui.Main.Error.SaveXui": "Could not save XUI"
+    ,"Ui.Main.Error.ScreenOutsideWorkspace": "New screens must stay inside the configured workspace."
+    ,"Ui.Main.Error.UndoRebind": "Could not undo workspace rebind"
+    ,"Ui.Main.Error.VisualOutsideWorkspace": "New visuals must stay inside the configured workspace."
+    ,"Ui.Main.Export.Title": "Export Transparent XUI Snapshot"
+    ,"Ui.Main.Filter.ImagesAll": "Images (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp|All files (*.*)|*.*"
+    ,"Ui.Main.Filter.Png": "PNG image (*.png)|*.png"
+    ,"Ui.Main.Filter.Xui": "Dying Light XUI (*.xui)|*.xui"
+    ,"Ui.Main.Filter.XuiAll": "Dying Light XUI (*.xui)|*.xui|All files (*.*)|*.*"
+    ,"Ui.Main.Hierarchy.Count": "{0:N0}"
+    ,"Ui.Main.Keyframe.InvalidValue": "'{0}' is invalid for {1}. The keyframe was not changed."
+    ,"Ui.Main.Keyframe.MissingProp": "This malformed keyframe has no corresponding Prop element."
+    ,"Ui.Main.Open.Title": "Open Dying Light XUI"
+    ,"Ui.Main.Pivot.AnimatedUnavailable": "Preserve mode is unavailable because Scale or Rotation is animated. Raw runtime mode remains available."
+    ,"Ui.Main.Pivot.PreserveMode": "Preserve mode compensates authored Position and Position keys."
+    ,"Ui.Main.Pivot.RawMode": "Raw runtime mode changes Pivot and Pivot keys."
+    ,"Ui.Main.Pivot.RequiresId": "Preserve mode requires an authored Id so related animation tracks can be checked."
+    ,"Ui.Main.Pivot.RequiresThreeNumbers": "Pivot requires three finite numeric values."
+    ,"Ui.Main.Preview.HiddenOverride": "{0} is {1}. This is an editor-only hierarchy override."
+    ,"Ui.Main.Preview.NotRendered": "Preview state is not available until the document is rendered."
+    ,"Ui.Main.Preview.Reason.Visible": "The element is visible in the composed preview."
+    ,"Ui.Main.Preview.Reason.ForceShown": "The element is force-shown by an editor override."
+    ,"Ui.Main.Preview.Reason.NotRendered": "The element did not produce a preview node."
+    ,"Ui.Main.Preview.Reason.AuthoredHidden": "The element is hidden by its authored Show value."
+    ,"Ui.Main.Preview.Reason.AnimatedHidden": "The element is hidden by the active animation."
+    ,"Ui.Main.Preview.Reason.AnimatedHiddenAtTick": "The element is hidden by the active animation at tick {0}."
+    ,"Ui.Main.Preview.Reason.RuntimeHidden": "The element is hidden by the active runtime preview state."
+    ,"Ui.Main.Preview.Reason.ForceHidden": "The element is hidden by an editor override."
+    ,"Ui.Main.Preview.Reason.AncestorHidden": "The element is hidden because an ancestor is hidden."
+    ,"Ui.Main.Preview.Reason.ZeroOpacity": "The element is invisible because its opacity is zero."
+    ,"Ui.Main.Preview.Reason.AncestorOpacity": "The element is invisible because an ancestor's opacity is zero."
+    ,"Ui.Main.Preview.Reason.Clipped": "The element is outside its active clip bounds."
+    ,"Ui.Main.Preview.Reason.OutsideCanvas": "The element is outside the canvas."
+    ,"Ui.Main.RawXml.Characters": "{0:N0} characters"
+    ,"Ui.Main.RawXml.Large": "{0:0.0} MiB of XML — load explicitly to edit"
+    ,"Ui.Main.RawXml.LoadBeforeApply": "Load the XML for the current selection before applying it."
+    ,"Ui.Main.Recovered": "Recovered · {0}"
+    ,"Ui.Main.RecoveryPrompt": "A recovery snapshot from {0:g} is available.\n\n{1}\n\nOpen it as an unsaved document?"
+    ,"Ui.Main.RecoveryTitle": "Recover unsaved XUI"
+    ,"Ui.Main.Reference.LoadTitle": "Load HUD or menu reference image"
+    ,"Ui.Main.SaveAs.Title": "Save Dying Light XUI As"
+    ,"Ui.Main.Selection.Common": "common selection"
+    ,"Ui.Main.Selection.Many": "{0:N0} selected"
+    ,"Ui.Main.Selection.One": "1 selected"
+    ,"Ui.Main.Selection.SelectedElements": "{0:N0} selected elements"
+    ,"Ui.Main.Status.AddChildFailed": "Add child failed safely"
+    ,"Ui.Main.Status.Added": "Added {0}"
+    ,"Ui.Main.Status.AddedParent": "Added parent {0}"
+    ,"Ui.Main.Status.AddedParentReadOnly": "Added parent {0} in memory. Use Save As to create a writable mod copy."
+    ,"Ui.Main.Status.AddedProperty": "Added {0} to {1}"
+    ,"Ui.Main.Status.AddedReadOnly": "Added {0} in memory. Use Save As to create a writable mod copy."
+    ,"Ui.Main.Status.AddParentFailed": "Add parent failed safely"
+    ,"Ui.Main.Status.AddPropertyFailed": "Add property failed safely"
+    ,"Ui.Main.Status.AlreadyTopLevel": "The selected element is already at the top level."
+    ,"Ui.Main.Status.AssetNotEditable": "Only loose screens or visuals inside the writable workspace can be renamed or deleted. Copy archive assets first."
+    ,"Ui.Main.Status.CanvasCannotTransform": "The XUI canvas cannot be transformed from the preview."
+    ,"Ui.Main.Status.CanvasCannotWrap": "The XUI canvas cannot be wrapped in another parent."
+    ,"Ui.Main.Status.CloseBeforeDelete": "Close or open another document before deleting this screen."
+    ,"Ui.Main.Status.CopiedKeyframe": "Copied keyframe at tick {0}."
+    ,"Ui.Main.Status.CopiedOneProperty": "Copied {0} from {1}"
+    ,"Ui.Main.Status.CopiedProperties": "Copied {0:N0} properties from {1}"
+    ,"Ui.Main.Status.CopiedTo": "Copied to {0}."
+    ,"Ui.Main.Status.CopyBeforePaste": "Copy one or more inspector properties before pasting."
+    ,"Ui.Main.Status.DeletedVisual": "Deleted visual; recovery backup: {0}."
+    ,"Ui.Main.Status.DropOnEditable": "Drop this asset on an editable element."
+    ,"Ui.Main.Status.EditRejected": "Edit rejected; the document was restored: {0}"
+    ,"Ui.Main.Status.ElementLocked": "{0} is locked in the editor."
+    ,"Ui.Main.Status.EvaluationFailed": "Evaluation failed safely"
+    ,"Ui.Main.Status.ExportedPng": "Exported transparent PNG · {0:N0}×{1:N0}"
+    ,"Ui.Main.Status.ExportNeedsDocument": "Open and render an XUI document before exporting a PNG."
+    ,"Ui.Main.Status.ExportPngFailed": "PNG export failed safely"
+    ,"Ui.Main.Status.FixInvalidBeforeCopy": "Fix the invalid {0} value before copying it."
+    ,"Ui.Main.Status.IndentNeedsSibling": "Indent needs a previous visual sibling to become the new parent."
+    ,"Ui.Main.Status.InvalidEase": "Ease In, Out, and Scale must be finite numbers."
+    ,"Ui.Main.Status.MixedCannotCopy": "A mixed multi-selection value cannot be copied as one property."
+    ,"Ui.Main.Status.MovedToTrash": "Moved to recoverable trash: {0}."
+    ,"Ui.Main.Status.NamedFrameInvalid": "A named frame needs a name and a non-negative integer tick."
+    ,"Ui.Main.Status.NavigationAlreadyClear": "{0} is already clear."
+    ,"Ui.Main.Status.NavigationAmbiguous": "The navigation target is ambiguous."
+    ,"Ui.Main.Status.NavigationAmbiguousDetails": "{0}"
+    ,"Ui.Main.Status.NavigationCleared": "Cleared {0}."
+    ,"Ui.Main.Status.NavigationSourceUnavailable": "The navigation source is unavailable or locked."
+    ,"Ui.Main.Status.NavigationTargetMissing": "The navigation target no longer exists."
+    ,"Ui.Main.Status.NavigationTargetSet": "{0} now targets {1}."
+    ,"Ui.Main.Status.NoChanges": "No changes to save"
+    ,"Ui.Main.Status.NoCopyableProperties": "The source has no copyable properties. Id and ClassOverride are protected."
+    ,"Ui.Main.Status.NoParentGroup": "The selection has no parent group."
+    ,"Ui.Main.Status.NoPropertiesBlock": "{0} has no editable Properties block."
+    ,"Ui.Main.Status.NothingPasted": "Nothing pasted · {0:N0} incompatible or locked · {1:N0} already matched"
+    ,"Ui.Main.Status.NothingPastedMatched": "Nothing pasted · every applicable value already matched"
+    ,"Ui.Main.Status.OpenFailed": "Open failed"
+    ,"Ui.Main.Status.OpeningStock": "Opening stock {0}…"
+    ,"Ui.Main.Status.OpeningXui": "Opening XUI…"
+    ,"Ui.Main.Status.PastedProperties": "Pasted {0:N0} property values to {1:N0} elements · {2:N0} incompatible or locked · {3:N0} already matched"
+    ,"Ui.Main.Status.PivotPreserved": "Pivot changed with visual-position compensation."
+    ,"Ui.Main.Status.PivotRaw": "Pivot changed with raw runtime semantics."
+    ,"Ui.Main.Status.ProtectedCannotCopy": "{0} is protected and cannot be copied between elements."
+    ,"Ui.Main.Status.RawXmlRejected": "Raw XML was rejected; the document was not changed."
+    ,"Ui.Main.Status.ReadOnlyAssetOpened": "Read-only asset opened; use Copy to Workspace or Save As to edit it."
+    ,"Ui.Main.Status.Ready": "Ready"
+    ,"Ui.Main.Status.ReboundReferences": "Rebound {0:N0} references in {1:N0} files; backups: {2}."
+    ,"Ui.Main.Status.RecoveryFailed": "Recovery snapshot could not be written"
+    ,"Ui.Main.Status.RecoveryOpened": "Recovery opened as an unsaved document"
+    ,"Ui.Main.Status.RecoverySaved": "Recovery snapshot saved"
+    ,"Ui.Main.Status.Reference": "Reference: {0}"
+    ,"Ui.Main.Status.ReferenceCleared": "Reference image cleared"
+    ,"Ui.Main.Status.RenamedTo": "Renamed to {0}."
+    ,"Ui.Main.Status.RenamedVisual": "Renamed visual and rebound {0:N0} workspace references; backups: {1}."
+    ,"Ui.Main.Status.RenderingPng": "Rendering transparent 2× PNG…"
+    ,"Ui.Main.Status.ReplacedRawXml": "Replaced raw XML for {0}"
+    ,"Ui.Main.Status.Saved": "Saved"
+    ,"Ui.Main.Status.SavedBackup": "Saved · backup: {0}"
+    ,"Ui.Main.Status.SelectAnimatedElement": "Select an animated element or an existing keyframe first."
+    ,"Ui.Main.Status.SelectOneAddChild": "Select exactly one hierarchy element to add a child."
+    ,"Ui.Main.Status.SelectOneAddParent": "Select exactly one hierarchy element to add a parent."
+    ,"Ui.Main.Status.SelectOneAddProperty": "Select exactly one hierarchy element to add a property."
+    ,"Ui.Main.Status.SelectPasteDestination": "Select at least one destination element before pasting."
+    ,"Ui.Main.Status.SelectSourceAdvancedCopy": "Select one source element before choosing properties to copy."
+    ,"Ui.Main.Status.SelectSourceToCopy": "Select one source element before copying its properties."
+    ,"Ui.Main.Status.SelectTimelineScope": "Select nodes from one timeline scope before adding a named frame."
+    ,"Ui.Main.Status.SourceChanged": "Source changed externally · Save is blocked until reload or Save As"
+    ,"Ui.Main.Status.SourceReadOnly": "Source root is read-only; choose a workspace copy."
+    ,"Ui.Main.Status.StockOpened": "Stock XUI opened read-only · use Save As to make a mod copy"
+    ,"Ui.Main.Status.StockOpenFailed": "Stock open failed"
+    ,"Ui.Main.Status.TextureTargetLocked": "The texture drop target is locked."
+    ,"Ui.Main.Status.TransformTargetMissing": "Transform target no longer exists"
+    ,"Ui.Main.Status.UndidRebind": "Undid the last workspace rebind across {0:N0} files."
+    ,"Ui.Main.Status.UnsupportedRotation": "Rotation uses an unsupported authored value and was not changed."
+    ,"Ui.Main.TextStyle.Mixed": "Raw TextStyle: mixed values"
+    ,"Ui.Main.TextStyle.Raw": "Raw {0} / {1} · unmapped {2}"
+    ,"Ui.Main.Timeline.MixedScopes": "Mixed timeline scopes"
+    ,"Ui.Main.Timeline.NoScope": "No timeline scope"
+    ,"Ui.Main.Timeline.Position": "{0} ticks · {1:0.000}s"
+    ,"Ui.Main.Timeline.Scope": "Scope: {0} · {1} / {2}"
+    ,"Ui.Main.Timeline.ScopeComposed": "Scope: {0} · {1} / {2} · composed"
+    ,"Ui.Main.Transport.Pause": "Pause"
+    ,"Ui.Main.Transport.Play": "Play"
+    ,"Ui.Main.Unsaved.ClosePrompt": "Save changes before closing?"
+    ,"Ui.Main.Unsaved.OpenPrompt": "Save changes before opening another file?"
+    ,"Ui.Main.Unsaved.Title": "Unsaved XUI changes"
+    ,"Ui.Main.Untitled": "Untitled"
+    ,"Ui.Main.UntitledDocument": "Untitled document"
+    ,"Ui.Main.WindowTitle": "{0}{1} — Dying Light XUI Editor"
+    ,"Ui.Main.Workspace.CreateScreen": "Create Workspace XUI Screen"
+    ,"Ui.Main.Workspace.CreateVisual": "Create Workspace XUI Visual Library"
+    ,"Ui.Main.Workspace.RenameXui": "Rename Workspace XUI"
+    ,"Ui.Main.Workspace.RequiredPrompt": "Configure a writable Workspace Root in Settings → Dying Light Resources first."
+    ,"Ui.Main.Workspace.RequiredTitle": "Workspace required"
+    ,"Ui.Main.Workspace.SaveBeforeTransaction": "Save or discard the current document edits before changing workspace-wide references."
+    ,"Ui.Main.Workspace.UnsavedTitle": "Unsaved document"
+    ,"Ui.Timeline.Empty": "No timeline data"
+    ,"Ui.Timeline.MixedScopes": "Selected nodes belong to different timeline scopes"
+    ,"Ui.Timeline.DocumentHasNoScope": "This document has no timeline scope"
+    ,"Ui.Timeline.SelectionHasNoTracks": "The current selection has no animated tracks"
+    ,"Ui.Timeline.TargetProperty": "Target / property"
+    ,"Ui.Enum.XuiElementPreset.Group": "Group"
+    ,"Ui.Enum.XuiElementPreset.Image": "Image"
+    ,"Ui.Enum.XuiElementPreset.Text": "Text"
+    ,"Ui.Enum.XuiElementPreset.Rectangle": "Rectangle"
+    ,"Ui.Enum.XuiElementPreset.Button": "Button"
+    ,"Ui.Enum.XuiElementPreset.CatalogClass": "Catalog class"
+    ,"Ui.Enum.XuiElementPreset.CustomXml": "Custom XML"
+    ,"Ui.Enum.XuiInputGlyphScheme.KeyboardAndMouse": "Keyboard and mouse"
+    ,"Ui.Enum.XuiInputGlyphScheme.Xbox": "Xbox"
+    ,"Ui.Enum.XuiInputGlyphScheme.DualShock4": "DualShock 4"
+    ,"Ui.Enum.XuiAssetRootKind.Workspace": "Workspace"
+    ,"Ui.Enum.XuiAssetRootKind.DyingLightProject": "Dying Light project"
+    ,"Ui.Enum.XuiAssetRootKind.LooseResources": "Loose resources"
+    ,"Ui.Enum.XuiAssetRootKind.LooseMod": "Loose mod"
+    ,"Ui.Enum.XuiAssetRootKind.ExtractedDyingLight": "Extracted Dying Light data"
+    ,"Ui.Enum.XuiAssetRootKind.DyingLightInstall": "Dying Light installation"
+    ,"Ui.Enum.XuiAssetRootKind.AdditionalTextureDefinitions": "Additional texture definitions"
+    ,"Ui.Enum.XuiAssetRootKind.Rp6ResourcePack": "RP6 resource pack"
+    ,"Ui.Validation.AnchorBitmask": "Anchor must be a valid Dying Light bitmask (0–127)."
+    ,"Ui.Validation.BooleanOrStrength": "{0} must be true, false, or a finite numeric strength."
+    ,"Ui.Validation.HorizontalAlign": "{0} must be left, center, right, or justify."
+    ,"Ui.Validation.PropertyType": "{0} must be a valid {1} value."
+    ,"Ui.Validation.Rotation": "Rotation must be a quaternion, Euler vector, or numeric angle."
+    ,"Ui.Validation.TextStyle": "TextStyle must be a decimal or 0x-prefixed integer bitmask."
+    ,"Ui.Validation.VerticalAlign": "{0} must be top, middle, or bottom."
+    ,"Ui.Main.Error.PropertyAlreadyExists": "{0} already has a {1} property."
+    ,"Ui.Main.Error.InvalidAuthoredPosition": "{0} has an invalid authored Position value."
+    ,"Ui.Main.Error.MissingPositionProp": "{0} has a Position key with a missing Prop value in {1}."
+    ,"Ui.Main.Error.InvalidPositionKey": "{0} has an invalid Position key value '{1}' in {2}."
+    ,"Ui.Main.Error.InvalidTextStyleSemantic": "TextStyle '{0}' is invalid and cannot be edited semantically."
+    ,"Ui.Main.Error.InvalidVectorKey": "{0} key '{1}' is not a 2D or 3D vector."
+}

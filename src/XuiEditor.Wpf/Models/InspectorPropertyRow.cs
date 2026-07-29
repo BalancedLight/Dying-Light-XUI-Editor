@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using XuiEditor.Core.Schema;
+using XuiEditor.Wpf.Services;
 
 namespace XuiEditor.Wpf.Models;
 
@@ -22,7 +23,7 @@ public sealed class InspectorPropertyRow : INotifyPropertyChanged
     {
         Name = name;
         _value = value;
-        Category = category;
+        Category = UiLocalization.Category(category);
         IsMixed = isMixed;
         IsUnknown = isUnknown;
         Choices = choices ?? [];
@@ -47,26 +48,10 @@ public sealed class InspectorPropertyRow : INotifyPropertyChanged
 
     public XuiPropertyDefinition? Definition { get; }
 
-    public string ToolTip => Definition is null
-        ? string.Join(
-            Environment.NewLine,
-            Name,
-            "Unknown mod-authored property. It will be preserved losslessly.")
-        : string.Join(
-            Environment.NewLine,
-            new[]
-            {
-                Name,
-                Definition.Description,
-                $"Evidence: {Definition.EvidenceLabel}",
-                $"Preview: {Definition.PreviewSupport}",
-                Definition.IsAnimatable
-                    ? "Timeline: animatable"
-                    : "Timeline: noanim",
-                IsAuthored
-                    ? "Authored in the selected XML."
-                    : $"Inherited default: {Definition.DefaultValue}",
-            });
+    public string ToolTip =>
+        InspectorHelpText.BuildToolTip(Name, Definition, IsAuthored);
+
+    public string EditorToolTip => Error ?? ToolTip;
 
     public IReadOnlyList<string> Choices { get; }
 
@@ -114,6 +99,9 @@ public sealed class InspectorPropertyRow : INotifyPropertyChanged
                 PropertyChanged?.Invoke(
                     this,
                     new PropertyChangedEventArgs(nameof(HasError)));
+                PropertyChanged?.Invoke(
+                    this,
+                    new PropertyChangedEventArgs(nameof(EditorToolTip)));
             }
         }
     }

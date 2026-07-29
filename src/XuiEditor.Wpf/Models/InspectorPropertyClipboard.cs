@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using XuiEditor.Core.Schema;
+using XuiEditor.Wpf.Services;
 
 namespace XuiEditor.Wpf.Models;
 
@@ -43,7 +44,7 @@ public sealed class XuiCopyPropertyOption :
 
     public string Name => Definition.Name;
 
-    public string Category => Definition.Category;
+    public string Category => UiLocalization.Category(Definition.Category);
 
     public XuiPropertyType Type => Definition.Type;
 
@@ -54,12 +55,20 @@ public sealed class XuiCopyPropertyOption :
     public bool CanCopy { get; }
 
     public string SourceLabel => IsAuthored
-        ? "authored"
-        : "inherited default";
+        ? UiLocalization.Text("Ui.Inspector.Source.Authored")
+        : UiLocalization.Text("Ui.Inspector.Source.InheritedDefault");
 
     public string ToolTip => CanCopy
-        ? $"{Definition.Description}{Environment.NewLine}{SourceLabel}: {Value}"
-        : $"{Name} is protected because pasting it could change element identity or class compatibility.";
+        ? string.Join(
+            Environment.NewLine,
+            InspectorHelpText.Description(Definition),
+            UiLocalization.Format(
+                "Ui.Inspector.CopySource",
+                SourceLabel,
+                Value))
+        : UiLocalization.Format(
+            "Ui.Inspector.ProtectedProperty",
+            Name);
 
     public bool IsSelected
     {

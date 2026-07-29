@@ -1,7 +1,7 @@
 <Window x:Class="XuiEditor.Wpf.StockXuiBrowserWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Open Stock Dying Light XUI"
+        Title="{DynamicResource Ui.Xaml.StockXuiBrowserWindow.001}"
         Width="940"
         Height="680"
         MinWidth="700"
@@ -19,7 +19,7 @@
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0"
-                   Text="Stock XUI browser"
+                   Text="{DynamicResource Ui.Xaml.StockXuiBrowserWindow.002}"
                    FontSize="18"
                    FontWeight="SemiBold" />
         <DockPanel Grid.Row="1" Margin="0,8,0,8">
@@ -29,7 +29,7 @@
                        VerticalAlignment="Center"
                        Foreground="{StaticResource MutedTextBrush}" />
             <TextBox x:Name="SearchText"
-                     ToolTip="Search by file name, virtual path, or source archive"
+                     ToolTip="{DynamicResource Ui.Xaml.StockXuiBrowserWindow.003}"
                      TextChanged="SearchText_TextChanged" />
         </DockPanel>
 
@@ -45,16 +45,16 @@
                   VirtualizingPanel.VirtualizationMode="Recycling"
                   MouseDoubleClick="FilesGrid_MouseDoubleClick">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="File"
+                <DataGridTextColumn Header="{DynamicResource Ui.Xaml.StockXuiBrowserWindow.004}"
                                     Binding="{Binding FileName}"
                                     Width="250" />
-                <DataGridTextColumn Header="Virtual path"
+                <DataGridTextColumn Header="{DynamicResource Ui.Xaml.StockXuiBrowserWindow.005}"
                                     Binding="{Binding VirtualPath}"
                                     Width="*" />
-                <DataGridTextColumn Header="Source"
+                <DataGridTextColumn Header="{DynamicResource Ui.Xaml.StockXuiBrowserWindow.006}"
                                     Binding="{Binding SourceName}"
                                     Width="150" />
-                <DataGridTextColumn Header="Size"
+                <DataGridTextColumn Header="{DynamicResource Ui.Xaml.StockXuiBrowserWindow.007}"
                                     Binding="{Binding FormattedSize}"
                                     Width="90" />
             </DataGrid.Columns>
@@ -62,14 +62,14 @@
 
         <DockPanel Grid.Row="3" Margin="0,10,0,0">
             <TextBlock DockPanel.Dock="Left"
-                       Text="Stock documents open read-only. Use Save As to create a mod copy."
+                       Text="{DynamicResource Ui.Xaml.StockXuiBrowserWindow.008}"
                        Foreground="{StaticResource MutedTextBrush}"
                        VerticalAlignment="Center" />
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                <Button Content="Cancel"
+                <Button Content="{DynamicResource Ui.Xaml.StockXuiBrowserWindow.009}"
                         IsCancel="True"
                         MinWidth="90" />
-                <Button Content="Open read-only"
+                <Button Content="{DynamicResource Ui.Xaml.StockXuiBrowserWindow.010}"
                         IsDefault="True"
                         MinWidth="120"
                         Click="Open_Click" />

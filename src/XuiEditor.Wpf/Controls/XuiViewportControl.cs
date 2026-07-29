@@ -12,6 +12,7 @@ using XuiEditor.Core.Editing;
 using XuiEditor.Core.Layout;
 using XuiEditor.Core.Navigation;
 using XuiEditor.Core.Values;
+using XuiEditor.Wpf.Services;
 using Matrix3x2 = System.Numerics.Matrix3x2;
 
 namespace XuiEditor.Wpf.Controls;
@@ -4779,10 +4780,15 @@ public sealed class XuiViewportControl : FrameworkElement
     private void DrawEmptyState(DrawingContext drawing)
     {
         FormattedText text = new(
-            "Open a Dying Light .xui file to begin",
+            UiLocalization.Text("Ui.Viewport.Empty"),
             CultureInfo.CurrentUICulture,
             FlowDirection.LeftToRight,
-            new Typeface("Segoe UI"),
+            new Typeface(
+                TryFindResource("Ui.FontFamily") as FontFamily ??
+                new FontFamily("Segoe UI"),
+                FontStyles.Normal,
+                FontWeights.Normal,
+                FontStretches.Normal),
             18,
             new SolidColorBrush(Color.FromRgb(154, 161, 170)),
             VisualTreeHelper.GetDpi(this).PixelsPerDip);

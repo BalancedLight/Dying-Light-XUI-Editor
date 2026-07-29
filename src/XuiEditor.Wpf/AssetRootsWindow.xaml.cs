@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 using Microsoft.Win32;
 using XuiEditor.Core.Assets;
@@ -15,6 +16,7 @@ public partial class AssetRootsWindow : Window
 
     public AssetRootsWindow(EditorSettings settings)
     {
+        UiLocalization.EnsureApplied();
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         Roots = new ObservableCollection<AssetRootSetting>(
             settings.AssetRoots.Select(static root => new AssetRootSetting
@@ -39,11 +41,16 @@ public partial class AssetRootsWindow : Window
                     Mapping = mapping.Value,
                 }));
         InitializeComponent();
+        Language = UiLocalization.XmlLanguage;
         DataContext = this;
         InstallText.Text = settings.DyingLightInstallPath ?? string.Empty;
         WorkspaceText.Text = settings.WorkspaceRoot ?? string.Empty;
-        InputGlyphCombo.ItemsSource = Enum.GetValues<XuiInputGlyphScheme>();
-        InputGlyphCombo.SelectedItem = settings.InputGlyphScheme;
+        IReadOnlyList<LocalizedEnumOption<XuiInputGlyphScheme>> glyphOptions =
+            UiLocalization.EnumOptions(
+                Enum.GetValues<XuiInputGlyphScheme>());
+        InputGlyphCombo.ItemsSource = glyphOptions;
+        InputGlyphCombo.SelectedItem = glyphOptions.Single(option =>
+            option.Value == settings.InputGlyphScheme);
         ConfigureKindColumn();
         RefreshInstallState();
     }
@@ -60,7 +67,8 @@ public partial class AssetRootsWindow : Window
     {
         OpenFolderDialog dialog = new()
         {
-            Title = "Choose the Dying Light installation folder",
+            Title = UiLocalization.Text(
+                "Ui.AssetRoots.ChooseInstallFolder"),
             InitialDirectory = Directory.Exists(InstallText.Text)
                 ? InstallText.Text
                 : Environment.GetFolderPath(
@@ -81,7 +89,8 @@ public partial class AssetRootsWindow : Window
     {
         OpenFolderDialog dialog = new()
         {
-            Title = "Choose writable XUI workspace",
+            Title = UiLocalization.Text(
+                "Ui.AssetRoots.ChooseWorkspace"),
             InitialDirectory = Directory.Exists(WorkspaceText.Text)
                 ? WorkspaceText.Text
                 : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
@@ -111,12 +120,13 @@ public partial class AssetRootsWindow : Window
         RoutedEventArgs eventArgs) =>
         AddSources(
             XuiConfiguredAssetSourceKind.TextureDefinitionFile,
-            "Dying Light texture definitions (*.def;*.scr)|*.def;*.scr|All files (*.*)|*.*");
+            UiLocalization.Text(
+                "Ui.AssetRoots.Filter.TextureDefinitions"));
 
     private void AddRpack_Click(object sender, RoutedEventArgs eventArgs) =>
         AddSources(
             XuiConfiguredAssetSourceKind.Rp6ResourcePack,
-            "Dying Light resource packs (*.rpack)|*.rpack|All files (*.*)|*.*");
+            UiLocalization.Text("Ui.AssetRoots.Filter.ResourcePacks"));
 
     private void Remove_Click(object sender, RoutedEventArgs eventArgs)
     {
@@ -170,7 +180,8 @@ public partial class AssetRootsWindow : Window
             if (!DyingLightInstallIndex.LooksLikeInstall(install))
             {
                 ShowInvalidPath(
-                    "Choose the folder containing DyingLightGame.exe and DW\\Data0.pak.");
+                    UiLocalization.Text(
+                        "Ui.AssetRoots.Error.InstallContents"));
                 return;
             }
         }
@@ -190,8 +201,11 @@ public partial class AssetRootsWindow : Window
             {
                 MessageBox.Show(
                     this,
-                    exception.Message,
-                    "Invalid workspace",
+                    UiLocalization.Format(
+                        "Ui.Common.ErrorDetails",
+                        exception.Message),
+                    UiLocalization.Text(
+                        "Ui.AssetRoots.Error.InvalidWorkspace"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
                 return;
@@ -203,8 +217,9 @@ public partial class AssetRootsWindow : Window
         _settings.Locale = DyingLightInstallProfile.NormalizeLocale(
             LocaleCombo.SelectedItem as string);
         _settings.InputGlyphScheme =
-            InputGlyphCombo.SelectedItem is XuiInputGlyphScheme scheme
-                ? scheme
+            InputGlyphCombo.SelectedItem is
+                LocalizedEnumOption<XuiInputGlyphScheme> option
+                ? option.Value
                 : XuiInputGlyphScheme.KeyboardAndMouse;
         _settings.WorkspaceRoot = workspace.Length == 0 ? null : workspace;
         List<AssetRootSetting> normalizedRoots = [];
@@ -230,7 +245,8 @@ public partial class AssetRootsWindow : Window
             {
                 ShowInvalidResourcePath(
                     path,
-                    "The configured resource folder does not exist.");
+                    UiLocalization.Text(
+                        "Ui.AssetRoots.Error.FolderMissing"));
                 return;
             }
 
@@ -263,7 +279,8 @@ public partial class AssetRootsWindow : Window
             {
                 ShowInvalidResourcePath(
                     path,
-                    "The configured resource file does not exist.");
+                    UiLocalization.Text(
+                        "Ui.AssetRoots.Error.FileMissing"));
                 return;
             }
 
@@ -297,12 +314,16 @@ public partial class AssetRootsWindow : Window
             Title = kind switch
             {
                 XuiAssetRootKind.DyingLightProject =>
-                    "Choose a Dying Light Workshop or Developer Tools project",
+                    UiLocalization.Text(
+                        "Ui.AssetRoots.Choose.Project"),
                 XuiAssetRootKind.LooseResources =>
-                    "Choose a loose resource folder",
+                    UiLocalization.Text(
+                        "Ui.AssetRoots.Choose.LooseResources"),
                 XuiAssetRootKind.LooseMod =>
-                    "Choose a loose Dying Light mod root",
-                _ => "Choose an extracted Dying Light asset root",
+                    UiLocalization.Text(
+                        "Ui.AssetRoots.Choose.LooseMod"),
+                _ => UiLocalization.Text(
+                    "Ui.AssetRoots.Choose.Extracted"),
             },
         };
         if (dialog.ShowDialog(this) != true)
@@ -328,8 +349,10 @@ public partial class AssetRootsWindow : Window
         OpenFileDialog dialog = new()
         {
             Title = kind == XuiConfiguredAssetSourceKind.Rp6ResourcePack
-                ? "Choose Dying Light RPACK files"
-                : "Choose additional texture-definition files",
+                ? UiLocalization.Text(
+                    "Ui.AssetRoots.Choose.RpackFiles")
+                : UiLocalization.Text(
+                    "Ui.AssetRoots.Choose.TextureDefinitionFiles"),
             Filter = filter,
             Multiselect = true,
             CheckFileExists = true,
@@ -394,14 +417,20 @@ public partial class AssetRootsWindow : Window
             RootsGrid.Columns.OfType<DataGridComboBoxColumn>().FirstOrDefault();
         if (kindColumn is not null)
         {
-            kindColumn.ItemsSource = new[]
-            {
-                XuiAssetRootKind.Workspace,
-                XuiAssetRootKind.DyingLightProject,
-                XuiAssetRootKind.LooseResources,
-                XuiAssetRootKind.LooseMod,
-                XuiAssetRootKind.ExtractedDyingLight,
-            };
+            kindColumn.SelectedItemBinding = null;
+            kindColumn.SelectedValuePath =
+                nameof(LocalizedEnumOption<XuiAssetRootKind>.Value);
+            kindColumn.SelectedValueBinding = new Binding(
+                nameof(AssetRootSetting.Kind));
+            kindColumn.ItemsSource = UiLocalization.EnumOptions(
+                new[]
+                {
+                    XuiAssetRootKind.Workspace,
+                    XuiAssetRootKind.DyingLightProject,
+                    XuiAssetRootKind.LooseResources,
+                    XuiAssetRootKind.LooseMod,
+                    XuiAssetRootKind.ExtractedDyingLight,
+                });
         }
     }
 
@@ -416,10 +445,10 @@ public partial class AssetRootsWindow : Window
         string install = InstallText.Text.Trim();
         bool valid = DyingLightInstallIndex.LooksLikeInstall(install);
         InstallValidationText.Text = install.Length == 0
-            ? "Not configured — stock browser disabled"
+            ? UiLocalization.Text("Ui.AssetRoots.Install.NotConfigured")
             : valid
-                ? "Valid Dying Light install · read-only"
-                : "Not a Dying Light install";
+                ? UiLocalization.Text("Ui.AssetRoots.Install.Valid")
+                : UiLocalization.Text("Ui.AssetRoots.Install.Invalid");
         InstallValidationText.Foreground = valid || install.Length == 0
             ? (Brush)FindResource("MutedTextBrush")
             : (Brush)FindResource("DangerBrush");
@@ -465,8 +494,11 @@ public partial class AssetRootsWindow : Window
     {
         MessageBox.Show(
             this,
-            message,
-            "Invalid Dying Light installation",
+            UiLocalization.Format(
+                "Ui.Common.ErrorDetails",
+                message),
+            UiLocalization.Text(
+                "Ui.AssetRoots.Error.InvalidInstall"),
             MessageBoxButton.OK,
             MessageBoxImage.Error);
     }
@@ -475,8 +507,14 @@ public partial class AssetRootsWindow : Window
     {
         MessageBox.Show(
             this,
-            $"{message}{Environment.NewLine}{Environment.NewLine}{path}",
-            "Invalid resource path",
+            UiLocalization.Format(
+                "Ui.Common.ErrorDetails",
+                message) +
+            Environment.NewLine +
+            Environment.NewLine +
+            path,
+            UiLocalization.Text(
+                "Ui.AssetRoots.Error.InvalidResourcePath"),
             MessageBoxButton.OK,
             MessageBoxImage.Error);
     }

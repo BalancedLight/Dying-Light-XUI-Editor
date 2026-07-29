@@ -1,7 +1,7 @@
 <Window x:Class="XuiEditor.Wpf.AddXuiPropertyWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Add XUI Property"
+        Title="{DynamicResource Ui.Xaml.AddXuiPropertyWindow.001}"
         Width="590"
         Height="520"
         MinWidth="500"
@@ -33,7 +33,7 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Text="Search"
+            <TextBlock Text="{DynamicResource Ui.Xaml.AddXuiPropertyWindow.002}"
                        VerticalAlignment="Center" />
             <TextBox x:Name="SearchTextBox"
                      Grid.Column="1"
@@ -42,7 +42,7 @@
                       Grid.Column="2"
                       Margin="12,0,0,0"
                       VerticalAlignment="Center"
-                      Content="Raw custom property"
+                      Content="{DynamicResource Ui.Xaml.AddXuiPropertyWindow.003}"
                       Checked="RawModeCheckBox_Changed"
                       Unchecked="RawModeCheckBox_Changed" />
         </Grid>
@@ -54,7 +54,8 @@
                  MouseDoubleClick="PropertyList_MouseDoubleClick">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Grid Margin="3">
+                    <Grid Margin="3"
+                          ToolTip="{Binding ToolTip}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
@@ -81,7 +82,7 @@
                 <ColumnDefinition Width="105" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <TextBlock Text="Property name"
+            <TextBlock Text="{DynamicResource Ui.Xaml.AddXuiPropertyWindow.004}"
                        VerticalAlignment="Center" />
             <TextBox x:Name="NameTextBox"
                      Grid.Column="1"
@@ -94,7 +95,7 @@
                 <ColumnDefinition Width="105" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <TextBlock Text="Value"
+            <TextBlock Text="{DynamicResource Ui.Xaml.AddXuiPropertyWindow.005}"
                        VerticalAlignment="Center" />
             <TextBox x:Name="ValueTextBox"
                      Grid.Column="1" />
@@ -126,10 +127,10 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,12,0,0">
-            <Button Content="Cancel"
+            <Button Content="{DynamicResource Ui.Xaml.AddXuiPropertyWindow.006}"
                     IsCancel="True"
                     MinWidth="85" />
-            <Button Content="Add property"
+            <Button Content="{DynamicResource Ui.Xaml.AddXuiPropertyWindow.007}"
                     IsDefault="True"
                     MinWidth="100"
                     Click="Add_Click" />

@@ -1,7 +1,7 @@
 <Window x:Class="XuiEditor.Wpf.ReferenceReplacementWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Inspect / Replace Workspace References"
+        Title="{DynamicResource Ui.Xaml.ReferenceReplacementWindow.001}"
         Width="820"
         Height="520"
         MinWidth="680"
@@ -20,7 +20,7 @@
         </Grid.RowDefinitions>
         <TextBlock x:Name="InstructionText"
                    Grid.Row="0"
-                   Text="Workspace XUI files only. Preview is required; archives are excluded. Apply creates file backups and rolls back atomically on failure."
+                   Text="{DynamicResource Ui.Xaml.ReferenceReplacementWindow.002}"
                    Foreground="{StaticResource MutedTextBrush}"
                    TextWrapping="Wrap"
                    Margin="0,0,0,10" />
@@ -32,19 +32,19 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Text="Current value" VerticalAlignment="Center" />
+            <TextBlock Text="{DynamicResource Ui.Xaml.ReferenceReplacementWindow.003}" VerticalAlignment="Center" />
             <TextBox x:Name="CurrentValueText"
                      Grid.Column="1"
                      IsReadOnly="True" />
             <TextBlock Grid.Column="2"
-                       Text="Replacement"
+                       Text="{DynamicResource Ui.Xaml.ReferenceReplacementWindow.004}"
                        Margin="10,0,0,0"
                        VerticalAlignment="Center" />
             <TextBox x:Name="ReplacementValueText"
                      Grid.Column="3"
                      TextChanged="ReplacementValue_TextChanged" />
             <Button Grid.Column="4"
-                    Content="Preview diff"
+                    Content="{DynamicResource Ui.Xaml.ReferenceReplacementWindow.005}"
                     Margin="8,0,0,0"
                     Click="Preview_Click" />
         </Grid>
@@ -55,19 +55,19 @@
                   IsReadOnly="True"
                   CanUserAddRows="False">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="File"
+                <DataGridTextColumn Header="{DynamicResource Ui.Xaml.ReferenceReplacementWindow.006}"
                                     Binding="{Binding FilePath}"
                                     Width="*" />
-                <DataGridTextColumn Header="Node"
+                <DataGridTextColumn Header="{DynamicResource Ui.Xaml.ReferenceReplacementWindow.007}"
                                     Binding="{Binding NodeDisplay}"
                                     Width="130" />
-                <DataGridTextColumn Header="Property"
+                <DataGridTextColumn Header="{DynamicResource Ui.Xaml.ReferenceReplacementWindow.008}"
                                     Binding="{Binding PropertyName}"
                                     Width="135" />
-                <DataGridTextColumn Header="Old"
+                <DataGridTextColumn Header="{DynamicResource Ui.Xaml.ReferenceReplacementWindow.009}"
                                     Binding="{Binding CurrentValue}"
                                     Width="140" />
-                <DataGridTextColumn Header="New"
+                <DataGridTextColumn Header="{DynamicResource Ui.Xaml.ReferenceReplacementWindow.010}"
                                     Binding="{Binding ReplacementValue}"
                                     Width="140" />
             </DataGrid.Columns>
@@ -81,9 +81,9 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,12,0,0">
-            <Button Content="Cancel" IsCancel="True" MinWidth="85" />
+            <Button Content="{DynamicResource Ui.Xaml.ReferenceReplacementWindow.011}" IsCancel="True" MinWidth="85" />
             <Button x:Name="ApplyButton"
-                    Content="Apply with backups"
+                    Content="{DynamicResource Ui.Xaml.ReferenceReplacementWindow.012}"
                     IsEnabled="False"
                     MinWidth="130"
                     Click="Apply_Click" />

@@ -25,6 +25,16 @@ $stockProperties = [System.Collections.Generic.HashSet[string]]::new(
 $stockTags = [System.Collections.Generic.HashSet[string]]::new(
     [System.StringComparer]::Ordinal)
 $stockXuiCount = 0
+$propertyHelpPath = Join-Path $PSScriptRoot "xui-property-help.json"
+$propertyDescriptions = @{}
+if (Test-Path -LiteralPath $propertyHelpPath) {
+    $propertyHelp =
+        Get-Content -Raw -LiteralPath $propertyHelpPath |
+        ConvertFrom-Json
+    foreach ($property in $propertyHelp.PSObject.Properties) {
+        $propertyDescriptions[$property.Name] = [string] $property.Value
+    }
+}
 
 function Add-SetValue {
     param(
@@ -457,26 +467,13 @@ function Get-Choices {
 function Get-Description {
     param([string] $Name)
 
+    if ($propertyDescriptions.ContainsKey($Name)) {
+        return $propertyDescriptions[$Name]
+    }
+
     switch ($Name) {
-        "TextStyle" {
-            return "Packed Chrome 6 text formatting and alignment bitmask. Unknown compatibility bits must be preserved."
-        }
-        "Pivot" {
-            return "Unrestricted local-space XYZ origin used for scale and rotation."
-        }
-        "VerticalAlignDown" {
-            return "Legacy Dying Light bottom-alignment property, separate from TextStyle."
-        }
         "Play" {
             return "Sound timeline trigger. The editor preserves and edits it but never previews audio."
-        }
-        "Strike" {
-            return "Standalone strike formatting exposed by Dying Light binary metadata; retained for compatibility."
-        }
-        { $_ -in @(
-                "Bold", "Italic", "Underline", "HorizontalAlign",
-                "VerticalAlign", "SpecialSignsScale", "FontYOffset") } {
-            return "Standalone text property exposed by Dying Light binary metadata; it overrides the equivalent legacy TextStyle state when authored."
         }
         default {
             return "Observed in Dying Light stock XUI."

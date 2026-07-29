@@ -29,7 +29,8 @@ namespace XuiEditor.Wpf;
 
 public partial class MainWindow : Window, IDisposable
 {
-    private const string MixedValue = "— mixed —";
+    private static string MixedValue =>
+        UiLocalization.Text("Ui.Common.Mixed");
     private const int AutomaticRawXmlCharacterLimit = 256 * 1024;
     private const double SnapshotExportScale = 2;
     private static readonly string[] NavigationPropertyNames =
@@ -96,18 +97,28 @@ public partial class MainWindow : Window, IDisposable
     private int _viewportLoadingDepth;
     private bool _disposed;
     private Point _assetDragStart;
+    private XuiMessageDescriptor? _statusDescriptor;
+    private string? _lastLocalizedStatusText;
+    private XuiMessageDescriptor? _assetStatusDescriptor;
+    private string? _lastLocalizedAssetStatusText;
 
     private int CurrentTimelineTick =>
         _timelineWorkspace?.ActiveTick ?? 0;
 
     public MainWindow()
     {
-        _settings = EditorSettingsStore.Load();
+        _settings =
+            (Application.Current as App)?.Settings ??
+            EditorSettingsStore.Load();
+        UiLocalization.EnsureApplied(_settings.UiLanguage);
         HierarchyRows = [];
         InspectorProperties = [];
         FilteredDiagnostics = [];
         AssetRows = [];
         InitializeComponent();
+        Language = UiLocalization.XmlLanguage;
+        UiLocalization.LanguageChanged += UiLocalization_LanguageChanged;
+        BuildInterfaceLanguageMenu();
         Width = Math.Max(MinWidth, _settings.WindowWidth);
         Height = Math.Max(MinHeight, _settings.WindowHeight);
         CenterOnPrimaryWorkArea();
@@ -145,6 +156,76 @@ public partial class MainWindow : Window, IDisposable
         {
             IsEnabled = false,
         };
+    }
+
+    private void BuildInterfaceLanguageMenu()
+    {
+        InterfaceLanguageMenuItem.Items.Clear();
+        MenuItem automatic = new()
+        {
+            Header = UiLocalization.Text("Ui.Settings.Language.Automatic"),
+            Tag = UiLocalization.AutomaticLanguage,
+            IsCheckable = true,
+            IsChecked = _settings.UiLanguage.Equals(
+                UiLocalization.AutomaticLanguage,
+                StringComparison.OrdinalIgnoreCase),
+        };
+        automatic.Click += InterfaceLanguage_Click;
+        InterfaceLanguageMenuItem.Items.Add(automatic);
+        InterfaceLanguageMenuItem.Items.Add(new Separator());
+        foreach (UiLanguageDefinition language in UiLocalization.Languages)
+        {
+            MenuItem item = new()
+            {
+                Header = language.NativeName,
+                Tag = language.Code,
+                IsCheckable = true,
+                IsChecked = _settings.UiLanguage.Equals(
+                    language.Code,
+                    StringComparison.OrdinalIgnoreCase),
+            };
+            item.Click += InterfaceLanguage_Click;
+            InterfaceLanguageMenuItem.Items.Add(item);
+        }
+    }
+
+    private async void InterfaceLanguage_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (sender is not MenuItem { Tag: string code })
+        {
+            return;
+        }
+
+        _settings.UiLanguage = UiLocalization.NormalizeSelection(code);
+        UiLocalization.Apply(_settings.UiLanguage);
+        await EditorSettingsStore.SaveAsync(_settings).ConfigureAwait(true);
+    }
+
+    private void UiLocalization_LanguageChanged(
+        object? sender,
+        EventArgs eventArgs)
+    {
+        Language = UiLocalization.XmlLanguage;
+        BuildInterfaceLanguageMenu();
+        foreach (HierarchyRow row in HierarchyRows)
+        {
+            row.RefreshLocalization();
+        }
+
+        SelectionSnapshot selection = CaptureSelection();
+        BuildInspector(selection);
+        RefreshPreviewState(selection);
+        UpdateTimelineData(selection);
+        RefreshNamedFrameEditor();
+        UpdatePropertyTransferChrome();
+        FilterDiagnostics();
+        DiagnosticsGrid.Items.Refresh();
+        RefreshLocalizedStatus();
+        RefreshLocalizedAssetStatus();
+        UpdateChrome();
+        Viewport.InvalidateVisual();
     }
 
     public BatchObservableCollection<HierarchyRow> HierarchyRows { get; }
@@ -192,6 +273,16 @@ public partial class MainWindow : Window, IDisposable
     internal string RawXmlStatusForTesting => RawXmlStatusText.Text;
 
     internal string PreviewStateForTesting => PreviewStateText.Text;
+
+    internal string StatusForTesting => StatusText.Text;
+
+    internal string AssetStatusForTesting => AssetStatusText.Text;
+
+    internal string UndoHeaderForTesting =>
+        UndoMenuItem.Header?.ToString() ?? string.Empty;
+
+    internal string RedoHeaderForTesting =>
+        RedoMenuItem.Header?.ToString() ?? string.Empty;
 
     internal bool ViewportLoadingOverlayVisibleForTesting =>
         ViewportLoadingOverlay.Visibility == Visibility.Visible;
@@ -466,7 +557,11 @@ public partial class MainWindow : Window, IDisposable
                     }
                 }
             },
-            $"Reset {propertyName}");
+            $"Reset {propertyName}",
+            new XuiMessageDescriptor(
+                "Ui.Command.Reset",
+                "Reset {0}",
+                propertyName));
     }
 
     internal void SetIncludeDescendantsForTesting(bool enabled)
@@ -499,7 +594,10 @@ public partial class MainWindow : Window, IDisposable
             nodeKey,
             pivot,
             "Test pivot edit",
-            preserve);
+            preserve,
+            new XuiMessageDescriptor(
+                "Ui.Command.EditPivot",
+                "Edit pivot"));
 
     internal void CommitNavigationForTesting(
         string sourceNodeKey,
@@ -619,9 +717,12 @@ public partial class MainWindow : Window, IDisposable
             RecoverySnapshot latest = snapshots[0];
             MessageBoxResult recover = MessageBox.Show(
                 this,
-                $"A recovery snapshot from {latest.TimestampUtc.ToLocalTime():g} is available.\n\n" +
-                $"{latest.OriginalPath ?? "Untitled document"}\n\nOpen it as an unsaved document?",
-                "Recover unsaved XUI",
+                UiLocalization.Format(
+                    "Ui.Main.RecoveryPrompt",
+                    latest.TimestampUtc.ToLocalTime(),
+                    latest.OriginalPath ??
+                    UiLocalization.Text("Ui.Main.UntitledDocument")),
+                UiLocalization.Text("Ui.Main.RecoveryTitle"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
             if (recover == MessageBoxResult.Yes)
@@ -647,8 +748,8 @@ public partial class MainWindow : Window, IDisposable
 
         OpenFileDialog dialog = new()
         {
-            Title = "Open Dying Light XUI",
-            Filter = "Dying Light XUI (*.xui)|*.xui|All files (*.*)|*.*",
+            Title = UiLocalization.Text("Ui.Main.Open.Title"),
+            Filter = UiLocalization.Text("Ui.Main.Filter.XuiAll"),
             CheckFileExists = true,
             Multiselect = false,
         };
@@ -769,15 +870,15 @@ public partial class MainWindow : Window, IDisposable
         if (_document is null ||
             SelectedNodes() is not [XuiSyntaxNode parent])
         {
-            StatusText.Text =
-                "Select exactly one hierarchy element to add a child.";
+            SetStatus("Ui.Main.Status.SelectOneAddChild");
             return;
         }
 
         if (IsLocked(parent.Key))
         {
-            StatusText.Text =
-                $"{DisplayNode(parent)} is locked in the editor.";
+            SetStatus(
+                "Ui.Main.Status.ElementLocked",
+                DisplayNode(parent));
             return;
         }
 
@@ -805,11 +906,13 @@ public partial class MainWindow : Window, IDisposable
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Could not add XUI child",
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.AddChild"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-            StatusText.Text = "Add child failed safely";
+            SetStatus("Ui.Main.Status.AddChildFailed");
         }
     }
 
@@ -820,22 +923,21 @@ public partial class MainWindow : Window, IDisposable
         if (_document is null ||
             SelectedNodes() is not [XuiSyntaxNode element])
         {
-            StatusText.Text =
-                "Select exactly one hierarchy element to add a parent.";
+            SetStatus("Ui.Main.Status.SelectOneAddParent");
             return;
         }
 
         if (IsCanvasRoot(element))
         {
-            StatusText.Text =
-                "The XUI canvas cannot be wrapped in another parent.";
+            SetStatus("Ui.Main.Status.CanvasCannotWrap");
             return;
         }
 
         if (IsLocked(element.Key))
         {
-            StatusText.Text =
-                $"{DisplayNode(element)} is locked in the editor.";
+            SetStatus(
+                "Ui.Main.Status.ElementLocked",
+                DisplayNode(element));
             return;
         }
 
@@ -855,11 +957,12 @@ public partial class MainWindow : Window, IDisposable
                 XuiElementPreset.CustomXml,
             ],
             identityPlacement: true,
-            windowTitle: "Add XUI Parent",
-            actionLabel: "Wrap element",
+            windowTitle: UiLocalization.Text("Ui.Main.AddParent.Title"),
+            actionLabel: UiLocalization.Text("Ui.Main.AddParent.Action"),
             instruction:
-                $"Wrap {DisplayNode(element)} in a new visual parent. " +
-                "The default group has an identity transform and the old parent size, so the child does not jump.")
+                UiLocalization.Format(
+                    "Ui.Main.AddParent.Instruction",
+                    DisplayNode(element)))
         {
             Owner = this,
         };
@@ -880,11 +983,13 @@ public partial class MainWindow : Window, IDisposable
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Could not add XUI parent",
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.AddParent"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-            StatusText.Text = "Add parent failed safely";
+            SetStatus("Ui.Main.Status.AddParentFailed");
         }
     }
 
@@ -895,22 +1000,23 @@ public partial class MainWindow : Window, IDisposable
         if (_document is null ||
             SelectedNodes() is not [XuiSyntaxNode element])
         {
-            StatusText.Text =
-                "Select exactly one hierarchy element to add a property.";
+            SetStatus("Ui.Main.Status.SelectOneAddProperty");
             return;
         }
 
         if (IsLocked(element.Key))
         {
-            StatusText.Text =
-                $"{DisplayNode(element)} is locked in the editor.";
+            SetStatus(
+                "Ui.Main.Status.ElementLocked",
+                DisplayNode(element));
             return;
         }
 
         if (element.FirstElement("Properties") is null)
         {
-            StatusText.Text =
-                $"{DisplayNode(element)} has no editable Properties block.";
+            SetStatus(
+                "Ui.Main.Status.NoPropertiesBlock",
+                DisplayNode(element));
             return;
         }
 
@@ -945,11 +1051,13 @@ public partial class MainWindow : Window, IDisposable
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Could not add XUI property",
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.AddProperty"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-            StatusText.Text = "Add property failed safely";
+            SetStatus("Ui.Main.Status.AddPropertyFailed");
         }
     }
 
@@ -995,9 +1103,11 @@ public partial class MainWindow : Window, IDisposable
         BuildHierarchy();
         SelectRowsFromKeys(scrollIntoView: true);
         UpdateSelectionSurfaces();
-        StatusText.Text = _document.Source?.IsReadOnly == true
-            ? $"Added {createdId} in memory. Use Save As to create a writable mod copy."
-            : $"Added {createdId}";
+        SetStatus(
+            _document.Source?.IsReadOnly == true
+                ? "Ui.Main.Status.AddedReadOnly"
+                : "Ui.Main.Status.Added",
+            createdId);
     }
 
     private void InsertVisualParent(
@@ -1041,9 +1151,11 @@ public partial class MainWindow : Window, IDisposable
         BuildHierarchy();
         SelectRowsFromKeys(scrollIntoView: true);
         UpdateSelectionSurfaces();
-        StatusText.Text = _document.Source?.IsReadOnly == true
-            ? $"Added parent {createdId} in memory. Use Save As to create a writable mod copy."
-            : $"Added parent {createdId}";
+        SetStatus(
+            _document.Source?.IsReadOnly == true
+                ? "Ui.Main.Status.AddedParentReadOnly"
+                : "Ui.Main.Status.AddedParent",
+            createdId);
     }
 
     private void InsertProperty(
@@ -1063,7 +1175,10 @@ public partial class MainWindow : Window, IDisposable
                 name) is not null)
         {
             throw new InvalidOperationException(
-                $"{DisplayNode(element)} already has a {name} property.");
+                UiLocalization.Format(
+                    "Ui.Main.Error.PropertyAlreadyExists",
+                    DisplayNode(element),
+                    name));
         }
 
         _document.Execute(XuiCommandFactory.AddProperty(
@@ -1071,7 +1186,10 @@ public partial class MainWindow : Window, IDisposable
             element,
             name,
             value));
-        StatusText.Text = $"Added {name} to {DisplayNode(element)}";
+        SetStatus(
+            "Ui.Main.Status.AddedProperty",
+            name,
+            DisplayNode(element));
     }
 
     private string CreatedElementId(string raw)
@@ -1320,7 +1438,7 @@ public partial class MainWindow : Window, IDisposable
             SelectedNodes() is not [XuiSyntaxNode selected] ||
             FindVisualParent(selected) is not XuiSyntaxNode parent)
         {
-            StatusText.Text = "The selection has no parent group.";
+            SetStatus("Ui.Main.Status.NoParentGroup");
             return;
         }
 
@@ -1477,9 +1595,8 @@ public partial class MainWindow : Window, IDisposable
     {
         OpenFileDialog dialog = new()
         {
-            Title = "Load HUD or menu reference image",
-            Filter =
-                "Images (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp|All files (*.*)|*.*",
+            Title = UiLocalization.Text("Ui.Main.Reference.LoadTitle"),
+            Filter = UiLocalization.Text("Ui.Main.Filter.ImagesAll"),
             CheckFileExists = true,
             Multiselect = false,
         };
@@ -1488,8 +1605,9 @@ public partial class MainWindow : Window, IDisposable
             try
             {
                 Viewport.LoadReferenceImage(dialog.FileName);
-                StatusText.Text =
-                    $"Reference: {Path.GetFileName(dialog.FileName)}";
+                SetStatus(
+                    "Ui.Main.Status.Reference",
+                    Path.GetFileName(dialog.FileName));
             }
             catch (Exception exception) when (
                 exception is IOException or
@@ -1497,8 +1615,11 @@ public partial class MainWindow : Window, IDisposable
             {
                 MessageBox.Show(
                     this,
-                    exception.Message,
-                    "Could not load reference image",
+                    UiLocalization.Format(
+                        "Ui.Common.ErrorDetails",
+                        exception.Message),
+                    UiLocalization.Text(
+                        "Ui.Main.Error.LoadReference"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
             }
@@ -1510,7 +1631,7 @@ public partial class MainWindow : Window, IDisposable
         RoutedEventArgs eventArgs)
     {
         Viewport.ClearReferenceImage();
-        StatusText.Text = "Reference image cleared";
+        SetStatus("Ui.Main.Status.ReferenceCleared");
     }
 
     private void ExportPng_Click(
@@ -1520,8 +1641,7 @@ public partial class MainWindow : Window, IDisposable
         if (_document is null ||
             !Viewport.HasRenderedFrame)
         {
-            StatusText.Text =
-                "Open and render an XUI document before exporting a PNG.";
+            SetStatus("Ui.Main.Status.ExportNeedsDocument");
             return;
         }
 
@@ -1529,8 +1649,8 @@ public partial class MainWindow : Window, IDisposable
             _document.DisplayName);
         SaveFileDialog dialog = new()
         {
-            Title = "Export Transparent XUI Snapshot",
-            Filter = "PNG image (*.png)|*.png",
+            Title = UiLocalization.Text("Ui.Main.Export.Title"),
+            Filter = UiLocalization.Text("Ui.Main.Filter.Png"),
             AddExtension = true,
             DefaultExt = ".png",
             FileName = $"{stem}-preview.png",
@@ -1544,12 +1664,14 @@ public partial class MainWindow : Window, IDisposable
 
         try
         {
-            StatusText.Text = "Rendering transparent 2× PNG…";
+            SetStatus("Ui.Main.Status.RenderingPng");
             BitmapSource bitmap = SaveTransparentPng(
                 dialog.FileName,
                 SnapshotExportScale);
-            StatusText.Text =
-                $"Exported transparent PNG · {bitmap.PixelWidth:N0}×{bitmap.PixelHeight:N0}";
+            SetStatus(
+                "Ui.Main.Status.ExportedPng",
+                bitmap.PixelWidth,
+                bitmap.PixelHeight);
         }
         catch (Exception exception) when (
             exception is IOException or
@@ -1560,11 +1682,13 @@ public partial class MainWindow : Window, IDisposable
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Could not export PNG",
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.ExportPng"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-            StatusText.Text = "PNG export failed safely";
+            SetStatus("Ui.Main.Status.ExportPngFailed");
         }
     }
 
@@ -1644,7 +1768,9 @@ public partial class MainWindow : Window, IDisposable
         }
 
         _isPlaying = !_isPlaying;
-        PlayPauseButton.Content = _isPlaying ? "Pause" : "Play";
+        PlayPauseButton.Content = _isPlaying
+            ? UiLocalization.Text("Ui.Main.Transport.Pause")
+            : UiLocalization.Text("Ui.Main.Transport.Play");
         if (_isPlaying)
         {
             _playbackRemainder = 0;
@@ -1688,7 +1814,7 @@ public partial class MainWindow : Window, IDisposable
         XuiTimeline? timeline = TimelineForKeyEditing();
         if (timeline is null)
         {
-            StatusText.Text = "Select an animated element or an existing keyframe first.";
+            SetStatus("Ui.Main.Status.SelectAnimatedElement");
             return;
         }
 
@@ -1749,7 +1875,9 @@ public partial class MainWindow : Window, IDisposable
         _copiedKeyFrameXml = _document.Text.Substring(
             node.Start,
             node.End - node.Start);
-        StatusText.Text = $"Copied keyframe at tick {selected.Tick}.";
+        SetStatus(
+            "Ui.Main.Status.CopiedKeyframe",
+            selected.Tick);
     }
 
     private void PasteKeyFrame_Click(object sender, RoutedEventArgs eventArgs)
@@ -2145,8 +2273,7 @@ public partial class MainWindow : Window, IDisposable
                 eventArgs.SourceNodeKey) is not XuiSyntaxNode source ||
             IsLocked(source.Key))
         {
-            StatusText.Text =
-                "The navigation source is unavailable or locked.";
+            SetStatus("Ui.Main.Status.NavigationSourceUnavailable");
             return;
         }
 
@@ -2158,15 +2285,18 @@ public partial class MainWindow : Window, IDisposable
                 eventArgs.PropertyName);
             if (existing is null)
             {
-                StatusText.Text =
-                    $"{eventArgs.PropertyName} is already clear.";
+                SetStatus(
+                    "Ui.Main.Status.NavigationAlreadyClear",
+                    eventArgs.PropertyName);
                 return;
             }
 
             _document.Execute(XuiCommandFactory.RemoveElement(
                 _document,
                 existing.Element));
-            StatusText.Text = $"Cleared {eventArgs.PropertyName}.";
+            SetStatus(
+                "Ui.Main.Status.NavigationCleared",
+                eventArgs.PropertyName);
             return;
         }
 
@@ -2174,8 +2304,7 @@ public partial class MainWindow : Window, IDisposable
             _document.SyntaxTree.FindByKey(eventArgs.TargetNodeKey);
         if (target is null)
         {
-            StatusText.Text =
-                "The navigation target no longer exists.";
+            SetStatus("Ui.Main.Status.NavigationTargetMissing");
             return;
         }
 
@@ -2188,14 +2317,18 @@ public partial class MainWindow : Window, IDisposable
                 out string path,
                 out string? error))
         {
-            StatusText.Text = error ??
-                "The navigation target is ambiguous.";
+            SetStatus(
+                "Ui.Main.Status.NavigationAmbiguousDetails",
+                error ?? UiLocalization.Text(
+                    "Ui.Main.Status.NavigationAmbiguous"));
             return;
         }
 
         SetNodeProperty(source, eventArgs.PropertyName, path);
-        StatusText.Text =
-            $"{eventArgs.PropertyName} now targets {path}.";
+        SetStatus(
+            "Ui.Main.Status.NavigationTargetSet",
+            eventArgs.PropertyName,
+            path);
     }
 
     private void Viewport_TransformCommitted(
@@ -2212,9 +2345,10 @@ public partial class MainWindow : Window, IDisposable
             _document.SyntaxTree.FindByKey(eventArgs.NodeKey);
         if (eventNode is null || IsCanvasRoot(eventNode))
         {
-            StatusText.Text = eventNode is null
-                ? "Transform target no longer exists"
-                : "The XUI canvas cannot be transformed from the preview";
+            SetStatus(
+                eventNode is null
+                    ? "Ui.Main.Status.TransformTargetMissing"
+                    : "Ui.Main.Status.CanvasCannotTransform");
             return;
         }
 
@@ -2251,7 +2385,11 @@ public partial class MainWindow : Window, IDisposable
                 {
                     ApplyPositionMove(plan);
                 }
-            }, "Move selection");
+            },
+            "Move selection",
+            new XuiMessageDescriptor(
+                "Ui.Command.MoveSelection",
+                "Move selection"));
             return;
         }
 
@@ -2269,7 +2407,10 @@ public partial class MainWindow : Window, IDisposable
                 selectedNode.Key,
                 eventArgs.NewPivot,
                 "Move pivot",
-                eventArgs.PreservePivotVisualPosition);
+                eventArgs.PreservePivotVisualPosition,
+                new XuiMessageDescriptor(
+                    "Ui.Command.EditPivot",
+                    "Edit pivot"));
             return;
         }
 
@@ -2310,7 +2451,11 @@ public partial class MainWindow : Window, IDisposable
                         (eventArgs.OriginalSize.Y + eventArgs.SizeDelta.Y)
                         .ToString("0.000000", CultureInfo.InvariantCulture));
                 }
-            }, "Resize element");
+            },
+            "Resize element",
+            new XuiMessageDescriptor(
+                "Ui.Command.ResizeElement",
+                "Resize element"));
             return;
         }
 
@@ -2339,7 +2484,11 @@ public partial class MainWindow : Window, IDisposable
                             eventArgs.RotationDelta);
                     }
                 }
-            }, "Rotate selection");
+            },
+            "Rotate selection",
+            new XuiMessageDescriptor(
+                "Ui.Command.RotateSelection",
+                "Rotate selection"));
         }
     }
 
@@ -2401,7 +2550,9 @@ public partial class MainWindow : Window, IDisposable
                 out _))
         {
             throw new InvalidOperationException(
-                $"{DisplayNode(node)} has an invalid authored Position value.");
+                UiLocalization.Format(
+                    "Ui.Main.Error.InvalidAuthoredPosition",
+                    DisplayNode(node)));
         }
 
         string authoredValue = string.Create(
@@ -2465,8 +2616,10 @@ public partial class MainWindow : Window, IDisposable
                             track.SourcePropertyIndex >= propNodes.Length)
                         {
                             throw new InvalidOperationException(
-                                $"{DisplayNode(node)} has a Position key " +
-                                $"with a missing Prop value in {scope.DisplayName}.");
+                                UiLocalization.Format(
+                                    "Ui.Main.Error.MissingPositionProp",
+                                    DisplayNode(node),
+                                    scope.DisplayName));
                         }
 
                         XuiSyntaxNode prop =
@@ -2483,9 +2636,11 @@ public partial class MainWindow : Window, IDisposable
                                 out bool vector2))
                         {
                             throw new InvalidOperationException(
-                                $"{DisplayNode(node)} has an invalid " +
-                                $"Position key value '{raw}' in " +
-                                $"{scope.DisplayName}.");
+                                UiLocalization.Format(
+                                    "Ui.Main.Error.InvalidPositionKey",
+                                    DisplayNode(node),
+                                    raw,
+                                    scope.DisplayName));
                         }
 
                         string value = vector2
@@ -2702,8 +2857,7 @@ public partial class MainWindow : Window, IDisposable
         }
         else
         {
-            StatusText.Text =
-                "Rotation uses an unsupported authored value and was not changed.";
+            SetStatus("Ui.Main.Status.UnsupportedRotation");
             return;
         }
 
@@ -2756,22 +2910,23 @@ public partial class MainWindow : Window, IDisposable
 
         if (row.IsMixed || row.Value == MixedValue)
         {
-            StatusText.Text =
-                "A mixed multi-selection value cannot be copied as one property.";
+            SetStatus("Ui.Main.Status.MixedCannotCopy");
             return;
         }
 
         if (!XuiPropertyTransfer.CanCopy(row.Name))
         {
-            StatusText.Text =
-                $"{row.Name} is protected and cannot be copied between elements.";
+            SetStatus(
+                "Ui.Main.Status.ProtectedCannotCopy",
+                row.Name);
             return;
         }
 
         if (row.HasError)
         {
-            StatusText.Text =
-                $"Fix the invalid {row.Name} value before copying it.";
+            SetStatus(
+                "Ui.Main.Status.FixInvalidBeforeCopy",
+                row.Name);
             return;
         }
 
@@ -2785,12 +2940,14 @@ public partial class MainWindow : Window, IDisposable
             ? !string.IsNullOrWhiteSpace(sourceId)
                 ? sourceId
                 : selection.Nodes[0].Name
-            : $"{selection.Nodes.Length:N0} selected elements";
+            : UiLocalization.Format(
+                "Ui.Main.Selection.SelectedElements",
+                selection.Nodes.Length);
         string sourceClassName = selection.Nodes.Length == 1
             ? ClassCatalog.ResolveClass(
                 selection.Nodes[0],
                 _document!.Text).Class.Name
-            : "common selection";
+            : UiLocalization.Text("Ui.Main.Selection.Common");
         SetPropertyClipboard(
             sourceDisplayName,
             sourceClassName,
@@ -2815,8 +2972,7 @@ public partial class MainWindow : Window, IDisposable
                 out string sourceClassName,
                 out IReadOnlyList<XuiCatalogPropertySelection> properties))
         {
-            StatusText.Text =
-                "Select one source element before copying its properties.";
+            SetStatus("Ui.Main.Status.SelectSourceToCopy");
             return;
         }
 
@@ -2842,8 +2998,7 @@ public partial class MainWindow : Window, IDisposable
                 out string sourceClassName,
                 out IReadOnlyList<XuiCatalogPropertySelection> properties))
         {
-            StatusText.Text =
-                "Select one source element before choosing properties to copy.";
+            SetStatus("Ui.Main.Status.SelectSourceAdvancedCopy");
             return;
         }
 
@@ -2921,8 +3076,7 @@ public partial class MainWindow : Window, IDisposable
         if (copyable.Length == 0)
         {
             _propertyClipboard = null;
-            StatusText.Text =
-                "The source has no copyable properties. Id and ClassOverride are protected.";
+            SetStatus("Ui.Main.Status.NoCopyableProperties");
             UpdatePropertyTransferChrome();
             return;
         }
@@ -2931,9 +3085,14 @@ public partial class MainWindow : Window, IDisposable
             sourceDisplayName,
             sourceClassName,
             copyable);
-        StatusText.Text = copyable.Length == 1
-            ? $"Copied {copyable[0].Name} from {sourceDisplayName}"
-            : $"Copied {copyable.Length:N0} properties from {sourceDisplayName}";
+        SetStatus(
+            copyable.Length == 1
+                ? "Ui.Main.Status.CopiedOneProperty"
+                : "Ui.Main.Status.CopiedProperties",
+            copyable.Length == 1
+                ? copyable[0].Name
+                : copyable.Length,
+            sourceDisplayName);
         UpdatePropertyTransferChrome();
     }
 
@@ -2943,16 +3102,14 @@ public partial class MainWindow : Window, IDisposable
             _propertyClipboard is not
                 XuiInspectorPropertyClipboard clipboard)
         {
-            StatusText.Text =
-                "Copy one or more inspector properties before pasting.";
+            SetStatus("Ui.Main.Status.CopyBeforePaste");
             return new XuiInspectorPropertyPasteResult(0, 0, 0, 0);
         }
 
         XuiSyntaxNode[] destinations = SelectedNodes();
         if (destinations.Length == 0)
         {
-            StatusText.Text =
-                "Select at least one destination element before pasting.";
+            SetStatus("Ui.Main.Status.SelectPasteDestination");
             return new XuiInspectorPropertyPasteResult(0, 0, 0, 0);
         }
 
@@ -3009,6 +3166,16 @@ public partial class MainWindow : Window, IDisposable
             string description = clipboard.Properties.Count == 1
                 ? $"Paste {clipboard.Properties[0].Name}"
                 : $"Paste {clipboard.Properties.Count:N0} inspector properties";
+            XuiMessageDescriptor descriptionDescriptor =
+                clipboard.Properties.Count == 1
+                    ? new XuiMessageDescriptor(
+                        "Ui.Command.PasteProperty",
+                        "Paste {0}",
+                        clipboard.Properties[0].Name)
+                    : new XuiMessageDescriptor(
+                        "Ui.Command.PasteInspectorProperties",
+                        "Paste {0:N0} inspector properties",
+                        clipboard.Properties.Count);
             bool pasted = ExecuteBatch(
                 () =>
                 {
@@ -3027,7 +3194,8 @@ public partial class MainWindow : Window, IDisposable
                         }
                     }
                 },
-                description);
+                description,
+                descriptionDescriptor);
             if (!pasted)
             {
                 return new XuiInspectorPropertyPasteResult(
@@ -3043,14 +3211,24 @@ public partial class MainWindow : Window, IDisposable
             assignments.Count,
             incompatible,
             unchanged);
-        StatusText.Text = assignments.Count == 0
-            ? incompatible > 0
-                ? $"Nothing pasted · {incompatible:N0} incompatible or locked · {unchanged:N0} already matched"
-                : "Nothing pasted · every applicable value already matched"
-            : $"Pasted {assignments.Count:N0} property value(s) to " +
-              $"{destinations.Length:N0} element(s) · " +
-              $"{incompatible:N0} incompatible or locked · " +
-              $"{unchanged:N0} already matched";
+        if (assignments.Count == 0)
+        {
+            SetStatus(
+                incompatible > 0
+                    ? "Ui.Main.Status.NothingPasted"
+                    : "Ui.Main.Status.NothingPastedMatched",
+                incompatible,
+                unchanged);
+        }
+        else
+        {
+            SetStatus(
+                "Ui.Main.Status.PastedProperties",
+                assignments.Count,
+                destinations.Length,
+                incompatible,
+                unchanged);
+        }
         return result;
     }
 
@@ -3071,11 +3249,13 @@ public partial class MainWindow : Window, IDisposable
         PasteInspectorPropertiesMenuItem.IsEnabled =
             hasDestination && hasClipboard;
         PropertyClipboardText.Text = _propertyClipboard is null
-            ? "No copied properties"
-            : $"{_propertyClipboard.Properties.Count:N0} copied from " +
-              _propertyClipboard.SourceDisplayName;
+            ? UiLocalization.Text("Ui.Main.Clipboard.Empty")
+            : UiLocalization.Format(
+                "Ui.Main.Clipboard.Summary",
+                _propertyClipboard.Properties.Count,
+                _propertyClipboard.SourceDisplayName);
         PropertyClipboardText.ToolTip = _propertyClipboard is null
-            ? "Copy authored properties from a source element."
+            ? UiLocalization.Text("Ui.Main.Clipboard.Help")
             : BuildPropertyClipboardToolTip(_propertyClipboard);
     }
 
@@ -3090,7 +3270,9 @@ public partial class MainWindow : Window, IDisposable
         if (clipboard.Properties.Count > visiblePropertyLimit)
         {
             lines = lines.Append(
-                $"…and {clipboard.Properties.Count - visiblePropertyLimit:N0} more");
+                UiLocalization.Format(
+                    "Ui.Main.Clipboard.More",
+                    clipboard.Properties.Count - visiblePropertyLimit));
         }
 
         return string.Join(Environment.NewLine, lines);
@@ -3234,7 +3416,11 @@ public partial class MainWindow : Window, IDisposable
                     }
                 }
             },
-            $"Reset {row.Name}");
+            $"Reset {row.Name}",
+            new XuiMessageDescriptor(
+                "Ui.Command.Reset",
+                "Reset {0}",
+                row.Name));
     }
 
     private void TextStyleFlag_Click(
@@ -3352,7 +3538,10 @@ public partial class MainWindow : Window, IDisposable
                 preset,
                 size,
                 current.Z),
-            $"Set pivot to {tag}");
+            $"Set pivot to {tag}",
+            descriptionDescriptor: new XuiMessageDescriptor(
+                "Ui.Command.SetPivotPreset",
+                "Set pivot preset"));
     }
 
     private void PreservePivotPosition_Click(
@@ -3394,8 +3583,8 @@ public partial class MainWindow : Window, IDisposable
             _rawXmlLoadedNodeKey != selected.Key ||
             _rawXmlLoadedRevision != _document.Revision)
         {
-            RawXmlErrorText.Text =
-                "Load the XML for the current selection before applying it.";
+            RawXmlErrorText.Text = UiLocalization.Text(
+                "Ui.Main.RawXml.LoadBeforeApply");
             return;
         }
 
@@ -3415,7 +3604,9 @@ public partial class MainWindow : Window, IDisposable
                 RawXmlTextBox.Text);
             _document.Execute(command);
             RawXmlErrorText.Text = string.Empty;
-            StatusText.Text = $"Replaced raw XML for {current.Name}";
+            SetStatus(
+                "Ui.Main.Status.ReplacedRawXml",
+                current.Name);
         }
         catch (Exception exception) when (
             exception is XuiParseException or
@@ -3423,8 +3614,10 @@ public partial class MainWindow : Window, IDisposable
             InvalidOperationException or
             ArgumentException)
         {
-            RawXmlErrorText.Text = exception.Message;
-            StatusText.Text = "Raw XML was rejected; the document was not changed.";
+            RawXmlErrorText.Text = UiLocalization.Format(
+                "Ui.Common.ErrorDetails",
+                exception.Message);
+            SetStatus("Ui.Main.Status.RawXmlRejected");
         }
     }
 
@@ -3560,8 +3753,7 @@ public partial class MainWindow : Window, IDisposable
         if (_document is null ||
             _timelineWorkspace?.ActiveScope is not XuiTimelineScope activeScope)
         {
-            StatusText.Text =
-                "Select nodes from one timeline scope before adding a named frame.";
+            SetStatus("Ui.Main.Status.SelectTimelineScope");
             return;
         }
 
@@ -3664,8 +3856,7 @@ public partial class MainWindow : Window, IDisposable
                 out int tick) ||
             tick < 0)
         {
-            StatusText.Text =
-                "A named frame needs a name and a non-negative integer tick.";
+            SetStatus("Ui.Main.Status.NamedFrameInvalid");
             return;
         }
 
@@ -3907,7 +4098,10 @@ public partial class MainWindow : Window, IDisposable
                             }
                         }
                     },
-                    "Set image texture");
+                    "Set image texture",
+                    new XuiMessageDescriptor(
+                        "Ui.Command.SetImageTexture",
+                        "Set image texture"));
                 return;
             }
 
@@ -3923,8 +4117,7 @@ public partial class MainWindow : Window, IDisposable
                         : FindVisualParent(hit) ?? _document.Root;
             if (IsLocked(parent.Key))
             {
-                StatusText.Text =
-                    "The texture drop target is locked.";
+            SetStatus("Ui.Main.Status.TextureTargetLocked");
                 return;
             }
 
@@ -3950,8 +4143,7 @@ public partial class MainWindow : Window, IDisposable
 
         if (hit is null || IsCanvasRoot(hit) || IsLocked(hit.Key))
         {
-            StatusText.Text =
-                "Drop this asset on an editable element.";
+            SetStatus("Ui.Main.Status.DropOnEditable");
             return;
         }
 
@@ -4011,8 +4203,7 @@ public partial class MainWindow : Window, IDisposable
             RefreshAll();
             await RebuildAssetResolverAsync().ConfigureAwait(true);
             SelectOpenedVisual(asset);
-            StatusText.Text =
-                "Read-only asset opened; use Copy to Workspace or Save As to edit it.";
+            SetStatus("Ui.Main.Status.ReadOnlyAssetOpened");
         }
         catch (Exception exception) when (
             exception is IOException or
@@ -4021,8 +4212,10 @@ public partial class MainWindow : Window, IDisposable
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Could not open asset",
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.OpenAsset"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
@@ -4083,7 +4276,9 @@ public partial class MainWindow : Window, IDisposable
                 await _assetCatalog.CopyToWorkspaceAsync(
                     asset,
                     workspace).ConfigureAwait(true);
-            StatusText.Text = $"Copied to {destination}.";
+            SetStatus(
+                "Ui.Main.Status.CopiedTo",
+                destination);
             await RebuildAssetResolverAsync().ConfigureAwait(true);
         }
         catch (Exception exception) when (
@@ -4093,8 +4288,10 @@ public partial class MainWindow : Window, IDisposable
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Copy to Workspace failed",
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.CopyWorkspace"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
@@ -4111,9 +4308,10 @@ public partial class MainWindow : Window, IDisposable
 
         SaveFileDialog dialog = new()
         {
-            Title = "Create Workspace XUI Screen",
+            Title = UiLocalization.Text(
+                "Ui.Main.Workspace.CreateScreen"),
             InitialDirectory = workspace,
-            Filter = "Dying Light XUI (*.xui)|*.xui",
+            Filter = UiLocalization.Text("Ui.Main.Filter.Xui"),
             DefaultExt = ".xui",
             AddExtension = true,
             OverwritePrompt = false,
@@ -4129,7 +4327,8 @@ public partial class MainWindow : Window, IDisposable
             if (!PathIsInside(workspace, dialog.FileName))
             {
                 throw new InvalidOperationException(
-                    "New screens must stay inside the configured workspace.");
+                    UiLocalization.Text(
+                        "Ui.Main.Error.ScreenOutsideWorkspace"));
             }
 
             XuiWorkspaceResourceService service = new(workspace);
@@ -4145,8 +4344,10 @@ public partial class MainWindow : Window, IDisposable
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Could not create workspace screen",
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.CreateScreen"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
@@ -4163,9 +4364,10 @@ public partial class MainWindow : Window, IDisposable
 
         SaveFileDialog dialog = new()
         {
-            Title = "Create Workspace XUI Visual Library",
+            Title = UiLocalization.Text(
+                "Ui.Main.Workspace.CreateVisual"),
             InitialDirectory = workspace,
-            Filter = "Dying Light XUI (*.xui)|*.xui",
+            Filter = UiLocalization.Text("Ui.Main.Filter.Xui"),
             DefaultExt = ".xui",
             AddExtension = true,
             OverwritePrompt = false,
@@ -4181,7 +4383,8 @@ public partial class MainWindow : Window, IDisposable
             if (!PathIsInside(workspace, dialog.FileName))
             {
                 throw new InvalidOperationException(
-                    "New visuals must stay inside the configured workspace.");
+                    UiLocalization.Text(
+                        "Ui.Main.Error.VisualOutsideWorkspace"));
             }
 
             string visualId =
@@ -4213,8 +4416,10 @@ public partial class MainWindow : Window, IDisposable
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Could not create workspace visual",
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.CreateVisual"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
@@ -4249,11 +4454,10 @@ public partial class MainWindow : Window, IDisposable
                 visualDialog.Result is
                     XuiReferenceTransactionResult result)
             {
-                StatusText.Text =
-                    $"Renamed visual and rebound " +
-                    $"{Math.Max(0, result.ChangedReferences - 1)} " +
-                    $"workspace reference(s); backups: " +
-                    $"{result.BackupDirectory}.";
+                SetStatus(
+                    "Ui.Main.Status.RenamedVisual",
+                    Math.Max(0, result.ChangedReferences - 1),
+                    result.BackupDirectory);
                 _lastReferenceTransaction = result;
                 UndoReferenceTransactionButton.IsEnabled = true;
                 await RefreshAfterWorkspaceTransactionAsync(result)
@@ -4265,10 +4469,11 @@ public partial class MainWindow : Window, IDisposable
 
         SaveFileDialog dialog = new()
         {
-            Title = "Rename Workspace XUI",
+            Title = UiLocalization.Text(
+                "Ui.Main.Workspace.RenameXui"),
             InitialDirectory =
                 Path.GetDirectoryName(asset.SourceFile!.Path),
-            Filter = "Dying Light XUI (*.xui)|*.xui",
+            Filter = UiLocalization.Text("Ui.Main.Filter.Xui"),
             DefaultExt = ".xui",
             AddExtension = true,
             OverwritePrompt = false,
@@ -4286,7 +4491,9 @@ public partial class MainWindow : Window, IDisposable
                 Path.GetRelativePath(
                     service.WorkspaceRoot,
                     dialog.FileName));
-            StatusText.Text = $"Renamed to {destination}.";
+            SetStatus(
+                "Ui.Main.Status.RenamedTo",
+                destination);
             await RebuildAssetResolverAsync().ConfigureAwait(true);
         }
         catch (Exception exception) when (
@@ -4296,8 +4503,10 @@ public partial class MainWindow : Window, IDisposable
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Could not rename workspace XUI",
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.RenameXui"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
@@ -4319,19 +4528,24 @@ public partial class MainWindow : Window, IDisposable
                 asset.SourceFile!.Path,
                 StringComparison.OrdinalIgnoreCase))
         {
-            StatusText.Text =
-                "Close or open another document before deleting this screen.";
+            SetStatus("Ui.Main.Status.CloseBeforeDelete");
             return;
         }
 
         if (MessageBox.Show(
                 this,
                 asset.Kind == XuiCatalogAssetKind.Visual
-                    ? $"Delete visual '{asset.Name}' from its workspace library? The operation is refused while references remain and creates a recovery backup."
-                    : $"Move '{asset.Name}' to the workspace recovery trash?",
+                    ? UiLocalization.Format(
+                        "Ui.Main.Delete.VisualPrompt",
+                        asset.Name)
+                    : UiLocalization.Format(
+                        "Ui.Main.Delete.XuiPrompt",
+                        asset.Name),
                 asset.Kind == XuiCatalogAssetKind.Visual
-                    ? "Delete workspace visual"
-                    : "Delete workspace XUI",
+                    ? UiLocalization.Text(
+                        "Ui.Main.Delete.VisualTitle")
+                    : UiLocalization.Text(
+                        "Ui.Main.Delete.XuiTitle"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning) != MessageBoxResult.Yes)
         {
@@ -4346,15 +4560,17 @@ public partial class MainWindow : Window, IDisposable
                     await service.DeleteLooseVisualAsync(
                         asset.SourceFile!.Path,
                         asset.Name).ConfigureAwait(true);
-                StatusText.Text =
-                    $"Deleted visual; recovery backup: {result.BackupFile}.";
+                SetStatus(
+                    "Ui.Main.Status.DeletedVisual",
+                    result.BackupFile);
             }
             else
             {
                 string trash =
                     service.DeleteLooseXui(asset.SourceFile!.Path);
-                StatusText.Text =
-                    $"Moved to recoverable trash: {trash}.";
+                SetStatus(
+                    "Ui.Main.Status.MovedToTrash",
+                    trash);
             }
 
             await RebuildAssetResolverAsync().ConfigureAwait(true);
@@ -4366,8 +4582,10 @@ public partial class MainWindow : Window, IDisposable
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Could not delete workspace XUI",
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.DeleteXui"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
@@ -4395,9 +4613,11 @@ public partial class MainWindow : Window, IDisposable
         {
             _lastReferenceTransaction = result;
             UndoReferenceTransactionButton.IsEnabled = true;
-            StatusText.Text =
-                $"Rebound {result.ChangedReferences} references in " +
-                $"{result.ChangedFiles} files; backups: {result.BackupDirectory}.";
+            SetStatus(
+                "Ui.Main.Status.ReboundReferences",
+                result.ChangedReferences,
+                result.ChangedFiles,
+                result.BackupDirectory);
             await RefreshAfterWorkspaceTransactionAsync(result)
                 .ConfigureAwait(true);
         }
@@ -4422,8 +4642,9 @@ public partial class MainWindow : Window, IDisposable
                 transaction).ConfigureAwait(true);
             _lastReferenceTransaction = null;
             UndoReferenceTransactionButton.IsEnabled = false;
-            StatusText.Text =
-                $"Undid the last workspace rebind across {restored} file(s).";
+            SetStatus(
+                "Ui.Main.Status.UndidRebind",
+                restored);
             await RefreshAfterWorkspaceTransactionAsync(transaction)
                 .ConfigureAwait(true);
         }
@@ -4434,8 +4655,10 @@ public partial class MainWindow : Window, IDisposable
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Could not undo workspace rebind",
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.UndoRebind"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
@@ -4450,8 +4673,9 @@ public partial class MainWindow : Window, IDisposable
 
         MessageBox.Show(
             this,
-            "Save or discard the current document edits before changing workspace-wide references.",
-            "Unsaved document",
+            UiLocalization.Text(
+                "Ui.Main.Workspace.SaveBeforeTransaction"),
+            UiLocalization.Text("Ui.Main.Workspace.UnsavedTitle"),
             MessageBoxButton.OK,
             MessageBoxImage.Information);
         return false;
@@ -4487,8 +4711,8 @@ public partial class MainWindow : Window, IDisposable
 
         MessageBox.Show(
             this,
-            "Configure a writable Workspace Root in Settings → Dying Light Resources first.",
-            "Workspace required",
+            UiLocalization.Text("Ui.Main.Workspace.RequiredPrompt"),
+            UiLocalization.Text("Ui.Main.Workspace.RequiredTitle"),
             MessageBoxButton.OK,
             MessageBoxImage.Information);
         return false;
@@ -4510,8 +4734,7 @@ public partial class MainWindow : Window, IDisposable
             !TryGetWorkspaceRoot(out string workspace) ||
             !PathIsInside(workspace, asset.SourceFile.Path))
         {
-            StatusText.Text =
-                "Only loose screens or visuals inside the writable workspace can be renamed or deleted. Copy archive assets first.";
+            SetStatus("Ui.Main.Status.AssetNotEditable");
             return false;
         }
 
@@ -4648,8 +4871,8 @@ public partial class MainWindow : Window, IDisposable
         {
             MessageBoxResult result = MessageBox.Show(
                 this,
-                "Save changes before closing?",
-                "Unsaved XUI changes",
+                UiLocalization.Text("Ui.Main.Unsaved.ClosePrompt"),
+                UiLocalization.Text("Ui.Main.Unsaved.Title"),
                 MessageBoxButton.YesNoCancel,
                 MessageBoxImage.Warning);
             if (result == MessageBoxResult.Cancel)
@@ -4681,7 +4904,7 @@ public partial class MainWindow : Window, IDisposable
         using DelegateDisposable loading = BeginViewportLoading();
         try
         {
-            StatusText.Text = "Opening XUI…";
+            SetStatus("Ui.Main.Status.OpeningXui");
             XuiDocument document = await XuiDocument.OpenAsync(
                 path,
                 CreateDocumentOptions()).ConfigureAwait(true);
@@ -4692,7 +4915,7 @@ public partial class MainWindow : Window, IDisposable
             ConfigureWatcher(path);
             RefreshAll();
             await RebuildAssetResolverAsync().ConfigureAwait(true);
-            StatusText.Text = "Ready";
+            SetStatus("Ui.Main.Status.Ready");
         }
         catch (Exception exception) when (
             exception is IOException or
@@ -4701,11 +4924,13 @@ public partial class MainWindow : Window, IDisposable
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Could not open XUI",
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.OpenXui"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-            StatusText.Text = "Open failed";
+            SetStatus("Ui.Main.Status.OpenFailed");
         }
     }
 
@@ -4714,7 +4939,9 @@ public partial class MainWindow : Window, IDisposable
         using DelegateDisposable loading = BeginViewportLoading();
         try
         {
-            StatusText.Text = $"Opening stock {entry.FileName}…";
+            SetStatus(
+                "Ui.Main.Status.OpeningStock",
+                entry.FileName);
             XuiDocument document = await XuiDocument.OpenAssetAsync(
                 entry,
                 CreateDocumentOptions()).ConfigureAwait(true);
@@ -4725,8 +4952,7 @@ public partial class MainWindow : Window, IDisposable
             _watcher = null;
             RefreshAll();
             await RebuildAssetResolverAsync().ConfigureAwait(true);
-            StatusText.Text =
-                "Stock XUI opened read-only · use Save As to make a mod copy";
+            SetStatus("Ui.Main.Status.StockOpened");
         }
         catch (Exception exception) when (
             exception is IOException or
@@ -4735,11 +4961,13 @@ public partial class MainWindow : Window, IDisposable
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Could not open stock XUI",
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.OpenStock"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-            StatusText.Text = "Stock open failed";
+            SetStatus("Ui.Main.Status.StockOpenFailed");
         }
     }
 
@@ -4760,15 +4988,17 @@ public partial class MainWindow : Window, IDisposable
             _activeRecovery = snapshot;
             RefreshAll();
             await RebuildAssetResolverAsync().ConfigureAwait(true);
-            StatusText.Text = "Recovery opened as an unsaved document";
+            SetStatus("Ui.Main.Status.RecoveryOpened");
         }
         catch (Exception exception) when (
             exception is IOException or XuiParseException)
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Could not open recovery",
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.OpenRecovery"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
@@ -4882,7 +5112,7 @@ public partial class MainWindow : Window, IDisposable
         _textureDiagnostics.Clear();
         _layoutSession = null;
         Viewport.SetAssetResolver(null);
-        AssetStatusText.Text = "Indexing external assets…";
+        SetAssetStatus("Ui.Main.Asset.IndexingExternal");
         try
         {
             await _assetResolver.RebuildAsync().ConfigureAwait(true);
@@ -4890,17 +5120,18 @@ public partial class MainWindow : Window, IDisposable
             RefreshAssetRows();
             Viewport.SetAssetResolver(_assetResolver);
             int diagnosticCount = _assetResolver.Diagnostics.Count;
-            AssetStatusText.Text =
-                $"{_assetResolver.Files.Count:N0} assets · " +
-                $"{_assetResolver.Localization?.Entries.Count ?? 0:N0} strings · " +
-                $"{DyingLightInstallProfile.NormalizeLocale(_settings.Locale)} · " +
-                $"{diagnosticCount:N0} " +
-                (diagnosticCount == 1 ? "diagnostic" : "diagnostics");
+            SetAssetStatus(
+                "Ui.Main.Asset.Summary",
+                _assetResolver.Files.Count,
+                _assetResolver.Localization?.Entries.Count ?? 0,
+                DyingLightInstallProfile.NormalizeLocale(
+                    _settings.Locale),
+                diagnosticCount);
             RefreshEvaluation();
         }
         catch (OperationCanceledException)
         {
-            AssetStatusText.Text = "Asset indexing cancelled";
+            SetAssetStatus("Ui.Main.Asset.IndexingCancelled");
         }
     }
 
@@ -4911,13 +5142,15 @@ public partial class MainWindow : Window, IDisposable
             !DyingLightInstallIndex.LooksLikeInstall(install))
         {
             _installIndex = null;
-            AssetStatusText.Text = "Dying Light install not configured";
+            SetAssetStatus("Ui.Main.Asset.InstallNotConfigured");
             if (showErrors)
             {
                 MessageBox.Show(
                     this,
-                    "Choose the Dying Light installation folder from File → Dying Light Data first.",
-                    "Dying Light data required",
+                    UiLocalization.Text(
+                        "Ui.Main.Asset.ConfigureInstall"),
+                    UiLocalization.Text(
+                        "Ui.Main.Asset.DataRequiredTitle"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
             }
@@ -4941,15 +5174,16 @@ public partial class MainWindow : Window, IDisposable
         using DelegateDisposable loading = BeginViewportLoading();
         try
         {
-            AssetStatusText.Text = "Indexing Dying Light PAKs and RPACKs…";
+            SetAssetStatus("Ui.Main.Asset.IndexingGame");
             DyingLightInstallIndex index = new(
                 new DyingLightInstallProfile(fullPath, _settings.Locale));
             await index.RebuildAsync().ConfigureAwait(true);
             _installIndex = index;
-            AssetStatusText.Text =
-                $"{index.StockXuiFiles.Count:N0} stock XUIs · " +
-                $"{index.Entries.Count:N0} install assets · " +
-                index.Profile.NormalizedLocale;
+            SetAssetStatus(
+                "Ui.Main.Asset.InstallSummary",
+                index.StockXuiFiles.Count,
+                index.Entries.Count,
+                index.Profile.NormalizedLocale);
             return index.StockXuiFiles.Count > 0;
         }
         catch (Exception exception) when (
@@ -4958,13 +5192,15 @@ public partial class MainWindow : Window, IDisposable
             InvalidDataException)
         {
             _installIndex = null;
-            AssetStatusText.Text = "Dying Light indexing failed";
+            SetAssetStatus("Ui.Main.Asset.IndexingFailed");
             if (showErrors)
             {
                 MessageBox.Show(
                     this,
-                    exception.Message,
-                    "Could not index Dying Light",
+                    UiLocalization.Format(
+                        "Ui.Common.ErrorDetails",
+                        exception.Message),
+                    UiLocalization.Text("Ui.Main.Error.IndexGame"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
             }
@@ -5116,8 +5352,10 @@ public partial class MainWindow : Window, IDisposable
                 RefreshDiagnosticsOnly();
             }
 
-            DocumentStatsText.Text =
-                $"{frame.Nodes.Count:N0} nodes · {_timelineSet?.Timelines.Count ?? 0:N0} timelines";
+            DocumentStatsText.Text = UiLocalization.Format(
+                "Ui.Main.DocumentStats",
+                frame.Nodes.Count,
+                _timelineSet?.Timelines.Count ?? 0);
         }
         catch (Exception exception) when (
             exception is InvalidDataException or ArgumentOutOfRangeException)
@@ -5129,7 +5367,7 @@ public partial class MainWindow : Window, IDisposable
                     XuiDiagnosticSeverity.Error,
                     exception.Message),
             ]);
-            StatusText.Text = "Evaluation failed safely";
+            SetStatus("Ui.Main.Status.EvaluationFailed");
         }
     }
 
@@ -5241,7 +5479,9 @@ public partial class MainWindow : Window, IDisposable
                 _visibleHierarchyRows.Add(row.NodeKey, row);
             }
 
-            HierarchyCountText.Text = $"{rows.Count:N0}";
+            HierarchyCountText.Text = UiLocalization.Format(
+                "Ui.Main.Hierarchy.Count",
+                rows.Count);
         }
         finally
         {
@@ -5264,8 +5504,10 @@ public partial class MainWindow : Window, IDisposable
         SelectionCountText.Text = nodes.Length switch
         {
             0 => string.Empty,
-            1 => "1 selected",
-            _ => $"{nodes.Length} selected",
+            1 => UiLocalization.Text("Ui.Main.Selection.One"),
+            _ => UiLocalization.Format(
+                "Ui.Main.Selection.Many",
+                nodes.Length),
         };
         InspectorHint.Visibility = nodes.Length == 0
             ? Visibility.Visible
@@ -5362,10 +5604,15 @@ public partial class MainWindow : Window, IDisposable
                     .Distinct()
                     .ToArray();
                 TextStyleRawText.Text = styles.Length == 1
-                    ? string.Create(
-                        CultureInfo.InvariantCulture,
-                        $"Raw {styles[0]} / {XuiTextStyleCodec.ToHexString(styles[0])} · unmapped {XuiTextStyleCodec.ToHexString(XuiTextStyleCodec.Decode(styles[0]).UnmappedBits)}")
-                    : "Raw TextStyle: mixed values";
+                    ? UiLocalization.Format(
+                        "Ui.Main.TextStyle.Raw",
+                        styles[0],
+                        XuiTextStyleCodec.ToHexString(styles[0]),
+                        XuiTextStyleCodec.ToHexString(
+                            XuiTextStyleCodec.Decode(
+                                styles[0]).UnmappedBits))
+                    : UiLocalization.Text(
+                        "Ui.Main.TextStyle.Mixed");
             }
 
             bool pivotSelection = nodes.Length == 1;
@@ -5394,8 +5641,10 @@ public partial class MainWindow : Window, IDisposable
                 _settings.PreservePivotVisualPosition;
             PivotStatusText.Text = canPreserve
                 ? _settings.PreservePivotVisualPosition
-                    ? "Preserve mode compensates authored Position and Position keys."
-                    : "Raw runtime mode changes Pivot and Pivot keys."
+                    ? UiLocalization.Text(
+                        "Ui.Main.Pivot.PreserveMode")
+                    : UiLocalization.Text(
+                        "Ui.Main.Pivot.RawMode")
                 : reason;
             Viewport.PreservePivotVisualPosition =
                 _settings.PreservePivotVisualPosition && canPreserve;
@@ -5602,7 +5851,11 @@ public partial class MainWindow : Window, IDisposable
                             enabled));
                 }
             },
-            $"Set text {propertyName}");
+            $"Set text {propertyName}",
+            new XuiMessageDescriptor(
+                "Ui.Command.SetTextProperty",
+                "Set text {0}",
+                propertyName));
     }
 
     private void ApplyHorizontalTextAlignment(
@@ -5651,7 +5904,10 @@ public partial class MainWindow : Window, IDisposable
                     }
                 }
             },
-            "Set horizontal text alignment");
+            "Set horizontal text alignment",
+            new XuiMessageDescriptor(
+                "Ui.Command.SetHorizontalTextAlignment",
+                "Set horizontal text alignment"));
     }
 
     private void ApplyVerticalTextAlignment(string alignment)
@@ -5714,7 +5970,10 @@ public partial class MainWindow : Window, IDisposable
                     }
                 }
             },
-            "Set vertical text alignment");
+            "Set vertical text alignment",
+            new XuiMessageDescriptor(
+                "Ui.Command.SetVerticalTextAlignment",
+                "Set vertical text alignment"));
     }
 
     private string? FirstAuthoredPropertyName(
@@ -5752,7 +6011,9 @@ public partial class MainWindow : Window, IDisposable
                 out XuiDecodedTextStyle current))
         {
             throw new InvalidOperationException(
-                $"TextStyle '{raw}' is invalid and cannot be edited semantically.");
+                UiLocalization.Format(
+                    "Ui.Main.Error.InvalidTextStyleSemantic",
+                    raw));
         }
 
         int updated = update(current.RawValue);
@@ -5785,22 +6046,26 @@ public partial class MainWindow : Window, IDisposable
                 PivotZTextBox.Text,
                 out double z))
         {
-            PivotStatusText.Text =
-                "Pivot requires three finite numeric values.";
+            PivotStatusText.Text = UiLocalization.Text(
+                "Ui.Main.Pivot.RequiresThreeNumbers");
             return;
         }
 
         CommitPivot(
             node.Key,
             new XuiVector3(x, y, z),
-            "Edit pivot");
+            "Edit pivot",
+            descriptionDescriptor: new XuiMessageDescriptor(
+                "Ui.Command.EditPivot",
+                "Edit pivot"));
     }
 
     private void CommitPivot(
         string nodeKey,
         XuiVector3 newPivot,
         string description,
-        bool? preserveOverride = null)
+        bool? preserveOverride = null,
+        XuiMessageDescriptor? descriptionDescriptor = null)
     {
         if (_document?.SyntaxTree.FindByKey(nodeKey) is not
             XuiSyntaxNode node)
@@ -5906,10 +6171,12 @@ public partial class MainWindow : Window, IDisposable
                     }
                 }
             },
-            description);
-        StatusText.Text = preserve
-            ? "Pivot changed with visual-position compensation."
-            : "Pivot changed with raw runtime semantics.";
+            description,
+            descriptionDescriptor);
+        SetStatus(
+            preserve
+                ? "Ui.Main.Status.PivotPreserved"
+                : "Ui.Main.Status.PivotRaw");
     }
 
     private List<TimelineVectorEdit> PlanTimelineVectorEdits(
@@ -5967,7 +6234,10 @@ public partial class MainWindow : Window, IDisposable
                 else if (!authoredVector3)
                 {
                     throw new InvalidOperationException(
-                        $"{property} key '{raw}' is not a 2D or 3D vector.");
+                        UiLocalization.Format(
+                            "Ui.Main.Error.InvalidVectorKey",
+                            property,
+                            raw));
                 }
 
                 XuiVector3 updated = transform(value);
@@ -5994,7 +6264,8 @@ public partial class MainWindow : Window, IDisposable
         if (string.IsNullOrWhiteSpace(targetId))
         {
             reason =
-                "Preserve mode requires an authored Id so related animation tracks can be checked.";
+                UiLocalization.Text(
+                    "Ui.Main.Pivot.RequiresId");
             return false;
         }
 
@@ -6004,7 +6275,8 @@ public partial class MainWindow : Window, IDisposable
                 targetId))
         {
             reason =
-                "Preserve mode is unavailable because Scale or Rotation is animated. Raw runtime mode remains available.";
+                UiLocalization.Text(
+                    "Ui.Main.Pivot.AnimatedUnavailable");
             return false;
         }
 
@@ -6128,9 +6400,9 @@ public partial class MainWindow : Window, IDisposable
 
         RawXmlExpander.Visibility = Visibility.Visible;
         int length = current.End - current.Start;
-        RawXmlStatusText.Text = string.Create(
-            CultureInfo.InvariantCulture,
-            $"{length:N0} characters");
+        RawXmlStatusText.Text = UiLocalization.Format(
+            "Ui.Main.RawXml.Characters",
+            length);
         if (!RawXmlExpander.IsExpanded)
         {
             ClearRawXmlEditor(keepStatus: true);
@@ -6140,9 +6412,9 @@ public partial class MainWindow : Window, IDisposable
         if (length > AutomaticRawXmlCharacterLimit && !allowLarge)
         {
             ClearRawXmlEditor(keepStatus: true);
-            RawXmlStatusText.Text = string.Create(
-                CultureInfo.InvariantCulture,
-                $"{length / (1024.0 * 1024.0):0.0} MiB of XML — load explicitly to edit");
+            RawXmlStatusText.Text = UiLocalization.Format(
+                "Ui.Main.RawXml.Large",
+                length / (1024.0 * 1024.0));
             LoadLargeRawXmlButton.Visibility = Visibility.Visible;
             return;
         }
@@ -6188,6 +6460,8 @@ public partial class MainWindow : Window, IDisposable
         row.Error = error;
         if (error is not null)
         {
+            _statusDescriptor = null;
+            _lastLocalizedStatusText = null;
             StatusText.Text = error;
             return;
         }
@@ -6298,9 +6572,10 @@ public partial class MainWindow : Window, IDisposable
             HierarchyVisibilityState.Hidden or
             HierarchyVisibilityState.HiddenByAncestor)
         {
-            PreviewStateText.Text =
-                $"{row.DisplayName} is {row.VisibilityToolTip.ToLowerInvariant()}. " +
-                "This is an editor-only hierarchy override.";
+            PreviewStateText.Text = UiLocalization.Format(
+                "Ui.Main.Preview.HiddenOverride",
+                row.DisplayName,
+                row.VisibilityToolTip);
             ForceShowInspectorButton.IsEnabled = false;
             RestoreComposedPoseButton.IsEnabled =
                 _timelineWorkspace?.ActiveScope is not null &&
@@ -6311,8 +6586,8 @@ public partial class MainWindow : Window, IDisposable
         XuiRenderFrame? frame = Viewport.FrameForTesting;
         if (_layoutSession is null || frame is null)
         {
-            PreviewStateText.Text =
-                "Preview state is not available until the document is rendered.";
+            PreviewStateText.Text = UiLocalization.Text(
+                "Ui.Main.Preview.NotRendered");
             ForceShowInspectorButton.IsEnabled = false;
             RestoreComposedPoseButton.IsEnabled = false;
             return;
@@ -6325,7 +6600,8 @@ public partial class MainWindow : Window, IDisposable
                 _timelineWorkspace?.EvaluationState ??
                 XuiTimelineEvaluationState.Initial,
                 BuildRenderContext());
-        PreviewStateText.Text = explanation.Summary;
+        PreviewStateText.Text = LocalizePreviewExplanation(
+            explanation);
         ForceShowInspectorButton.IsEnabled =
             !explanation.IsVisible &&
             explanation.Reason is not
@@ -6419,9 +6695,10 @@ public partial class MainWindow : Window, IDisposable
         TickSlider.Maximum = maximum;
         TickSlider.Value = Math.Clamp(currentTick, 0, maximum);
         _updatingTick = false;
-        TickText.Text = string.Create(
-            CultureInfo.InvariantCulture,
-            $"{currentTick} ticks  ·  {currentTick / 60.0:0.000}s");
+        TickText.Text = UiLocalization.Format(
+            "Ui.Main.Timeline.Position",
+            currentTick,
+            currentTick / 60.0);
         UpdateTimelineScopeChrome();
     }
 
@@ -6444,12 +6721,16 @@ public partial class MainWindow : Window, IDisposable
             hasVisibleTracks &&
             _timelineWorkspace?.ActiveTickIsComposed == false;
         TimelineScopeText.Text = _timelineWorkspace?.HasMixedSelection == true
-            ? "Mixed timeline scopes"
+            ? UiLocalization.Text("Ui.Main.Timeline.MixedScopes")
             : scope is null
-                ? "No timeline scope"
-                : string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"Scope: {scope.DisplayName} · {CurrentTimelineTick} / {scope.MaximumTick}{(_timelineWorkspace?.ActiveTickIsComposed == true ? " · composed" : string.Empty)}");
+                ? UiLocalization.Text("Ui.Main.Timeline.NoScope")
+                : UiLocalization.Format(
+                    _timelineWorkspace?.ActiveTickIsComposed == true
+                        ? "Ui.Main.Timeline.ScopeComposed"
+                        : "Ui.Main.Timeline.Scope",
+                    scope.DisplayName,
+                    CurrentTimelineTick,
+                    scope.MaximumTick);
     }
 
     private void RefreshKeyFrameEditor()
@@ -6528,9 +6809,15 @@ public partial class MainWindow : Window, IDisposable
                 out _))
         {
             string message =
-                $"'{value}' is invalid for {track.PropertyName}. The keyframe was not changed.";
+                UiLocalization.Format(
+                    "Ui.Main.Keyframe.InvalidValue",
+                    value,
+                    track.PropertyName);
             KeyValueErrorText.Text = message;
-            StatusText.Text = message;
+            SetStatus(
+                "Ui.Main.Keyframe.InvalidValue",
+                value,
+                track.PropertyName);
             return;
         }
 
@@ -6541,9 +6828,9 @@ public partial class MainWindow : Window, IDisposable
             .ElementAtOrDefault(track.SourcePropertyIndex);
         if (prop is null)
         {
-            KeyValueErrorText.Text =
-                "This malformed keyframe has no corresponding Prop element.";
-            StatusText.Text = KeyValueErrorText.Text;
+            KeyValueErrorText.Text = UiLocalization.Text(
+                "Ui.Main.Keyframe.MissingProp");
+            SetStatus("Ui.Main.Keyframe.MissingProp");
             return;
         }
 
@@ -6575,7 +6862,7 @@ public partial class MainWindow : Window, IDisposable
             !XuiValueParser.TryNumber(EaseOutTextBox.Text, out _) ||
             !XuiValueParser.TryNumber(EaseScaleTextBox.Text, out _))
         {
-            StatusText.Text = "Ease In, Out, and Scale must be finite numbers.";
+            SetStatus("Ui.Main.Status.InvalidEase");
             RefreshKeyFrameEditor();
             return;
         }
@@ -6832,7 +7119,11 @@ public partial class MainWindow : Window, IDisposable
         }
         catch (InvalidOperationException exception)
         {
-            StatusText.Text = exception.Message;
+            _statusDescriptor = null;
+            _lastLocalizedStatusText = null;
+            StatusText.Text = UiLocalization.Format(
+                "Ui.Common.ErrorDetails",
+                exception.Message);
         }
     }
 
@@ -6854,8 +7145,7 @@ public partial class MainWindow : Window, IDisposable
         int index = siblings.IndexOf(node);
         if (index <= 0)
         {
-            StatusText.Text =
-                "Indent needs a previous visual sibling to become the new parent.";
+            SetStatus("Ui.Main.Status.IndentNeedsSibling");
             return;
         }
 
@@ -6876,7 +7166,7 @@ public partial class MainWindow : Window, IDisposable
             parent == _document.Root ||
             grandParent.Kind == XuiSyntaxKind.Document)
         {
-            StatusText.Text = "The selected element is already at the top level.";
+            SetStatus("Ui.Main.Status.AlreadyTopLevel");
             return;
         }
 
@@ -6914,7 +7204,11 @@ public partial class MainWindow : Window, IDisposable
         }
         catch (InvalidOperationException exception)
         {
-            StatusText.Text = exception.Message;
+            _statusDescriptor = null;
+            _lastLocalizedStatusText = null;
+            StatusText.Text = UiLocalization.Format(
+                "Ui.Common.ErrorDetails",
+                exception.Message);
             return;
         }
 
@@ -6945,7 +7239,8 @@ public partial class MainWindow : Window, IDisposable
 
     private bool ExecuteBatch(
         Action edits,
-        string description = "Edit selection")
+        string description = "Edit selection",
+        XuiMessageDescriptor? descriptionDescriptor = null)
     {
         bool succeeded = true;
         _suppressRefresh = true;
@@ -6958,7 +7253,13 @@ public partial class MainWindow : Window, IDisposable
             }
             else
             {
-                _document.ExecuteBatch(description, edits);
+                descriptionDescriptor ??= new XuiMessageDescriptor(
+                    "Ui.Command.EditSelection",
+                    "Edit selection");
+                _document.ExecuteBatch(
+                    description,
+                    edits,
+                    descriptionDescriptor);
             }
         }
         catch (Exception exception) when (
@@ -6968,8 +7269,9 @@ public partial class MainWindow : Window, IDisposable
         {
             _refreshPending = true;
             succeeded = false;
-            StatusText.Text =
-                $"Edit rejected; the document was restored: {exception.Message}";
+            SetStatus(
+                "Ui.Main.Status.EditRejected",
+                exception.Message);
         }
         finally
         {
@@ -7048,7 +7350,8 @@ public partial class MainWindow : Window, IDisposable
         _isPlaying = false;
         _playbackTimer.Stop();
         _playbackClock.Stop();
-        PlayPauseButton.Content = "Play";
+        PlayPauseButton.Content =
+            UiLocalization.Text("Ui.Main.Transport.Play");
     }
 
     private double SelectedSpeed()
@@ -7125,8 +7428,8 @@ public partial class MainWindow : Window, IDisposable
         {
             SaveFileDialog dialog = new()
             {
-                Title = "Save Dying Light XUI As",
-                Filter = "Dying Light XUI (*.xui)|*.xui|All files (*.*)|*.*",
+                Title = UiLocalization.Text("Ui.Main.SaveAs.Title"),
+                Filter = UiLocalization.Text("Ui.Main.Filter.XuiAll"),
                 AddExtension = true,
                 DefaultExt = ".xui",
                 FileName = Path.GetFileName(
@@ -7158,11 +7461,15 @@ public partial class MainWindow : Window, IDisposable
             _recoverySuggestedPath = null;
             AddRecentFile(result.Path);
             ConfigureWatcher(result.Path);
-            StatusText.Text = result.Disposition == XuiSaveDisposition.Unchanged
-                ? "No changes to save"
-                : result.BackupPath is null
-                    ? "Saved"
-                    : $"Saved · backup: {Path.GetFileName(result.BackupPath)}";
+            SetStatus(
+                result.Disposition == XuiSaveDisposition.Unchanged
+                    ? "Ui.Main.Status.NoChanges"
+                    : result.BackupPath is null
+                        ? "Ui.Main.Status.Saved"
+                        : "Ui.Main.Status.SavedBackup",
+                result.BackupPath is null
+                    ? string.Empty
+                    : Path.GetFileName(result.BackupPath));
             UpdateChrome();
             return true;
         }
@@ -7170,7 +7477,7 @@ public partial class MainWindow : Window, IDisposable
         {
             if (!forceSaveAs)
             {
-                StatusText.Text = "Source root is read-only; choose a workspace copy.";
+                SetStatus("Ui.Main.Status.SourceReadOnly");
                 return await SaveDocumentAsync(forceSaveAs: true).ConfigureAwait(true);
             }
 
@@ -7185,8 +7492,10 @@ public partial class MainWindow : Window, IDisposable
         {
             MessageBox.Show(
                 this,
-                exception.Message,
-                "Could not save XUI",
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.SaveXui"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             return false;
@@ -7202,8 +7511,8 @@ public partial class MainWindow : Window, IDisposable
 
         MessageBoxResult result = MessageBox.Show(
             this,
-            "Save changes before opening another file?",
-            "Unsaved XUI changes",
+            UiLocalization.Text("Ui.Main.Unsaved.OpenPrompt"),
+            UiLocalization.Text("Ui.Main.Unsaved.Title"),
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Warning);
         return result switch
@@ -7226,11 +7535,11 @@ public partial class MainWindow : Window, IDisposable
         {
             _activeRecovery = await RecoveryService.WriteAsync(
                 _document).ConfigureAwait(true);
-            StatusText.Text = "Recovery snapshot saved";
+            SetStatus("Ui.Main.Status.RecoverySaved");
         }
         catch (IOException)
         {
-            StatusText.Text = "Recovery snapshot could not be written";
+            SetStatus("Ui.Main.Status.RecoveryFailed");
         }
     }
 
@@ -7265,29 +7574,106 @@ public partial class MainWindow : Window, IDisposable
 
         _ = Dispatcher.InvokeAsync(() =>
         {
-            StatusText.Text =
-                "Source changed externally · Save is blocked until reload or Save As";
+            SetStatus("Ui.Main.Status.SourceChanged");
         });
+    }
+
+    private void SetStatus(string key, params object?[] arguments)
+    {
+        _statusDescriptor = new XuiMessageDescriptor(
+            key,
+            UiLocalization.EnglishText(key),
+            arguments);
+        RefreshLocalizedStatus(force: true);
+    }
+
+    private void RefreshLocalizedStatus(bool force = false)
+    {
+        if (_statusDescriptor is null ||
+            (!force &&
+             _lastLocalizedStatusText is not null &&
+             !string.Equals(
+                 StatusText.Text,
+                 _lastLocalizedStatusText,
+                 StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        _lastLocalizedStatusText = UiLocalization.Message(
+            _statusDescriptor,
+            _statusDescriptor.EnglishFallback);
+        StatusText.Text = _lastLocalizedStatusText;
+    }
+
+    private void SetAssetStatus(string key, params object?[] arguments)
+    {
+        _assetStatusDescriptor = new XuiMessageDescriptor(
+            key,
+            UiLocalization.EnglishText(key),
+            arguments);
+        RefreshLocalizedAssetStatus(force: true);
+    }
+
+    private void RefreshLocalizedAssetStatus(bool force = false)
+    {
+        if (_assetStatusDescriptor is null ||
+            (!force &&
+             _lastLocalizedAssetStatusText is not null &&
+             !string.Equals(
+                 AssetStatusText.Text,
+                 _lastLocalizedAssetStatusText,
+                 StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        _lastLocalizedAssetStatusText = UiLocalization.Message(
+            _assetStatusDescriptor,
+            _assetStatusDescriptor.EnglishFallback);
+        AssetStatusText.Text = _lastLocalizedAssetStatusText;
+    }
+
+    private static string LocalizePreviewExplanation(
+        XuiPreviewStateExplanation explanation)
+    {
+        if (UiLocalization.EffectiveLanguage == "En")
+        {
+            return explanation.Summary;
+        }
+
+        return explanation.Reason == XuiPreviewStateReason.AnimatedHidden &&
+               explanation.ScopeTick is int tick
+            ? UiLocalization.Format(
+                "Ui.Main.Preview.Reason.AnimatedHiddenAtTick",
+                tick)
+            : UiLocalization.Text(
+                $"Ui.Main.Preview.Reason.{explanation.Reason}");
     }
 
     private void UpdateChrome()
     {
         string display = _document is null
-            ? "Untitled"
+            ? UiLocalization.Text("Ui.Main.Untitled")
             : _document.Path is null && _recoverySuggestedPath is not null
-                ? $"Recovered · {Path.GetFileName(_recoverySuggestedPath)}"
+                ? UiLocalization.Format(
+                    "Ui.Main.Recovered",
+                    Path.GetFileName(_recoverySuggestedPath))
                 : _document.DisplayName;
         bool dirty = _document?.IsDirty == true;
-        Title = $"{(dirty ? "● " : string.Empty)}{display} — Dying Light XUI Editor";
+        Title = UiLocalization.Format(
+            "Ui.Main.WindowTitle",
+            dirty ? "● " : string.Empty,
+            display);
         DocumentPathText.Text = _document?.Path ??
                                 _document?.Source?.Origin ??
                                 _recoverySuggestedPath ??
                                 string.Empty;
         DirtyText.Text = dirty
-            ? "Modified"
+            ? UiLocalization.Text("Ui.Main.Document.Modified")
             : _document?.Source?.IsReadOnly == true
-                ? "Read-only stock"
-                : "Saved";
+                ? UiLocalization.Text("Ui.Main.Document.ReadOnly")
+                : UiLocalization.Text("Ui.Main.Document.Saved");
         UndoMenuItem.IsEnabled = _document?.History.CanUndo == true;
         RedoMenuItem.IsEnabled = _document?.History.CanRedo == true;
         bool canExport = _document is not null &&
@@ -7296,11 +7682,19 @@ public partial class MainWindow : Window, IDisposable
         ExportPngMenuItem.IsEnabled = canExport;
         UpdatePropertyTransferChrome();
         UndoMenuItem.Header = _document?.History.UndoDescription is string undo
-            ? $"_Undo {undo}"
-            : "_Undo";
+            ? UiLocalization.Format(
+                "Ui.Command.Undo",
+                UiLocalization.Message(
+                    _document.History.UndoDescriptionDescriptor,
+                    undo))
+            : UiLocalization.Text("Ui.Xaml.MainWindow.012");
         RedoMenuItem.Header = _document?.History.RedoDescription is string redo
-            ? $"_Redo {redo}"
-            : "_Redo";
+            ? UiLocalization.Format(
+                "Ui.Command.Redo",
+                UiLocalization.Message(
+                    _document.History.RedoDescriptionDescriptor,
+                    redo))
+            : UiLocalization.Text("Ui.Xaml.MainWindow.013");
     }
 
     private void ApplyViewportSettings()
@@ -7587,7 +7981,9 @@ public partial class MainWindow : Window, IDisposable
             return XuiValueParser.TryBoolean(value, out _) ||
                    XuiValueParser.TryNumber(value, out _)
                 ? null
-                : $"{name} must be true, false, or a finite numeric strength.";
+                : UiLocalization.Format(
+                    "Ui.Validation.BooleanOrStrength",
+                    name);
         }
 
         if (name == "Anchor" &&
@@ -7595,7 +7991,8 @@ public partial class MainWindow : Window, IDisposable
              anchor < 0 ||
              (anchor & ~0x7f) != 0))
         {
-            return "Anchor must be a valid Dying Light bitmask (0–127).";
+            return UiLocalization.Text(
+                "Ui.Validation.AnchorBitmask");
         }
 
         if (name == "Rotation" &&
@@ -7603,13 +8000,15 @@ public partial class MainWindow : Window, IDisposable
             !XuiValueParser.TryVector3(value, out _) &&
             !XuiValueParser.TryNumber(value, out _))
         {
-            return "Rotation must be a quaternion, Euler vector, or numeric angle.";
+            return UiLocalization.Text(
+                "Ui.Validation.Rotation");
         }
 
         if (name == "TextStyle" &&
             !XuiTextStyleCodec.TryParse(value, out _))
         {
-            return "TextStyle must be a decimal or 0x-prefixed integer bitmask.";
+            return UiLocalization.Text(
+                "Ui.Validation.TextStyle");
         }
 
         if ((name is "HorizontalAlign" or
@@ -7619,7 +8018,9 @@ public partial class MainWindow : Window, IDisposable
                 ("left" or "center" or "right" or "justify" or
                  "0" or "1" or "2" or "3"))
         {
-            return $"{name} must be left, center, right, or justify.";
+            return UiLocalization.Format(
+                "Ui.Validation.HorizontalAlign",
+                name);
         }
 
         if ((name is "VerticalAlign" or
@@ -7628,7 +8029,9 @@ public partial class MainWindow : Window, IDisposable
             value.Trim().ToLowerInvariant() is not
                 ("top" or "middle" or "bottom" or "0" or "1" or "2"))
         {
-            return $"{name} must be top, middle, or bottom.";
+            return UiLocalization.Format(
+                "Ui.Validation.VerticalAlign",
+                name);
         }
 
         XuiPropertyDefinition? definition = ClassCatalog.FindProperty(name);
@@ -7663,7 +8066,10 @@ public partial class MainWindow : Window, IDisposable
         };
         return valid
             ? null
-            : $"{name} must be a valid {definition.Type} value.";
+            : UiLocalization.Format(
+                "Ui.Validation.PropertyType",
+                name,
+                UiLocalization.PropertyType(definition.Type));
     }
 
     private static string DefaultTimelineValue(XuiTrack track) =>
@@ -7742,6 +8148,7 @@ public partial class MainWindow : Window, IDisposable
         }
 
         _disposed = true;
+        UiLocalization.LanguageChanged -= UiLocalization_LanguageChanged;
         _watcher?.Dispose();
         _watcher = null;
         _playbackTimer.Stop();

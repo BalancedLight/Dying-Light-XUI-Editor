@@ -1,7 +1,7 @@
 <Window x:Class="XuiEditor.Wpf.AddXuiElementWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Add XUI Child"
+        Title="{DynamicResource Ui.Xaml.AddXuiElementWindow.001}"
         Width="590"
         Height="700"
         MinWidth="520"
@@ -47,7 +47,7 @@
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0"
-                           Text="Preset" VerticalAlignment="Center" />
+                           Text="{DynamicResource Ui.Xaml.AddXuiElementWindow.002}" VerticalAlignment="Center" />
                 <StackPanel Grid.Row="0" Grid.Column="1">
                     <ComboBox x:Name="PresetCombo"
                               SelectionChanged="PresetCombo_SelectionChanged" />
@@ -61,12 +61,12 @@
                 </StackPanel>
 
                 <TextBlock Grid.Row="1" Grid.Column="0"
-                           Text="Id" VerticalAlignment="Center" />
+                           Text="{DynamicResource Ui.Xaml.AddXuiElementWindow.003}" VerticalAlignment="Center" />
                 <TextBox x:Name="IdText"
                          Grid.Row="1" Grid.Column="1" />
 
                 <TextBlock Grid.Row="2" Grid.Column="0"
-                           Text="Size" VerticalAlignment="Center" />
+                           Text="{DynamicResource Ui.Xaml.AddXuiElementWindow.004}" VerticalAlignment="Center" />
                 <Grid Grid.Row="2" Grid.Column="1">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -75,7 +75,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="WidthText" Grid.Column="0" />
                     <TextBlock Grid.Column="1"
-                               Text="x"
+                               Text="{DynamicResource Ui.Xaml.AddXuiElementWindow.005}"
                                Margin="7,0"
                                VerticalAlignment="Center"
                                Foreground="{StaticResource MutedTextBrush}" />
@@ -83,7 +83,7 @@
                 </Grid>
 
                 <TextBlock Grid.Row="3" Grid.Column="0"
-                           Text="Position" VerticalAlignment="Center" />
+                           Text="{DynamicResource Ui.Xaml.AddXuiElementWindow.006}" VerticalAlignment="Center" />
                 <Grid Grid.Row="3" Grid.Column="1">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -100,27 +100,27 @@
                 </Grid>
 
                 <TextBlock Grid.Row="4" Grid.Column="0"
-                           Text="Text" VerticalAlignment="Center" />
+                           Text="{DynamicResource Ui.Xaml.AddXuiElementWindow.007}" VerticalAlignment="Center" />
                 <TextBox x:Name="ContentText"
                          Grid.Row="4" Grid.Column="1" />
 
                 <TextBlock Grid.Row="5" Grid.Column="0"
-                           Text="Image path" VerticalAlignment="Center" />
+                           Text="{DynamicResource Ui.Xaml.AddXuiElementWindow.008}" VerticalAlignment="Center" />
                 <TextBox x:Name="ImagePathText"
                          Grid.Row="5" Grid.Column="1" />
 
                 <TextBlock Grid.Row="6" Grid.Column="0"
-                           Text="Color (ARGB)" VerticalAlignment="Center" />
+                           Text="{DynamicResource Ui.Xaml.AddXuiElementWindow.009}" VerticalAlignment="Center" />
                 <TextBox x:Name="ColorText"
                          Grid.Row="6" Grid.Column="1" />
 
                 <TextBlock Grid.Row="7" Grid.Column="0"
-                           Text="Font" VerticalAlignment="Center" />
+                           Text="{DynamicResource Ui.Xaml.AddXuiElementWindow.010}" VerticalAlignment="Center" />
                 <TextBox x:Name="FontText"
                          Grid.Row="7" Grid.Column="1" />
 
                 <TextBlock Grid.Row="8" Grid.Column="0"
-                           Text="Visual" VerticalAlignment="Center" />
+                           Text="{DynamicResource Ui.Xaml.AddXuiElementWindow.011}" VerticalAlignment="Center" />
                 <TextBox x:Name="VisualText"
                          Grid.Row="8" Grid.Column="1" />
 
@@ -133,13 +133,13 @@
                 <Expander x:Name="AdvancedXmlExpander"
                           Grid.Row="10"
                           Grid.ColumnSpan="2"
-                          Header="Advanced custom XML"
+                          Header="{DynamicResource Ui.Xaml.AddXuiElementWindow.012}"
                           Margin="0,5,0,0">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Top"
                                    Margin="0,0,0,5"
                                    Foreground="{StaticResource MutedTextBrush}"
-                                   Text="Custom mode inserts exactly one visual element. It must contain a unique Properties/Id."
+                                   Text="{DynamicResource Ui.Xaml.AddXuiElementWindow.013}"
                                    TextWrapping="Wrap" />
                         <TextBox x:Name="RawXmlText"
                                  MinHeight="210"
@@ -166,11 +166,11 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,12,0,0">
-            <Button Content="Cancel"
+            <Button Content="{DynamicResource Ui.Xaml.AddXuiElementWindow.014}"
                     IsCancel="True"
                     MinWidth="85" />
             <Button x:Name="ConfirmButton"
-                    Content="Add child"
+                    Content="{DynamicResource Ui.Xaml.AddXuiElementWindow.015}"
                     IsDefault="True"
                     MinWidth="95"
                     Click="Add_Click" />

@@ -21,4 +21,11 @@ public sealed record XuiDiagnostic(
     XuiDiagnosticSeverity Severity,
     string Message,
     SourceSpan? Span = null,
-    string? NodeKey = null);
+    string? NodeKey = null)
+{
+    /// <summary>
+    /// Optional language-neutral message data for UIs that can localize
+    /// diagnostics. Message remains the source-compatible English fallback.
+    /// </summary>
+    public XuiMessageDescriptor? MessageDescriptor { get; init; }
+}

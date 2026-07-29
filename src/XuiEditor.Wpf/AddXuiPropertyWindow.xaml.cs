@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using XuiEditor.Core.Schema;
 using XuiEditor.Core.Values;
+using XuiEditor.Wpf.Services;
 
 namespace XuiEditor.Wpf;
 
@@ -17,8 +18,10 @@ public partial class AddXuiPropertyWindow : Window
         IReadOnlyList<XuiPropertyDefinition>? definitions = null,
         IReadOnlyCollection<string>? authoredNames = null)
     {
+        UiLocalization.EnsureApplied();
         ArgumentException.ThrowIfNullOrWhiteSpace(ownerDisplayName);
         InitializeComponent();
+        Language = UiLocalization.XmlLanguage;
         HashSet<string> authored = new(
             authoredNames ?? [],
             StringComparer.Ordinal);
@@ -27,8 +30,9 @@ public partial class AddXuiPropertyWindow : Window
             .OrderBy(static definition => definition.Category, StringComparer.Ordinal)
             .ThenBy(static definition => definition.Name, StringComparer.Ordinal)
             .ToArray();
-        OwnerText.Text =
-            $"Add one authored property to {ownerDisplayName}. Catalog defaults stay ghosted until you edit them.";
+        OwnerText.Text = UiLocalization.Format(
+            "Ui.AddProperty.Owner",
+            ownerDisplayName);
         ApplyFilter();
         SearchTextBox.Focus();
     }
@@ -38,7 +42,10 @@ public partial class AddXuiPropertyWindow : Window
     public string PropertyValue { get; private set; } = string.Empty;
 
     internal IReadOnlyList<XuiPropertyDefinition> VisibleDefinitionsForTesting =>
-        PropertyList.Items.Cast<XuiPropertyDefinition>().ToArray();
+        PropertyList.Items
+            .Cast<AddXuiPropertyOption>()
+            .Select(static option => option.Definition)
+            .ToArray();
 
     private void SearchTextBox_TextChanged(
         object sender,
@@ -62,9 +69,14 @@ public partial class AddXuiPropertyWindow : Window
                 definition.Category.Contains(
                     query,
                     StringComparison.OrdinalIgnoreCase) ||
-                definition.Description.Contains(
+                UiLocalization.Category(definition.Category).Contains(
+                    query,
+                    StringComparison.OrdinalIgnoreCase) ||
+                InspectorHelpText.Description(definition).Contains(
                     query,
                     StringComparison.OrdinalIgnoreCase))
+            .Select(static definition =>
+                new AddXuiPropertyOption(definition))
             .ToArray();
     }
 
@@ -72,7 +84,8 @@ public partial class AddXuiPropertyWindow : Window
         object sender,
         SelectionChangedEventArgs eventArgs)
     {
-        if (PropertyList.SelectedItem is not XuiPropertyDefinition definition)
+        if (PropertyList.SelectedItem is not
+            AddXuiPropertyOption { Definition: var definition })
         {
             return;
         }
@@ -84,7 +97,8 @@ public partial class AddXuiPropertyWindow : Window
         object sender,
         MouseButtonEventArgs eventArgs)
     {
-        if (PropertyList.SelectedItem is XuiPropertyDefinition definition)
+        if (PropertyList.SelectedItem is
+            AddXuiPropertyOption { Definition: var definition })
         {
             SelectDefinition(definition);
             ValueTextBox.Focus();
@@ -95,13 +109,21 @@ public partial class AddXuiPropertyWindow : Window
     {
         _selectedDefinition = definition;
         NameTextBox.Text = definition.Name;
-        TypeText.Text =
-            $"{definition.Type} • {definition.EvidenceLabel} • " +
-            $"{(definition.IsAnimatable ? "animatable" : "noanim")} • " +
-            $"{definition.PreviewSupport} preview";
-        DescriptionText.Text =
-            $"{definition.Description} Default: " +
-            $"{(definition.DefaultValue.Length == 0 ? "(empty)" : definition.DefaultValue)}";
+        TypeText.Text = UiLocalization.Format(
+            "Ui.AddProperty.TypeSummary",
+            UiLocalization.PropertyType(definition.Type),
+            UiLocalization.Evidence(definition.Evidence),
+            UiLocalization.Text(
+                definition.IsAnimatable
+                    ? "Ui.AddProperty.Animatable"
+                    : "Ui.AddProperty.NotAnimatable"),
+            UiLocalization.PreviewSupport(definition.PreviewSupport));
+        DescriptionText.Text = UiLocalization.Format(
+            "Ui.AddProperty.DescriptionDefault",
+            InspectorHelpText.Description(definition),
+            definition.DefaultValue.Length == 0
+                ? UiLocalization.Text("Ui.Common.Empty")
+                : definition.DefaultValue);
         ErrorText.Text = string.Empty;
 
         IReadOnlyList<string> choices = definition.Choices;
@@ -141,10 +163,10 @@ public partial class AddXuiPropertyWindow : Window
         ValueTextBox.Visibility = Visibility.Visible;
         _selectedDefinition = raw ? null : _selectedDefinition;
         TypeText.Text = raw
-            ? "Raw custom property • preserved losslessly • preview support unknown"
+            ? UiLocalization.Text("Ui.AddProperty.RawType")
             : string.Empty;
         DescriptionText.Text = raw
-            ? "Use this explicit route only for mod-authored or otherwise unclassified engine properties."
+            ? UiLocalization.Text("Ui.AddProperty.RawDescription")
             : string.Empty;
         ErrorText.Text = string.Empty;
         if (raw)
@@ -153,7 +175,8 @@ public partial class AddXuiPropertyWindow : Window
             ValueTextBox.Text = string.Empty;
             NameTextBox.Focus();
         }
-        else if (PropertyList.SelectedItem is XuiPropertyDefinition definition)
+        else if (PropertyList.SelectedItem is
+                 AddXuiPropertyOption { Definition: var definition })
         {
             SelectDefinition(definition);
         }
@@ -165,14 +188,15 @@ public partial class AddXuiPropertyWindow : Window
         if (!IsValidXmlName(name))
         {
             ErrorText.Text =
-                "Choose a catalog property or enter a valid raw XML name such as Opacity.";
+                UiLocalization.Text("Ui.AddProperty.InvalidName");
             return;
         }
 
         if (RawModeCheckBox.IsChecked != true &&
             _selectedDefinition is null)
         {
-            ErrorText.Text = "Choose an applicable catalog property.";
+            ErrorText.Text =
+                UiLocalization.Text("Ui.AddProperty.ChooseApplicable");
             return;
         }
 
@@ -182,8 +206,11 @@ public partial class AddXuiPropertyWindow : Window
         if (_selectedDefinition is XuiPropertyDefinition definition &&
             !IsValidTypedValue(definition.Type, value))
         {
-            ErrorText.Text =
-                $"'{value}' is not a valid {definition.Type} value for {name}.";
+            ErrorText.Text = UiLocalization.Format(
+                "Ui.AddProperty.InvalidValue",
+                value,
+                UiLocalization.PropertyType(definition.Type),
+                name);
             return;
         }
 
@@ -227,4 +254,29 @@ public partial class AddXuiPropertyWindow : Window
         name.All(character =>
             char.IsLetterOrDigit(character) ||
             character is '_' or '-' or ':' or '.');
+}
+
+public sealed class AddXuiPropertyOption
+{
+    public AddXuiPropertyOption(XuiPropertyDefinition definition)
+    {
+        Definition = definition ??
+                     throw new ArgumentNullException(nameof(definition));
+    }
+
+    public XuiPropertyDefinition Definition { get; }
+
+    public string Name => Definition.Name;
+
+    public string Category =>
+        UiLocalization.Category(Definition.Category);
+
+    public string EvidenceLabel =>
+        UiLocalization.Evidence(Definition.Evidence);
+
+    public string ToolTip =>
+        InspectorHelpText.BuildToolTip(
+            Definition.Name,
+            Definition,
+            isAuthored: false);
 }

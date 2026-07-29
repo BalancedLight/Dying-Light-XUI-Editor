@@ -3,7 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:XuiEditor.Wpf.Controls"
         xmlns:models="clr-namespace:XuiEditor.Wpf.Models"
-        Title="Dying Light XUI Editor"
+        xmlns:services="clr-namespace:XuiEditor.Wpf.Services"
+        Title="{DynamicResource Ui.Xaml.MainWindow.001}"
         Width="1500"
         Height="930"
         MinWidth="1050"
@@ -15,6 +16,10 @@
         Loaded="Window_Loaded"
         KeyDown="Window_KeyDown">
     <Window.Resources>
+        <services:LocalizedDiagnosticMessageConverter
+            x:Key="LocalizedDiagnosticMessageConverter" />
+        <services:LocalizedDiagnosticSeverityConverter
+            x:Key="LocalizedDiagnosticSeverityConverter" />
         <CollectionViewSource x:Key="InspectorView"
                               Source="{Binding InspectorProperties}">
             <CollectionViewSource.GroupDescriptions>
@@ -269,137 +274,140 @@
         </Grid.RowDefinitions>
 
         <Menu Grid.Row="0">
-            <MenuItem Header="_File">
-                <MenuItem Header="_Open…" InputGestureText="Ctrl+O"
+            <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.002}">
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.003}" InputGestureText="Ctrl+O"
                           Click="Open_Click" />
-                <MenuItem Header="Open _Stock XUI…"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.004}"
                           Click="OpenStock_Click" />
-                <MenuItem x:Name="RecentFilesMenu" Header="Open _Recent" />
+                <MenuItem x:Name="RecentFilesMenu" Header="{DynamicResource Ui.Xaml.MainWindow.005}" />
                 <Separator />
-                <MenuItem Header="_Save" InputGestureText="Ctrl+S"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.006}" InputGestureText="Ctrl+S"
                           Click="Save_Click" />
-                <MenuItem Header="Save _As…" InputGestureText="Ctrl+Shift+S"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.007}" InputGestureText="Ctrl+Shift+S"
                           Click="SaveAs_Click" />
                 <MenuItem x:Name="ExportPngMenuItem"
-                          Header="Export Transparent _PNG…"
-                          ToolTip="Export the current visible XUI at 2× design resolution with transparency"
+                          Header="{DynamicResource Ui.Xaml.MainWindow.008}"
+                          ToolTip="{DynamicResource Ui.Xaml.MainWindow.009}"
                           Click="ExportPng_Click" />
                 <Separator />
-                <MenuItem Header="E_xit" Click="Exit_Click" />
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.010}" Click="Exit_Click" />
             </MenuItem>
-            <MenuItem Header="_Edit">
-                <MenuItem x:Name="UndoMenuItem" Header="_Undo"
+            <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.011}">
+                <MenuItem x:Name="UndoMenuItem" Header="{DynamicResource Ui.Xaml.MainWindow.012}"
                           InputGestureText="Ctrl+Z" Click="Undo_Click" />
-                <MenuItem x:Name="RedoMenuItem" Header="_Redo"
+                <MenuItem x:Name="RedoMenuItem" Header="{DynamicResource Ui.Xaml.MainWindow.013}"
                           InputGestureText="Ctrl+Y" Click="Redo_Click" />
                 <Separator />
-                <MenuItem Header="_Duplicate" InputGestureText="Ctrl+D"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.014}" InputGestureText="Ctrl+D"
                           Click="Duplicate_Click" />
-                <MenuItem Header="_Delete" InputGestureText="Delete"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.015}" InputGestureText="Delete"
                           Click="Delete_Click" />
                 <Separator />
                 <MenuItem x:Name="CopyInspectorPropertiesMenuItem"
-                          Header="Copy Authored _Properties"
+                          Header="{DynamicResource Ui.Xaml.MainWindow.016}"
                           InputGestureText="Ctrl+C"
                           Click="CopyInspectorProperties_Click" />
                 <MenuItem x:Name="AdvancedCopyInspectorPropertiesMenuItem"
-                          Header="Advanced Copy Properties…"
+                          Header="{DynamicResource Ui.Xaml.MainWindow.017}"
                           InputGestureText="Ctrl+Shift+C"
                           Click="AdvancedCopyInspectorProperties_Click" />
                 <MenuItem x:Name="PasteInspectorPropertiesMenuItem"
-                          Header="Paste Applicable Properties"
+                          Header="{DynamicResource Ui.Xaml.MainWindow.018}"
                           InputGestureText="Ctrl+V"
                           Click="PasteInspectorProperties_Click" />
                 <Separator />
-                <MenuItem Header="Move _Up" InputGestureText="Alt+Up"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.019}" InputGestureText="Alt+Up"
                           Click="MoveUp_Click" />
-                <MenuItem Header="Move _Down" InputGestureText="Alt+Down"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.020}" InputGestureText="Alt+Down"
                           Click="MoveDown_Click" />
-                <MenuItem Header="_Indent under Previous" InputGestureText="Alt+Right"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.021}" InputGestureText="Alt+Right"
                           Click="Indent_Click" />
-                <MenuItem Header="_Outdent" InputGestureText="Alt+Left"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.022}" InputGestureText="Alt+Left"
                           Click="Outdent_Click" />
             </MenuItem>
-            <MenuItem Header="_View">
-                <MenuItem x:Name="GridMenuItem" Header="Show _Grid"
+            <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.023}">
+                <MenuItem x:Name="GridMenuItem" Header="{DynamicResource Ui.Xaml.MainWindow.024}"
                           IsCheckable="True" Click="Grid_Click" />
-                <MenuItem x:Name="SafeAreaMenuItem" Header="Show _Safe Area"
+                <MenuItem x:Name="SafeAreaMenuItem" Header="{DynamicResource Ui.Xaml.MainWindow.025}"
                           IsCheckable="True" Click="SafeArea_Click" />
-                <MenuItem x:Name="BoundsMenuItem" Header="Unknown-control _Bounds"
+                <MenuItem x:Name="BoundsMenuItem" Header="{DynamicResource Ui.Xaml.MainWindow.026}"
                           IsCheckable="True" Click="Bounds_Click" />
-                <MenuItem x:Name="SnapMenuItem" Header="_Snap to Grid"
+                <MenuItem x:Name="SnapMenuItem" Header="{DynamicResource Ui.Xaml.MainWindow.027}"
                           IsCheckable="True" Click="Snap_Click" />
-                <MenuItem Header="Grid Settings..."
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.028}"
                           Click="GridSettings_Click" />
                 <Separator />
-                <MenuItem Header="Select Parent Group"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.029}"
                           Click="SelectParentGroup_Click" />
                 <MenuItem x:Name="ParentMaskMenuItem"
-                          Header="Parent-bounds Mask"
+                          Header="{DynamicResource Ui.Xaml.MainWindow.030}"
                           IsCheckable="True"
                           Click="ParentMask_Click" />
                 <MenuItem x:Name="GrayOutsideGroupMenuItem"
-                          Header="Gray Outside Selected Group"
+                          Header="{DynamicResource Ui.Xaml.MainWindow.031}"
                           IsCheckable="True"
                           Click="GrayOutsideGroup_Click" />
                 <MenuItem x:Name="DesignTimeMenuItem"
-                          Header="Show Design-time Elements"
+                          Header="{DynamicResource Ui.Xaml.MainWindow.032}"
                           IsCheckable="True"
                           Click="DesignTime_Click" />
                 <MenuItem x:Name="NavigationMenuItem"
-                          Header="Show Navigation Connections"
+                          Header="{DynamicResource Ui.Xaml.MainWindow.033}"
                           IsCheckable="True"
                           Click="Navigation_Click" />
                 <MenuItem x:Name="NavigationAllMenuItem"
-                          Header="Navigation: Show All"
+                          Header="{DynamicResource Ui.Xaml.MainWindow.034}"
                           IsCheckable="True"
                           Click="NavigationAll_Click" />
                 <Separator />
-                <MenuItem Header="_Fit Canvas" InputGestureText="F"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.035}" InputGestureText="F"
                           Click="Fit_Click" />
                 <MenuItem Header="_100%" InputGestureText="0"
                           Click="ActualPixels_Click" />
-                <MenuItem Header="Zoom _In" InputGestureText="+"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.036}" InputGestureText="+"
                           Click="ZoomIn_Click" />
-                <MenuItem Header="Zoom _Out" InputGestureText="-"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.037}" InputGestureText="-"
                           Click="ZoomOut_Click" />
                 <Separator />
-                <MenuItem Header="Load _Reference Image…"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.038}"
                           Click="LoadReferenceImage_Click" />
-                <MenuItem Header="Clear Reference Image"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.039}"
                           Click="ClearReferenceImage_Click" />
-                <MenuItem Header="Force-show Selection"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.040}"
                           Click="ForceShowSelected_Click" />
                 <MenuItem x:Name="ForceShowGroupMenuItem"
-                          Header="Force-show Current Group"
+                          Header="{DynamicResource Ui.Xaml.MainWindow.041}"
                           IsCheckable="True"
                           Click="ForceShowCurrentGroup_Click" />
-                <MenuItem Header="Force-show All"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.042}"
                           Click="ForceShowAll_Click" />
-                <MenuItem Header="Clear Force-show"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.043}"
                           Click="ClearForceShown_Click" />
             </MenuItem>
             <MenuItem x:Name="AnimationMenuItem"
-                      Header="_Animation">
-                <MenuItem Header="_Play / Pause" InputGestureText="Space"
+                      Header="{DynamicResource Ui.Xaml.MainWindow.044}">
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.045}" InputGestureText="Space"
                           Click="PlayPause_Click" />
-                <MenuItem Header="_Stop" Click="Stop_Click" />
-                <MenuItem Header="Previous Tick" InputGestureText=","
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.046}" Click="Stop_Click" />
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.047}" InputGestureText=","
                           Click="PreviousTick_Click" />
-                <MenuItem Header="Next Tick" InputGestureText="."
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.048}" InputGestureText="."
                           Click="NextTick_Click" />
                 <Separator />
-                <MenuItem Header="Add _Keyframe" Click="AddKeyFrame_Click" />
-                <MenuItem Header="Delete Keyframe" Click="DeleteKeyFrame_Click" />
-                <MenuItem Header="_Copy Keyframe" InputGestureText="Ctrl+Alt+C"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.049}" Click="AddKeyFrame_Click" />
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.050}" Click="DeleteKeyFrame_Click" />
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.051}" InputGestureText="Ctrl+Alt+C"
                           Click="CopyKeyFrame_Click" />
-                <MenuItem Header="_Paste Keyframe" InputGestureText="Ctrl+Alt+V"
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.052}" InputGestureText="Ctrl+Alt+V"
                           Click="PasteKeyFrame_Click" />
             </MenuItem>
-            <MenuItem Header="_Settings">
-                <MenuItem Header="Dying Light _Resources…"
-                          ToolTip="Configure the install, project folders, loose resources, texture definitions, and RPACKs"
+            <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.053}">
+                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.054}"
+                          ToolTip="{DynamicResource Ui.Xaml.MainWindow.055}"
                           Click="AssetRoots_Click" />
+                <Separator />
+                <MenuItem x:Name="InterfaceLanguageMenuItem"
+                          Header="{DynamicResource Ui.Settings.InterfaceLanguage}" />
             </MenuItem>
         </Menu>
 
@@ -410,41 +418,41 @@
                 Padding="5,3">
             <DockPanel>
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                    <Button Content="Open" ToolTip="Open XUI (Ctrl+O)"
+                    <Button Content="{DynamicResource Ui.Xaml.MainWindow.056}" ToolTip="{DynamicResource Ui.Xaml.MainWindow.057}"
                             Click="Open_Click" />
-                    <Button Content="Stock"
-                            ToolTip="Browse read-only stock XUIs from the selected game install"
+                    <Button Content="{DynamicResource Ui.Xaml.MainWindow.058}"
+                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.059}"
                             Click="OpenStock_Click" />
-                    <Button Content="Save" ToolTip="Save (Ctrl+S)"
+                    <Button Content="{DynamicResource Ui.Xaml.MainWindow.060}" ToolTip="{DynamicResource Ui.Xaml.MainWindow.061}"
                             Click="Save_Click" />
                     <Separator Margin="5,3" />
-                    <Button Content="Undo" ToolTip="Undo (Ctrl+Z)"
+                    <Button Content="{DynamicResource Ui.Xaml.MainWindow.062}" ToolTip="{DynamicResource Ui.Xaml.MainWindow.063}"
                             Click="Undo_Click" />
-                    <Button Content="Redo" ToolTip="Redo (Ctrl+Y)"
+                    <Button Content="{DynamicResource Ui.Xaml.MainWindow.064}" ToolTip="{DynamicResource Ui.Xaml.MainWindow.065}"
                             Click="Redo_Click" />
                     <Separator Margin="5,3" />
-                    <Button Content="Fit" ToolTip="Fit canvas (F)"
+                    <Button Content="{DynamicResource Ui.Xaml.MainWindow.066}" ToolTip="{DynamicResource Ui.Xaml.MainWindow.067}"
                             Click="Fit_Click" />
-                    <Button Content="100%" ToolTip="Actual pixels (0)"
+                    <Button Content="100%" ToolTip="{DynamicResource Ui.Xaml.MainWindow.068}"
                             Click="ActualPixels_Click" />
-                    <Button Content="−" ToolTip="Zoom out"
+                    <Button Content="−" ToolTip="{DynamicResource Ui.Xaml.MainWindow.069}"
                             Click="ZoomOut_Click" />
-                    <Button Content="+" ToolTip="Zoom in"
+                    <Button Content="+" ToolTip="{DynamicResource Ui.Xaml.MainWindow.070}"
                             Click="ZoomIn_Click" />
                     <Separator Margin="5,3" />
                     <Button x:Name="ExportPngButton"
-                            Content="PNG"
-                            ToolTip="Export a transparent 2× PNG of the current visible XUI"
+                            Content="{DynamicResource Ui.Xaml.MainWindow.071}"
+                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.072}"
                             Click="ExportPng_Click" />
                     <Separator Margin="5,3" />
                     <ToggleButton x:Name="ToolbarSnap"
-                                  Content="Snap"
+                                  Content="{DynamicResource Ui.Xaml.MainWindow.073}"
                                   Padding="10,5"
                                   Margin="2"
                                   Checked="ToolbarSnap_Changed"
                                   Unchecked="ToolbarSnap_Changed" />
                     <Separator Margin="5,3" />
-                    <TextBlock Text="Reference"
+                    <TextBlock Text="{DynamicResource Ui.Xaml.MainWindow.074}"
                                Margin="4,0,3,0"
                                Foreground="{StaticResource MutedTextBrush}"
                                VerticalAlignment="Center" />
@@ -452,7 +460,7 @@
                             Width="72"
                             Minimum="0"
                             Maximum="1"
-                            ToolTip="Reference image opacity"
+                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.075}"
                             ValueChanged="ReferenceOpacitySlider_ValueChanged" />
                 </StackPanel>
                 <TextBlock x:Name="DocumentPathText"
@@ -485,21 +493,21 @@
                                         Orientation="Horizontal">
                                 <Button x:Name="CollapseHierarchyButton"
                                         Style="{StaticResource CompactButton}"
-                                        Content="Collapse"
+                                        Content="{DynamicResource Ui.Xaml.MainWindow.076}"
                                         Margin="0,0,5,0"
-                                        ToolTip="Collapse all hierarchy branches"
+                                        ToolTip="{DynamicResource Ui.Xaml.MainWindow.077}"
                                         Click="CollapseHierarchy_Click" />
                                 <Button x:Name="RevealHierarchyButton"
                                         Style="{StaticResource CompactButton}"
-                                        Content="Reveal"
-                                        ToolTip="Reveal the current canvas selection"
+                                        Content="{DynamicResource Ui.Xaml.MainWindow.078}"
+                                        ToolTip="{DynamicResource Ui.Xaml.MainWindow.079}"
                                         Click="RevealHierarchySelection_Click" />
                                 <TextBlock x:Name="HierarchyCountText"
                                            Margin="7,0,0,0"
                                            Foreground="{StaticResource MutedTextBrush}"
                                            VerticalAlignment="Center" />
                             </StackPanel>
-                            <TextBlock Text="Hierarchy"
+                            <TextBlock Text="{DynamicResource Ui.Xaml.MainWindow.080}"
                                        FontWeight="SemiBold"
                                        VerticalAlignment="Center" />
                         </DockPanel>
@@ -512,7 +520,7 @@
                     <TextBox x:Name="HierarchySearch"
                              DockPanel.Dock="Top"
                              Margin="7,5,7,7"
-                             ToolTip="Filter by Id, type, Visual, or ClassOverride"
+                             ToolTip="{DynamicResource Ui.Xaml.MainWindow.081}"
                              TextChanged="HierarchySearch_TextChanged" />
                     <ListBox x:Name="HierarchyList"
                              ItemsSource="{Binding HierarchyRows}"
@@ -540,18 +548,18 @@
                                     <Grid.ContextMenu>
                                         <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
                                                      Opened="HierarchyContextMenu_Opened">
-                                            <MenuItem Header="Add child..."
+                                            <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.082}"
                                                       InputGestureText="Ctrl+Insert"
                                                       Click="HierarchyAddChild_Click" />
                                             <Separator />
-                                            <MenuItem Header="Hide all except this"
-                                                      ToolTip="Isolate this item and its descendants"
+                                            <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.083}"
+                                                      ToolTip="{DynamicResource Ui.Xaml.MainWindow.084}"
                                                       Click="HierarchyIsolate_Click" />
-                                            <MenuItem Header="Restore visibility before isolate"
+                                            <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.085}"
                                                       Tag="RestoreIsolation"
                                                       Click="HierarchyRestoreIsolation_Click" />
                                             <Separator />
-                                            <MenuItem Header="Show all"
+                                            <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.086}"
                                                       Click="HierarchyShowAll_Click" />
                                         </ContextMenu>
                                     </Grid.ContextMenu>
@@ -649,13 +657,13 @@
                                                    Height="176"
                                                    Stretch="Uniform"
                                                    SourceUri="/DyingLightXuiEditor;component/Assets/MovingGears.gif"
-                                                   AutomationProperties.Name="Loading animation" />
+                                                   AutomationProperties.Name="{DynamicResource Ui.Xaml.MainWindow.087}" />
                         <TextBlock Margin="0,16,0,0"
                                    HorizontalAlignment="Center"
                                    Foreground="White"
                                    FontSize="17"
                                    FontWeight="SemiBold"
-                                   Text="Loading XUI and assets..." />
+                                   Text="{DynamicResource Ui.Xaml.MainWindow.088}" />
                     </StackPanel>
                 </Grid>
             </Grid>
@@ -670,41 +678,46 @@
                     BorderThickness="1,0,0,0">
                 <DockPanel>
                     <Border DockPanel.Dock="Top" Style="{StaticResource PaneHeader}">
-                        <DockPanel>
-                            <StackPanel DockPanel.Dock="Right"
-                                        Orientation="Horizontal"
-                                        Margin="8,-3,0,-3">
-                                <TextBlock x:Name="SelectionCountText"
-                                           Margin="0,0,6,0"
-                                           Foreground="{StaticResource MutedTextBrush}"
-                                           VerticalAlignment="Center" />
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="{DynamicResource Ui.Xaml.MainWindow.097}"
+                                       FontWeight="SemiBold" />
+                            <TextBlock x:Name="SelectionCountText"
+                                       Grid.Row="0"
+                                       HorizontalAlignment="Right"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       VerticalAlignment="Center" />
+                            <UniformGrid Grid.Row="1"
+                                         Columns="2"
+                                         Margin="0,5,0,-3">
                                 <ToggleButton x:Name="AdvancedInspectorToggle"
-                                              Content="Advanced"
+                                              Content="{DynamicResource Ui.Xaml.MainWindow.089}"
                                               Margin="0,0,4,0"
                                               Padding="8,2"
-                                              ToolTip="Show the full inherited Chrome 6 property schema"
+                                              ToolTip="{DynamicResource Ui.Xaml.MainWindow.090}"
                                               Click="AdvancedInspector_Click" />
                                 <Button x:Name="AddPropertyButton"
-                                        Content="+ Property"
+                                        Content="{DynamicResource Ui.Xaml.MainWindow.091}"
                                         Margin="0,0,4,0"
                                         Padding="8,2"
-                                        ToolTip="Add an authored property to the selected element"
+                                        ToolTip="{DynamicResource Ui.Xaml.MainWindow.092}"
                                         Click="AddProperty_Click" />
                                 <Button x:Name="AddParentButton"
-                                        Content="+ Parent"
+                                        Content="{DynamicResource Ui.Xaml.MainWindow.093}"
                                         Margin="0,0,4,0"
                                         Padding="8,2"
-                                        ToolTip="Wrap the selected element in a new parent"
+                                        ToolTip="{DynamicResource Ui.Xaml.MainWindow.094}"
                                         Click="AddParent_Click" />
                                 <Button x:Name="AddChildButton"
-                                        Content="+ Child"
+                                        Content="{DynamicResource Ui.Xaml.MainWindow.095}"
                                         Padding="8,2"
-                                        ToolTip="Add a visual child to the selected element (Ctrl+Insert)"
+                                        ToolTip="{DynamicResource Ui.Xaml.MainWindow.096}"
                                         Click="AddChild_Click" />
-                            </StackPanel>
-                            <TextBlock Text="Inspector"
-                                       FontWeight="SemiBold" />
-                        </DockPanel>
+                            </UniformGrid>
+                        </Grid>
                     </Border>
                     <Border DockPanel.Dock="Top"
                             Padding="8,5"
@@ -715,26 +728,26 @@
                             <StackPanel DockPanel.Dock="Right"
                                         Orientation="Horizontal">
                                 <Button x:Name="CopyInspectorPropertiesButton"
-                                        Content="Copy"
+                                        Content="{DynamicResource Ui.Xaml.MainWindow.098}"
                                         Padding="8,2"
-                                        ToolTip="Copy all authored properties except Id and ClassOverride (Ctrl+C)"
+                                        ToolTip="{DynamicResource Ui.Xaml.MainWindow.099}"
                                         Click="CopyInspectorProperties_Click" />
                                 <Button x:Name="AdvancedCopyInspectorPropertiesButton"
-                                        Content="Copy…"
+                                        Content="{DynamicResource Ui.Xaml.MainWindow.100}"
                                         Padding="8,2"
-                                        ToolTip="Choose authored properties or inherited defaults to copy (Ctrl+Shift+C)"
+                                        ToolTip="{DynamicResource Ui.Xaml.MainWindow.101}"
                                         Click="AdvancedCopyInspectorProperties_Click" />
                                 <Button x:Name="PasteInspectorPropertiesButton"
-                                        Content="Paste"
+                                        Content="{DynamicResource Ui.Xaml.MainWindow.102}"
                                         Padding="8,2"
-                                        ToolTip="Paste only properties applicable to the selected destination elements (Ctrl+V)"
+                                        ToolTip="{DynamicResource Ui.Xaml.MainWindow.103}"
                                         Click="PasteInspectorProperties_Click" />
                             </StackPanel>
                             <TextBlock x:Name="PropertyClipboardText"
                                        Margin="0,0,8,0"
                                        VerticalAlignment="Center"
                                        Foreground="{StaticResource MutedTextBrush}"
-                                       Text="No copied properties"
+                                       Text="{DynamicResource Ui.Xaml.MainWindow.104}"
                                        TextTrimming="CharacterEllipsis" />
                         </DockPanel>
                     </Border>
@@ -742,24 +755,24 @@
                         <TextBlock x:Name="InspectorHint"
                                    Margin="9,7"
                                    Foreground="{StaticResource MutedTextBrush}"
-                                   Text="Select an element to edit its authored properties." />
+                                   Text="{DynamicResource Ui.Xaml.MainWindow.105}" />
                         <Expander x:Name="TextStyleExpander"
-                                  Header="Semantic text style"
+                                  Header="{DynamicResource Ui.Xaml.MainWindow.106}"
                                   Margin="8,0,8,4"
                                   Visibility="Collapsed"
                                   IsExpanded="True">
                             <StackPanel Margin="5,4,0,5">
                                 <WrapPanel>
                                     <CheckBox x:Name="TextBoldCheckBox"
-                                              Content="Bold"
+                                              Content="{DynamicResource Ui.Xaml.MainWindow.107}"
                                               Margin="0,0,10,3"
                                               Click="TextStyleFlag_Click" />
                                     <CheckBox x:Name="TextItalicCheckBox"
-                                              Content="Italic"
+                                              Content="{DynamicResource Ui.Xaml.MainWindow.108}"
                                               Margin="0,0,10,3"
                                               Click="TextStyleFlag_Click" />
                                     <CheckBox x:Name="TextUnderlineCheckBox"
-                                              Content="Underline"
+                                              Content="{DynamicResource Ui.Xaml.MainWindow.109}"
                                               Margin="0,0,10,3"
                                               Click="TextStyleFlag_Click" />
                                 </WrapPanel>
@@ -770,28 +783,28 @@
                                         <ColumnDefinition Width="68" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Horizontal"
+                                    <TextBlock Text="{DynamicResource Ui.Xaml.MainWindow.110}"
                                                VerticalAlignment="Center"
                                                Foreground="{StaticResource MutedTextBrush}" />
                                     <ComboBox x:Name="TextHorizontalComboBox"
                                               Grid.Column="1"
                                               SelectionChanged="TextHorizontal_SelectionChanged">
-                                        <ComboBoxItem Content="Unspecified" Tag="Unspecified" />
-                                        <ComboBoxItem Content="Left" Tag="Left" />
-                                        <ComboBoxItem Content="Center" Tag="Center" />
-                                        <ComboBoxItem Content="Right" Tag="Right" />
+                                        <ComboBoxItem Content="{DynamicResource Ui.Xaml.MainWindow.111}" Tag="Unspecified" />
+                                        <ComboBoxItem Content="{DynamicResource Ui.Xaml.MainWindow.112}" Tag="Left" />
+                                        <ComboBoxItem Content="{DynamicResource Ui.Xaml.MainWindow.113}" Tag="Center" />
+                                        <ComboBoxItem Content="{DynamicResource Ui.Xaml.MainWindow.114}" Tag="Right" />
                                     </ComboBox>
                                     <TextBlock Grid.Column="2"
-                                               Text="Vertical"
+                                               Text="{DynamicResource Ui.Xaml.MainWindow.115}"
                                                Margin="8,0,0,0"
                                                VerticalAlignment="Center"
                                                Foreground="{StaticResource MutedTextBrush}" />
                                     <ComboBox x:Name="TextVerticalComboBox"
                                               Grid.Column="3"
                                               SelectionChanged="TextVertical_SelectionChanged">
-                                        <ComboBoxItem Content="Top" Tag="Top" />
-                                        <ComboBoxItem Content="Middle" Tag="Middle" />
-                                        <ComboBoxItem Content="Bottom" Tag="Bottom" />
+                                        <ComboBoxItem Content="{DynamicResource Ui.Xaml.MainWindow.116}" Tag="Top" />
+                                        <ComboBoxItem Content="{DynamicResource Ui.Xaml.MainWindow.117}" Tag="Middle" />
+                                        <ComboBoxItem Content="{DynamicResource Ui.Xaml.MainWindow.118}" Tag="Bottom" />
                                     </ComboBox>
                                 </Grid>
                                 <TextBlock x:Name="TextStyleRawText"
@@ -803,7 +816,7 @@
                             </StackPanel>
                         </Expander>
                         <Expander x:Name="PivotExpander"
-                                  Header="Pivot"
+                                  Header="{DynamicResource Ui.Xaml.MainWindow.119}"
                                   Margin="8,0,8,5"
                                   Visibility="Collapsed"
                                   IsExpanded="True">
@@ -817,19 +830,19 @@
                                         <ColumnDefinition Width="16" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="X" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Ui.Xaml.MainWindow.120}" VerticalAlignment="Center" />
                                     <TextBox x:Name="PivotXTextBox"
                                              Grid.Column="1"
                                              LostKeyboardFocus="PivotValue_LostKeyboardFocus"
                                              KeyDown="PivotValue_KeyDown" />
-                                    <TextBlock Grid.Column="2" Text="Y"
+                                    <TextBlock Grid.Column="2" Text="{DynamicResource Ui.Xaml.MainWindow.121}"
                                                Margin="5,0,0,0"
                                                VerticalAlignment="Center" />
                                     <TextBox x:Name="PivotYTextBox"
                                              Grid.Column="3"
                                              LostKeyboardFocus="PivotValue_LostKeyboardFocus"
                                              KeyDown="PivotValue_KeyDown" />
-                                    <TextBlock Grid.Column="4" Text="Z"
+                                    <TextBlock Grid.Column="4" Text="{DynamicResource Ui.Xaml.MainWindow.122}"
                                                Margin="5,0,0,0"
                                                VerticalAlignment="Center" />
                                     <TextBox x:Name="PivotZTextBox"
@@ -839,42 +852,42 @@
                                 </Grid>
                                 <UniformGrid Columns="3" Margin="0,5,0,0">
                                     <Button Content="↖" Tag="TopLeft"
-                                            ToolTip="Top left"
+                                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.123}"
                                             Click="PivotPreset_Click" />
                                     <Button Content="↑" Tag="TopCenter"
-                                            ToolTip="Top center"
+                                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.124}"
                                             Click="PivotPreset_Click" />
                                     <Button Content="↗" Tag="TopRight"
-                                            ToolTip="Top right"
+                                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.125}"
                                             Click="PivotPreset_Click" />
                                     <Button Content="←" Tag="MiddleLeft"
-                                            ToolTip="Middle left"
+                                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.126}"
                                             Click="PivotPreset_Click" />
                                     <Button Content="•" Tag="Center"
-                                            ToolTip="Center"
+                                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.127}"
                                             Click="PivotPreset_Click" />
                                     <Button Content="→" Tag="MiddleRight"
-                                            ToolTip="Middle right"
+                                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.128}"
                                             Click="PivotPreset_Click" />
                                     <Button Content="↙" Tag="BottomLeft"
-                                            ToolTip="Bottom left"
+                                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.129}"
                                             Click="PivotPreset_Click" />
                                     <Button Content="↓" Tag="BottomCenter"
-                                            ToolTip="Bottom center"
+                                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.130}"
                                             Click="PivotPreset_Click" />
                                     <Button Content="↘" Tag="BottomRight"
-                                            ToolTip="Bottom right"
+                                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.131}"
                                             Click="PivotPreset_Click" />
                                 </UniformGrid>
-                                <Button Content="Reset pivot to origin"
+                                <Button Content="{DynamicResource Ui.Xaml.MainWindow.132}"
                                         Tag="Origin"
                                         Margin="0,4,0,0"
-                                        ToolTip="Reset X and Y to zero while preserving Z"
+                                        ToolTip="{DynamicResource Ui.Xaml.MainWindow.133}"
                                         Click="PivotPreset_Click" />
                                 <CheckBox x:Name="PreservePivotPositionCheckBox"
                                           Margin="0,5,0,0"
-                                          Content="Preserve visual position"
-                                          ToolTip="Compensate Position while Scale and Rotation are static"
+                                          Content="{DynamicResource Ui.Xaml.MainWindow.134}"
+                                          ToolTip="{DynamicResource Ui.Xaml.MainWindow.135}"
                                           Click="PreservePivotPosition_Click" />
                                 <TextBlock x:Name="PivotStatusText"
                                            Margin="0,3,0,0"
@@ -885,7 +898,7 @@
                     </StackPanel>
                     <Expander x:Name="RawXmlExpander"
                               DockPanel.Dock="Bottom"
-                              Header="Raw XML"
+                              Header="{DynamicResource Ui.Xaml.MainWindow.136}"
                               Visibility="Collapsed"
                               Expanded="RawXmlExpander_Expanded"
                               BorderBrush="{StaticResource BorderBrush}"
@@ -902,7 +915,7 @@
                                        Margin="0,0,0,5">
                                 <Button x:Name="LoadLargeRawXmlButton"
                                         DockPanel.Dock="Right"
-                                        Content="Load large XML"
+                                        Content="{DynamicResource Ui.Xaml.MainWindow.137}"
                                         Visibility="Collapsed"
                                         Click="LoadLargeRawXml_Click" />
                                 <TextBlock x:Name="RawXmlStatusText"
@@ -925,10 +938,10 @@
                                         HorizontalAlignment="Right"
                                         Margin="0,5,0,0">
                                 <Button x:Name="ResetRawXmlButton"
-                                        Content="Reset"
+                                        Content="{DynamicResource Ui.Xaml.MainWindow.138}"
                                         Click="ResetRawXml_Click" />
                                 <Button x:Name="ApplyRawXmlButton"
-                                        Content="Apply XML"
+                                        Content="{DynamicResource Ui.Xaml.MainWindow.139}"
                                         Click="ApplyRawXml_Click" />
                             </StackPanel>
                             <TextBlock x:Name="RawXmlErrorText"
@@ -962,7 +975,8 @@
                         </ListBox.GroupStyle>
                         <ListBox.ItemTemplate>
                             <DataTemplate DataType="{x:Type models:InspectorPropertyRow}">
-                                <Grid Margin="8,3">
+                                <Grid Margin="8,3"
+                                      ToolTip="{Binding EditorToolTip}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="176" />
                                         <ColumnDefinition Width="*" />
@@ -971,7 +985,7 @@
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0"
                                                Text="{Binding Name}"
-                                               ToolTip="{Binding ToolTip}"
+                                               ToolTip="{Binding EditorToolTip}"
                                                TextTrimming="CharacterEllipsis"
                                                VerticalAlignment="Center"
                                                Foreground="{StaticResource MutedTextBrush}" />
@@ -980,7 +994,7 @@
                                              Tag="{Binding}"
                                              LostFocus="InspectorValue_LostFocus"
                                              KeyDown="InspectorValue_KeyDown"
-                                             ToolTip="{Binding Error}">
+                                             ToolTip="{Binding EditorToolTip}">
                                         <TextBox.Style>
                                             <Style TargetType="TextBox"
                                                    BasedOn="{StaticResource {x:Type TextBox}}">
@@ -1025,7 +1039,7 @@
                                               DropDownClosed="InspectorChoice_DropDownClosed"
                                               LostKeyboardFocus="InspectorChoice_LostKeyboardFocus"
                                               KeyDown="InspectorChoice_KeyDown"
-                                              ToolTip="{Binding Error}">
+                                              ToolTip="{Binding EditorToolTip}">
                                         <ComboBox.Style>
                                             <Style TargetType="ComboBox"
                                                    BasedOn="{StaticResource {x:Type ComboBox}}">
@@ -1054,7 +1068,7 @@
                                               IsThreeState="{Binding IsMixed}"
                                               IsChecked="{Binding BooleanValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                               Tag="{Binding}"
-                                              ToolTip="{Binding Error}"
+                                              ToolTip="{Binding EditorToolTip}"
                                               AutomationProperties.Name="{Binding Name}"
                                               Click="InspectorBoolean_Click">
                                         <CheckBox.Style>
@@ -1078,15 +1092,15 @@
                                             Padding="2,0"
                                             Margin="3,0,0,0"
                                             Tag="{Binding}"
-                                            ToolTip="Copy only this property value"
-                                            AutomationProperties.Name="Copy property"
+                                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.140}"
+                                            AutomationProperties.Name="{DynamicResource Ui.Xaml.MainWindow.141}"
                                             Click="InspectorCopySingleProperty_Click" />
                                     <Button Grid.Column="3"
                                             Content="×"
                                             Padding="2,0"
                                             Margin="3,0,0,0"
                                             Tag="{Binding}"
-                                            ToolTip="Reset to the inherited default by removing the authored property"
+                                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.142}"
                                             Click="InspectorReset_Click">
                                         <Button.Style>
                                             <Style TargetType="Button"
@@ -1116,7 +1130,7 @@
                       VerticalAlignment="Stretch" />
 
         <TabControl Grid.Row="4">
-            <TabItem x:Name="AnimationTab" Header="Animation">
+            <TabItem x:Name="AnimationTab" Header="{DynamicResource Ui.Xaml.MainWindow.143}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -1147,27 +1161,27 @@
                                                Foreground="{StaticResource AccentBrush}"
                                                VerticalAlignment="Center"
                                                Margin="2,0,8,0"
-                                               Text="No timeline scope" />
+                                               Text="{DynamicResource Ui.Xaml.MainWindow.144}" />
                                     <ToggleButton x:Name="IncludeDescendantsToggle"
-                                                  Content="Include descendants"
+                                                  Content="{DynamicResource Ui.Xaml.MainWindow.145}"
                                                   Margin="0,0,5,0"
-                                                  ToolTip="Show animation tracks for all selected elements and their descendants in this timeline scope"
+                                                  ToolTip="{DynamicResource Ui.Xaml.MainWindow.146}"
                                                   Checked="IncludeDescendantsToggle_Changed"
                                                   Unchecked="IncludeDescendantsToggle_Changed" />
                                     <StackPanel x:Name="TimelineActionsPanel"
                                                 Orientation="Horizontal">
                                         <Button x:Name="PlayPauseButton"
-                                                Content="Play"
+                                                Content="{DynamicResource Ui.Xaml.MainWindow.147}"
                                                 Click="PlayPause_Click" />
-                                        <Button Content="Stop" Click="Stop_Click" />
-                                        <Button Content="‹ Tick" Click="PreviousTick_Click" />
-                                        <Button Content="Tick ›" Click="NextTick_Click" />
+                                        <Button Content="{DynamicResource Ui.Xaml.MainWindow.148}" Click="Stop_Click" />
+                                        <Button Content="{DynamicResource Ui.Xaml.MainWindow.149}" Click="PreviousTick_Click" />
+                                        <Button Content="{DynamicResource Ui.Xaml.MainWindow.150}" Click="NextTick_Click" />
                                         <CheckBox x:Name="LoopCheckBox"
-                                                  Content="Loop"
+                                                  Content="{DynamicResource Ui.Xaml.MainWindow.151}"
                                                   IsChecked="True"
                                                   VerticalAlignment="Center"
                                                   Margin="9,0" />
-                                        <TextBlock Text="Speed"
+                                        <TextBlock Text="{DynamicResource Ui.Xaml.MainWindow.152}"
                                                    Foreground="{StaticResource MutedTextBrush}"
                                                    VerticalAlignment="Center"
                                                    Margin="8,0,4,0" />
@@ -1181,10 +1195,10 @@
                                             <ComboBoxItem Content="4×" Tag="4" />
                                         </ComboBox>
                                         <Separator Margin="5,3" />
-                                        <Button Content="+ Key" Click="AddKeyFrame_Click" />
-                                        <Button Content="Delete Key" Click="DeleteKeyFrame_Click" />
-                                        <Button Content="Copy" Click="CopyKeyFrame_Click" />
-                                        <Button Content="Paste" Click="PasteKeyFrame_Click" />
+                                        <Button Content="{DynamicResource Ui.Xaml.MainWindow.153}" Click="AddKeyFrame_Click" />
+                                        <Button Content="{DynamicResource Ui.Xaml.MainWindow.154}" Click="DeleteKeyFrame_Click" />
+                                        <Button Content="{DynamicResource Ui.Xaml.MainWindow.155}" Click="CopyKeyFrame_Click" />
+                                        <Button Content="{DynamicResource Ui.Xaml.MainWindow.156}" Click="PasteKeyFrame_Click" />
                                     </StackPanel>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1"
@@ -1214,36 +1228,42 @@
                                     Background="{StaticResource PanelBrush}"
                                     BorderBrush="{StaticResource BorderBrush}"
                                     BorderThickness="1">
-                                <DockPanel LastChildFill="True">
-                                    <StackPanel DockPanel.Dock="Right"
-                                                Orientation="Horizontal"
-                                                Margin="7,0,0,0">
-                                        <Button x:Name="ForceShowInspectorButton"
-                                                Content="Force show"
-                                                Padding="7,2"
-                                                Margin="0,0,4,0"
-                                                Click="ForceShowSelected_Click" />
-                                        <Button x:Name="RestoreComposedPoseButton"
-                                                Content="Composed pose"
-                                                Padding="7,2"
-                                                ToolTip="Return the active animation scope to its automatically composed visible pose"
-                                                Click="RestoreComposedPose_Click" />
-                                    </StackPanel>
-                                    <StackPanel>
-                                        <TextBlock Text="Effective preview state"
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0">
+                                        <TextBlock Text="{DynamicResource Ui.Xaml.MainWindow.160}"
                                                    FontWeight="SemiBold"
-                                                   Foreground="{StaticResource AccentBrush}" />
+                                                   Foreground="{StaticResource AccentBrush}"
+                                                   TextWrapping="Wrap" />
                                         <TextBlock x:Name="PreviewStateText"
                                                    Margin="0,2,0,0"
                                                    Foreground="{StaticResource MutedTextBrush}"
                                                    TextWrapping="Wrap" />
                                     </StackPanel>
-                                </DockPanel>
+                                    <StackPanel Grid.Row="1"
+                                                Orientation="Horizontal"
+                                                HorizontalAlignment="Right"
+                                                Margin="0,5,0,0">
+                                        <Button x:Name="ForceShowInspectorButton"
+                                                Content="{DynamicResource Ui.Xaml.MainWindow.157}"
+                                                Padding="7,2"
+                                                Margin="0,0,4,0"
+                                                Click="ForceShowSelected_Click" />
+                                        <Button x:Name="RestoreComposedPoseButton"
+                                                Content="{DynamicResource Ui.Xaml.MainWindow.158}"
+                                                Padding="7,2"
+                                                ToolTip="{DynamicResource Ui.Xaml.MainWindow.159}"
+                                                Click="RestoreComposedPose_Click" />
+                                    </StackPanel>
+                                </Grid>
                             </Border>
                             <WrapPanel x:Name="TimelineEditPanel"
                                        Grid.Row="2"
                                        Margin="0,4,0,0">
-                                <TextBlock Text="Selected key"
+                                <TextBlock Text="{DynamicResource Ui.Xaml.MainWindow.161}"
                                            Foreground="{StaticResource MutedTextBrush}"
                                            VerticalAlignment="Center"
                                            Margin="0,0,5,0" />
@@ -1254,7 +1274,7 @@
                                 <TextBox x:Name="KeyValueTextBox"
                                          Width="145"
                                          IsEnabled="False"
-                                         ToolTip="Value for the selected property track"
+                                         ToolTip="{DynamicResource Ui.Xaml.MainWindow.162}"
                                          LostKeyboardFocus="KeyFrameValue_LostKeyboardFocus"
                                          KeyDown="KeyFrameValue_KeyDown" />
                                 <ComboBox x:Name="KeyInterpolationComboBox"
@@ -1262,22 +1282,22 @@
                                           Margin="5,0,0,0"
                                           IsEnabled="False"
                                           SelectionChanged="KeyInterpolation_SelectionChanged">
-                                    <ComboBoxItem Content="Linear" Tag="0" />
-                                    <ComboBoxItem Content="Eased" Tag="2" />
+                                    <ComboBoxItem Content="{DynamicResource Ui.Xaml.MainWindow.163}" Tag="0" />
+                                    <ComboBoxItem Content="{DynamicResource Ui.Xaml.MainWindow.164}" Tag="2" />
                                 </ComboBox>
-                                <TextBlock Text="In" VerticalAlignment="Center" Margin="6,0,3,0" />
+                                <TextBlock Text="{DynamicResource Ui.Xaml.MainWindow.165}" VerticalAlignment="Center" Margin="6,0,3,0" />
                                 <TextBox x:Name="EaseInTextBox"
                                          Width="48"
                                          IsEnabled="False"
                                          LostKeyboardFocus="KeyFrameEase_LostKeyboardFocus"
                                          KeyDown="KeyFrameEase_KeyDown" />
-                                <TextBlock Text="Out" VerticalAlignment="Center" Margin="6,0,3,0" />
+                                <TextBlock Text="{DynamicResource Ui.Xaml.MainWindow.166}" VerticalAlignment="Center" Margin="6,0,3,0" />
                                 <TextBox x:Name="EaseOutTextBox"
                                          Width="48"
                                          IsEnabled="False"
                                          LostKeyboardFocus="KeyFrameEase_LostKeyboardFocus"
                                          KeyDown="KeyFrameEase_KeyDown" />
-                                <TextBlock Text="Scale" VerticalAlignment="Center" Margin="6,0,3,0" />
+                                <TextBlock Text="{DynamicResource Ui.Xaml.MainWindow.167}" VerticalAlignment="Center" Margin="6,0,3,0" />
                                 <TextBox x:Name="EaseScaleTextBox"
                                          Width="48"
                                          IsEnabled="False"
@@ -1288,7 +1308,7 @@
                                            VerticalAlignment="Center"
                                            Margin="6,0,0,0" />
                                 <Separator Margin="8,3" />
-                                <TextBlock Text="Named frame"
+                                <TextBlock Text="{DynamicResource Ui.Xaml.MainWindow.168}"
                                            Foreground="{StaticResource MutedTextBrush}"
                                            VerticalAlignment="Center"
                                            Margin="0,0,5,0" />
@@ -1304,16 +1324,16 @@
                                 <TextBox x:Name="NamedFrameNameTextBox"
                                          Width="110"
                                          Margin="4,0,0,0"
-                                         ToolTip="Name" />
+                                         ToolTip="{DynamicResource Ui.Xaml.MainWindow.169}" />
                                 <TextBox x:Name="NamedFrameTickTextBox"
                                          Width="52"
                                          Margin="4,0,0,0"
-                                         ToolTip="Tick" />
+                                         ToolTip="{DynamicResource Ui.Xaml.MainWindow.170}" />
                                 <ComboBox x:Name="NamedFrameCommandComboBox"
                                           Width="112"
                                           Margin="4,0,0,0"
                                           IsEditable="True"
-                                          ToolTip="Command">
+                                          ToolTip="{DynamicResource Ui.Xaml.MainWindow.171}">
                                     <ComboBoxItem Content="" />
                                     <ComboBoxItem Content="stop" />
                                     <ComboBoxItem Content="goto" />
@@ -1323,11 +1343,11 @@
                                 <TextBox x:Name="NamedFrameTargetTextBox"
                                          Width="105"
                                          Margin="4,0,0,0"
-                                         ToolTip="Command target" />
-                                <Button Content="+ Marker" Click="AddNamedFrame_Click" />
-                                <Button Content="Go to" Click="GoToNamedFrame_Click" />
-                                <Button Content="Apply" Click="ApplyNamedFrame_Click" />
-                                <Button Content="Delete" Click="DeleteNamedFrame_Click" />
+                                         ToolTip="{DynamicResource Ui.Xaml.MainWindow.172}" />
+                                <Button Content="{DynamicResource Ui.Xaml.MainWindow.173}" Click="AddNamedFrame_Click" />
+                                <Button Content="{DynamicResource Ui.Xaml.MainWindow.174}" Click="GoToNamedFrame_Click" />
+                                <Button Content="{DynamicResource Ui.Xaml.MainWindow.175}" Click="ApplyNamedFrame_Click" />
+                                <Button Content="{DynamicResource Ui.Xaml.MainWindow.176}" Click="DeleteNamedFrame_Click" />
                             </WrapPanel>
                         </Grid>
                     </Border>
@@ -1338,7 +1358,7 @@
                                                     KeyFrameMoveRequested="TimelineEditor_KeyFrameMoveRequested" />
                 </Grid>
             </TabItem>
-            <TabItem Header="Assets">
+            <TabItem Header="{DynamicResource Ui.Xaml.MainWindow.177}">
                 <DockPanel>
                     <Border DockPanel.Dock="Top"
                             Background="{StaticResource PanelRaisedBrush}"
@@ -1349,41 +1369,41 @@
                             <WrapPanel>
                                 <TextBox x:Name="AssetSearchTextBox"
                                          Width="260"
-                                         ToolTip="Search screens, visuals, textures, and fonts"
+                                         ToolTip="{DynamicResource Ui.Xaml.MainWindow.178}"
                                          TextChanged="AssetSearch_TextChanged" />
                                 <ComboBox x:Name="AssetKindComboBox"
                                           Width="115"
                                           Margin="6,0,0,0"
                                           SelectedIndex="0"
                                           SelectionChanged="AssetKind_SelectionChanged">
-                                    <ComboBoxItem Content="All" Tag="All" />
-                                    <ComboBoxItem Content="Screens" Tag="Screen" />
-                                    <ComboBoxItem Content="Visuals" Tag="Visual" />
-                                    <ComboBoxItem Content="Textures" Tag="Texture" />
-                                    <ComboBoxItem Content="Fonts" Tag="Font" />
+                                    <ComboBoxItem Content="{DynamicResource Ui.Xaml.MainWindow.179}" Tag="All" />
+                                    <ComboBoxItem Content="{DynamicResource Ui.Xaml.MainWindow.180}" Tag="Screen" />
+                                    <ComboBoxItem Content="{DynamicResource Ui.Xaml.MainWindow.181}" Tag="Visual" />
+                                    <ComboBoxItem Content="{DynamicResource Ui.Xaml.MainWindow.182}" Tag="Texture" />
+                                    <ComboBoxItem Content="{DynamicResource Ui.Xaml.MainWindow.183}" Tag="Font" />
                                 </ComboBox>
                             </WrapPanel>
                             <WrapPanel Margin="0,4,0,0">
                                 <CheckBox x:Name="AutoSizeAssetDropCheckBox"
-                                          Content="Auto-size on drop"
+                                          Content="{DynamicResource Ui.Xaml.MainWindow.184}"
                                           VerticalAlignment="Center"
                                           Margin="4,0,8,0"
-                                          ToolTip="Explicitly resize an existing image to the texture dimensions when dropping" />
-                                <Button Content="Open" Click="AssetOpen_Click" />
-                                <Button Content="Copy to Workspace"
+                                          ToolTip="{DynamicResource Ui.Xaml.MainWindow.185}" />
+                                <Button Content="{DynamicResource Ui.Xaml.MainWindow.186}" Click="AssetOpen_Click" />
+                                <Button Content="{DynamicResource Ui.Xaml.MainWindow.187}"
                                         Click="AssetCopy_Click" />
-                                <Button Content="New Screen"
+                                <Button Content="{DynamicResource Ui.Xaml.MainWindow.188}"
                                         Click="AssetNewScreen_Click" />
-                                <Button Content="New Visual"
+                                <Button Content="{DynamicResource Ui.Xaml.MainWindow.189}"
                                         Click="AssetNewVisual_Click" />
-                                <Button Content="Rename"
+                                <Button Content="{DynamicResource Ui.Xaml.MainWindow.190}"
                                         Click="AssetRename_Click" />
-                                <Button Content="Delete"
+                                <Button Content="{DynamicResource Ui.Xaml.MainWindow.191}"
                                         Click="AssetDelete_Click" />
-                                <Button Content="References / Replace"
+                                <Button Content="{DynamicResource Ui.Xaml.MainWindow.192}"
                                         Click="AssetReferences_Click" />
                                 <Button x:Name="UndoReferenceTransactionButton"
-                                        Content="Undo Replace"
+                                        Content="{DynamicResource Ui.Xaml.MainWindow.193}"
                                         IsEnabled="False"
                                         Click="AssetUndoReferenceTransaction_Click" />
                             </WrapPanel>
@@ -1396,19 +1416,19 @@
                               MouseDoubleClick="AssetList_MouseDoubleClick">
                         <ListView.View>
                             <GridView>
-                                <GridViewColumn Header="Kind"
+                                <GridViewColumn Header="{DynamicResource Ui.Xaml.MainWindow.194}"
                                                 DisplayMemberBinding="{Binding KindLabel}"
                                                 Width="85" />
-                                <GridViewColumn Header="Name"
+                                <GridViewColumn Header="{DynamicResource Ui.Xaml.MainWindow.195}"
                                                 DisplayMemberBinding="{Binding Name}"
                                                 Width="240" />
-                                <GridViewColumn Header="Size"
+                                <GridViewColumn Header="{DynamicResource Ui.Xaml.MainWindow.196}"
                                                 DisplayMemberBinding="{Binding SizeLabel}"
                                                 Width="100" />
-                                <GridViewColumn Header="Access"
+                                <GridViewColumn Header="{DynamicResource Ui.Xaml.MainWindow.197}"
                                                 DisplayMemberBinding="{Binding AccessLabel}"
                                                 Width="95" />
-                                <GridViewColumn Header="Source"
+                                <GridViewColumn Header="{DynamicResource Ui.Xaml.MainWindow.198}"
                                                 DisplayMemberBinding="{Binding SourceDisplayPath}"
                                                 Width="520" />
                             </GridView>
@@ -1416,12 +1436,12 @@
                     </ListView>
                 </DockPanel>
             </TabItem>
-            <TabItem Header="Diagnostics">
+            <TabItem Header="{DynamicResource Ui.Xaml.MainWindow.199}">
                 <DockPanel>
                     <TextBox x:Name="DiagnosticsSearch"
                              DockPanel.Dock="Top"
                              Margin="7"
-                             ToolTip="Filter diagnostics"
+                             ToolTip="{DynamicResource Ui.Xaml.MainWindow.200}"
                              TextChanged="DiagnosticsSearch_TextChanged" />
                     <DataGrid x:Name="DiagnosticsGrid"
                               ItemsSource="{Binding FilteredDiagnostics}"
@@ -1433,16 +1453,16 @@
                               Foreground="{StaticResource TextBrush}"
                               BorderThickness="0">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Severity"
-                                                Binding="{Binding Severity}"
+                            <DataGridTextColumn Header="{DynamicResource Ui.Xaml.MainWindow.201}"
+                                                Binding="{Binding Severity, Converter={StaticResource LocalizedDiagnosticSeverityConverter}}"
                                                 Width="90" />
-                            <DataGridTextColumn Header="Code"
+                            <DataGridTextColumn Header="{DynamicResource Ui.Xaml.MainWindow.202}"
                                                 Binding="{Binding Code}"
                                                 Width="105" />
-                            <DataGridTextColumn Header="Message"
-                                                Binding="{Binding Message}"
+                            <DataGridTextColumn Header="{DynamicResource Ui.Xaml.MainWindow.203}"
+                                                Binding="{Binding Converter={StaticResource LocalizedDiagnosticMessageConverter}}"
                                                 Width="*" />
-                            <DataGridTextColumn Header="Node"
+                            <DataGridTextColumn Header="{DynamicResource Ui.Xaml.MainWindow.204}"
                                                 Binding="{Binding NodeKey}"
                                                 Width="180" />
                         </DataGrid.Columns>
@@ -1453,7 +1473,7 @@
 
         <StatusBar Grid.Row="5">
             <StatusBarItem>
-                <TextBlock x:Name="StatusText" Text="Ready" />
+                <TextBlock x:Name="StatusText" Text="{DynamicResource Ui.Xaml.MainWindow.205}" />
             </StatusBarItem>
             <Separator />
             <StatusBarItem>

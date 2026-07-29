@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using XuiEditor.Core.Documents;
 using XuiEditor.Core.Schema;
 using XuiEditor.Core.Values;
+using XuiEditor.Wpf.Services;
 
 namespace XuiEditor.Wpf;
 
@@ -13,6 +14,8 @@ public partial class AddXuiElementWindow : Window
     private readonly Func<XuiElementPreset, string> _suggestedId;
     private readonly bool _identityPlacement;
     private readonly XuiClassDefinition[] _catalogClasses;
+    private readonly IReadOnlyList<LocalizedEnumOption<XuiElementPreset>>
+        _presetOptions;
     private bool _updatingPreset;
 
     public AddXuiElementWindow(
@@ -25,16 +28,20 @@ public partial class AddXuiElementWindow : Window
         string? actionLabel = null,
         string? instruction = null)
     {
+        UiLocalization.EnsureApplied();
         ArgumentException.ThrowIfNullOrWhiteSpace(parentDisplayName);
         _suggestedId = suggestedId ??
                        throw new ArgumentNullException(nameof(suggestedId));
         _parentSize = parentSize;
         _identityPlacement = identityPlacement;
         InitializeComponent();
+        Language = UiLocalization.XmlLanguage;
         Title = windowTitle ?? Title;
         ConfirmButton.Content = actionLabel ?? ConfirmButton.Content;
         ParentText.Text = instruction ??
-            $"Add a visual child under {parentDisplayName}. The edit is lossless and undoable.";
+            UiLocalization.Format(
+                "Ui.AddElement.ParentInstruction",
+                parentDisplayName);
         _catalogClasses = XuiClassCatalog.Default.Classes
             .Where(static definition =>
                 definition.Evidence == XuiEvidenceLevel.DyingLightStock)
@@ -51,8 +58,9 @@ public partial class AddXuiElementWindow : Window
                 nameof(availablePresets));
         }
 
-        PresetCombo.ItemsSource = presets;
-        PresetCombo.SelectedItem = presets[0];
+        _presetOptions = UiLocalization.EnumOptions(presets);
+        PresetCombo.ItemsSource = _presetOptions;
+        PresetCombo.SelectedIndex = 0;
     }
 
     public XuiElementCreationRequest? Request { get; private set; }
@@ -62,12 +70,13 @@ public partial class AddXuiElementWindow : Window
         SelectionChangedEventArgs eventArgs)
     {
         if (_updatingPreset ||
-            PresetCombo.SelectedItem is not XuiElementPreset preset)
+            PresetCombo.SelectedItem is not
+                LocalizedEnumOption<XuiElementPreset> option)
         {
             return;
         }
 
-        ApplyPreset(preset);
+        ApplyPreset(option.Value);
     }
 
     private void CatalogClassCombo_SelectionChanged(
@@ -75,7 +84,7 @@ public partial class AddXuiElementWindow : Window
         SelectionChangedEventArgs eventArgs)
     {
         if (_updatingPreset ||
-            PresetCombo.SelectedItem is not XuiElementPreset.CatalogClass ||
+            SelectedPreset() != XuiElementPreset.CatalogClass ||
             CatalogClassCombo.SelectedItem is not XuiClassDefinition definition)
         {
             return;
@@ -153,19 +162,19 @@ public partial class AddXuiElementWindow : Window
             PresetHelpText.Text = preset switch
             {
                 XuiElementPreset.Group =>
-                    "A lightweight AdvGroup container.",
+                    UiLocalization.Text("Ui.AddElement.Help.Group"),
                 XuiElementPreset.Image =>
-                    "A MyImage node. 'white' draws the selected color without requiring a texture.",
+                    UiLocalization.Text("Ui.AddElement.Help.Image"),
                 XuiElementPreset.Text =>
-                    "A MyText node using the selected engine font and text color.",
+                    UiLocalization.Text("Ui.AddElement.Help.Text"),
                 XuiElementPreset.Rectangle =>
-                    "An antialiased color rectangle using menu_antialias.mat and the white-image contract.",
+                    UiLocalization.Text("Ui.AddElement.Help.Rectangle"),
                 XuiElementPreset.Button =>
-                    "An AdvButton using the stock ButtonV visual and auto-width behavior.",
+                    UiLocalization.Text("Ui.AddElement.Help.Button"),
                 XuiElementPreset.CatalogClass =>
-                    "Choose a class observed in Dying Light stock XUI. The palette uses its catalog dimensions and emits only the common authored geometry.",
+                    UiLocalization.Text("Ui.AddElement.Help.CatalogClass"),
                 _ =>
-                    "Edit the raw XML below. Preset fields are ignored in custom mode.",
+                    UiLocalization.Text("Ui.AddElement.Help.CustomXml"),
             };
         }
         finally
@@ -194,9 +203,13 @@ public partial class AddXuiElementWindow : Window
                 : Math.Max(0, (_parentSize.Y - size.Y) / 2));
             IdText.Text = _suggestedId(XuiElementPreset.CatalogClass);
             PresetHelpText.Text =
-                $"{definition.Name} : {definition.Description}. " +
-                $"Evidence: {definition.Evidence}; base: " +
-                $"{definition.BaseClassName ?? "(none)"}.";
+                UiLocalization.Format(
+                    "Ui.AddElement.CatalogSummary",
+                    definition.Name,
+                    definition.Description,
+                    UiLocalization.Evidence(definition.Evidence),
+                    definition.BaseClassName ??
+                    UiLocalization.Text("Ui.Common.None"));
         }
         finally
         {
@@ -209,9 +222,7 @@ public partial class AddXuiElementWindow : Window
         try
         {
             XuiElementPreset preset =
-                PresetCombo.SelectedItem is XuiElementPreset selected
-                    ? selected
-                    : XuiElementPreset.Group;
+                SelectedPreset();
             if (preset == XuiElementPreset.CustomXml)
             {
                 Request = new XuiElementCreationRequest
@@ -223,15 +234,24 @@ public partial class AddXuiElementWindow : Window
                 if (string.IsNullOrWhiteSpace(Request.RawXml))
                 {
                     throw new InvalidOperationException(
-                        "Enter one visual XUI element in the custom XML box.");
+                        UiLocalization.Text(
+                            "Ui.AddElement.Error.CustomXmlRequired"));
                 }
             }
             else
             {
-                double width = ParseNumber(WidthText.Text, "Width");
-                double height = ParseNumber(HeightText.Text, "Height");
-                double x = ParseNumber(XText.Text, "X position");
-                double y = ParseNumber(YText.Text, "Y position");
+                double width = ParseNumber(
+                    WidthText.Text,
+                    UiLocalization.Text("Ui.AddElement.Field.Width"));
+                double height = ParseNumber(
+                    HeightText.Text,
+                    UiLocalization.Text("Ui.AddElement.Field.Height"));
+                double x = ParseNumber(
+                    XText.Text,
+                    UiLocalization.Text("Ui.AddElement.Field.XPosition"));
+                double y = ParseNumber(
+                    YText.Text,
+                    UiLocalization.Text("Ui.AddElement.Field.YPosition"));
                 if (preset is
                         XuiElementPreset.Image or
                         XuiElementPreset.Text or
@@ -241,7 +261,8 @@ public partial class AddXuiElementWindow : Window
                         out _))
                 {
                     throw new InvalidOperationException(
-                        "Color must be an ARGB value such as 0xffffffff.");
+                        UiLocalization.Text(
+                            "Ui.AddElement.Error.ColorArgb"));
                 }
 
                 Request = new XuiElementCreationRequest
@@ -272,7 +293,9 @@ public partial class AddXuiElementWindow : Window
             exception is InvalidOperationException or
             ArgumentException)
         {
-            ErrorText.Text = exception.Message;
+            ErrorText.Text = UiLocalization.Format(
+                "Ui.Common.ErrorDetails",
+                exception.Message);
         }
     }
 
@@ -286,7 +309,9 @@ public partial class AddXuiElementWindow : Window
             !double.IsFinite(value))
         {
             throw new InvalidOperationException(
-                $"{label} must be a finite number.");
+                UiLocalization.Format(
+                    "Ui.AddElement.Error.FiniteNumber",
+                    label));
         }
 
         return value;
@@ -300,6 +325,12 @@ public partial class AddXuiElementWindow : Window
             out double value)
             ? value
             : 0;
+
+    private XuiElementPreset SelectedPreset() =>
+        PresetCombo.SelectedItem is
+            LocalizedEnumOption<XuiElementPreset> option
+            ? option.Value
+            : XuiElementPreset.Group;
 
     private static string Number(double value) =>
         value.ToString("0.000000", CultureInfo.InvariantCulture);

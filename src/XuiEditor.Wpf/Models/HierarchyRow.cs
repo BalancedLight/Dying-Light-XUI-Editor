@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using XuiEditor.Core.Documents;
+using XuiEditor.Wpf.Services;
 
 namespace XuiEditor.Wpf.Models;
 
@@ -95,37 +96,59 @@ public sealed class HierarchyRow : INotifyPropertyChanged
     public string VisibilityToolTip => VisibilityState switch
     {
         HierarchyVisibilityState.Hidden =>
-            "Hidden in editor — click to show",
+            UiLocalization.Text("Ui.Hierarchy.Hidden"),
         HierarchyVisibilityState.HiddenByAncestor =>
-            $"Hidden by {_hiddenBy ?? "an ancestor"}",
-        _ => "Visible in editor — click to hide",
+            UiLocalization.Format(
+                "Ui.Hierarchy.HiddenBy",
+                _hiddenBy ??
+                UiLocalization.Text("Ui.Hierarchy.AnAncestor")),
+        _ => UiLocalization.Text("Ui.Hierarchy.Visible"),
     };
 
     public string LockToolTip => LockState switch
     {
         HierarchyLockState.Locked =>
-            "Locked in editor — click to unlock",
+            UiLocalization.Text("Ui.Hierarchy.Locked"),
         HierarchyLockState.LockedByAncestor =>
-            $"Locked by {_lockedBy ?? "an ancestor"}",
-        _ => "Unlocked in editor — click to lock",
+            UiLocalization.Format(
+                "Ui.Hierarchy.LockedBy",
+                _lockedBy ??
+                UiLocalization.Text("Ui.Hierarchy.AnAncestor")),
+        _ => UiLocalization.Text("Ui.Hierarchy.Unlocked"),
     };
 
     public string VisibilityAutomationName => VisibilityState switch
     {
         HierarchyVisibilityState.Hidden =>
-            $"{DisplayName}, hidden in editor. Activate to show.",
+            UiLocalization.Format(
+                "Ui.Hierarchy.Automation.Hidden",
+                DisplayName),
         HierarchyVisibilityState.HiddenByAncestor =>
-            $"{DisplayName}, hidden by {_hiddenBy ?? "an ancestor"}.",
-        _ => $"{DisplayName}, visible in editor. Activate to hide.",
+            UiLocalization.Format(
+                "Ui.Hierarchy.Automation.HiddenBy",
+                DisplayName,
+                _hiddenBy ??
+                UiLocalization.Text("Ui.Hierarchy.AnAncestor")),
+        _ => UiLocalization.Format(
+            "Ui.Hierarchy.Automation.Visible",
+            DisplayName),
     };
 
     public string LockAutomationName => LockState switch
     {
         HierarchyLockState.Locked =>
-            $"{DisplayName}, locked in editor. Activate to unlock.",
+            UiLocalization.Format(
+                "Ui.Hierarchy.Automation.Locked",
+                DisplayName),
         HierarchyLockState.LockedByAncestor =>
-            $"{DisplayName}, locked by {_lockedBy ?? "an ancestor"}.",
-        _ => $"{DisplayName}, unlocked in editor. Activate to lock.",
+            UiLocalization.Format(
+                "Ui.Hierarchy.Automation.LockedBy",
+                DisplayName,
+                _lockedBy ??
+                UiLocalization.Text("Ui.Hierarchy.AnAncestor")),
+        _ => UiLocalization.Format(
+            "Ui.Hierarchy.Automation.Unlocked",
+            DisplayName),
     };
 
     internal void SetEditorStates(
@@ -151,6 +174,14 @@ public sealed class HierarchyRow : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public void RefreshLocalization()
+    {
+        Notify(nameof(VisibilityToolTip));
+        Notify(nameof(LockToolTip));
+        Notify(nameof(VisibilityAutomationName));
+        Notify(nameof(LockAutomationName));
+    }
 
     private void SetField<T>(
         ref T field,

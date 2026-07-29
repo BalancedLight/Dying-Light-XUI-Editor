@@ -46,13 +46,25 @@ jobs:
         run: dotnet build XuiEditor.slnx --configuration Debug --no-restore
 
       - name: Test Debug
-        run: dotnet test XuiEditor.slnx --configuration Debug --no-restore --no-build
+        run: >-
+          dotnet run
+          --project tests\XuiEditor.Tests\XuiEditor.Tests.csproj
+          --configuration Debug
+          --no-restore
+          --no-build
+          --
 
       - name: Build Release and package executable
         run: dotnet build XuiEditor.slnx --configuration Release --no-restore
 
       - name: Test Release
-        run: dotnet test XuiEditor.slnx --configuration Release --no-restore --no-build
+        run: >-
+          dotnet run
+          --project tests\XuiEditor.Tests\XuiEditor.Tests.csproj
+          --configuration Release
+          --no-restore
+          --no-build
+          --
 
       - name: Verify standalone executable
         shell: pwsh
