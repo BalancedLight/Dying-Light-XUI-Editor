@@ -298,6 +298,19 @@
                 <MenuItem Header="_Delete" InputGestureText="Delete"
                           Click="Delete_Click" />
                 <Separator />
+                <MenuItem x:Name="CopyInspectorPropertiesMenuItem"
+                          Header="Copy Authored _Properties"
+                          InputGestureText="Ctrl+C"
+                          Click="CopyInspectorProperties_Click" />
+                <MenuItem x:Name="AdvancedCopyInspectorPropertiesMenuItem"
+                          Header="Advanced Copy Properties…"
+                          InputGestureText="Ctrl+Shift+C"
+                          Click="AdvancedCopyInspectorProperties_Click" />
+                <MenuItem x:Name="PasteInspectorPropertiesMenuItem"
+                          Header="Paste Applicable Properties"
+                          InputGestureText="Ctrl+V"
+                          Click="PasteInspectorProperties_Click" />
+                <Separator />
                 <MenuItem Header="Move _Up" InputGestureText="Alt+Up"
                           Click="MoveUp_Click" />
                 <MenuItem Header="Move _Down" InputGestureText="Alt+Down"
@@ -457,7 +470,7 @@
                 <ColumnDefinition Width="5" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="5" />
-                <ColumnDefinition x:Name="InspectorColumn" Width="360" />
+                <ColumnDefinition x:Name="InspectorColumn" Width="440" />
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0"
@@ -692,6 +705,38 @@
                                        FontWeight="SemiBold" />
                         </DockPanel>
                     </Border>
+                    <Border DockPanel.Dock="Top"
+                            Padding="8,5"
+                            Background="{StaticResource PanelRaisedBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="0,0,0,1">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right"
+                                        Orientation="Horizontal">
+                                <Button x:Name="CopyInspectorPropertiesButton"
+                                        Content="Copy"
+                                        Padding="8,2"
+                                        ToolTip="Copy all authored properties except Id and ClassOverride (Ctrl+C)"
+                                        Click="CopyInspectorProperties_Click" />
+                                <Button x:Name="AdvancedCopyInspectorPropertiesButton"
+                                        Content="Copy…"
+                                        Padding="8,2"
+                                        ToolTip="Choose authored properties or inherited defaults to copy (Ctrl+Shift+C)"
+                                        Click="AdvancedCopyInspectorProperties_Click" />
+                                <Button x:Name="PasteInspectorPropertiesButton"
+                                        Content="Paste"
+                                        Padding="8,2"
+                                        ToolTip="Paste only properties applicable to the selected destination elements (Ctrl+V)"
+                                        Click="PasteInspectorProperties_Click" />
+                            </StackPanel>
+                            <TextBlock x:Name="PropertyClipboardText"
+                                       Margin="0,0,8,0"
+                                       VerticalAlignment="Center"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Text="No copied properties"
+                                       TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                    </Border>
                     <StackPanel DockPanel.Dock="Top">
                         <TextBlock x:Name="InspectorHint"
                                    Margin="9,7"
@@ -892,9 +937,11 @@
                                        Margin="0,4,0,0" />
                         </Grid>
                     </Expander>
-                    <ListBox ItemsSource="{Binding Source={StaticResource InspectorView}}"
+                    <ListBox x:Name="InspectorList"
+                             ItemsSource="{Binding Source={StaticResource InspectorView}}"
                              VirtualizingPanel.IsVirtualizing="True"
-                             VirtualizingPanel.VirtualizationMode="Recycling">
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             SelectionChanged="InspectorList_SelectionChanged">
                         <ListBox.GroupStyle>
                             <GroupStyle>
                                 <GroupStyle.HeaderTemplate>
@@ -916,8 +963,9 @@
                             <DataTemplate DataType="{x:Type models:InspectorPropertyRow}">
                                 <Grid Margin="8,3">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="108" />
+                                        <ColumnDefinition Width="176" />
                                         <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="25" />
                                         <ColumnDefinition Width="25" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0"
@@ -1024,6 +1072,15 @@
                                         </CheckBox.Style>
                                     </CheckBox>
                                     <Button Grid.Column="2"
+                                            Content="⧉"
+                                            FontFamily="Segoe UI Symbol"
+                                            Padding="2,0"
+                                            Margin="3,0,0,0"
+                                            Tag="{Binding}"
+                                            ToolTip="Copy only this property value"
+                                            AutomationProperties.Name="Copy property"
+                                            Click="InspectorCopySingleProperty_Click" />
+                                    <Button Grid.Column="3"
                                             Content="×"
                                             Padding="2,0"
                                             Margin="3,0,0,0"

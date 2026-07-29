@@ -79,6 +79,11 @@ workspace before it can be saved.
   explicit raw/unknown escape hatch. Evidence, default source, animation
   support, and preview accuracy are visible in inspector tooltips. Invalid
   values remain visible with diagnostics instead of being silently normalized.
+  Authored properties can be copied as a set, individual rows can be copied
+  directly, and Advanced Copy offers a searchable picker that can also include
+  inherited defaults. Paste filters the set against each selected destination
+  class, protects `Id` and `ClassOverride`, skips incompatible values, and
+  commits a multi-element paste as one undoable edit.
   Raw XML is
   materialized only when expanded; subtrees over 256 KiB require an explicit
   load action. `IUIText` nodes expose a typed
@@ -166,6 +171,7 @@ fake labels into the rendered scene.
 | Action | Shortcut |
 | --- | --- |
 | Open / save / save as | `Ctrl+O` / `Ctrl+S` / `Ctrl+Shift+S` |
+| Copy / advanced-copy / paste inspector properties | `Ctrl+C` / `Ctrl+Shift+C` / `Ctrl+V` |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Y` |
 | Duplicate / delete | `Ctrl+D` / `Delete` |
 | Add visual child | `Ctrl+Insert` |

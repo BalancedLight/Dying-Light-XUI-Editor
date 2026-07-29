@@ -14,13 +14,21 @@ public enum XuiGridTier
 
 public sealed class EditorSettings
 {
+    internal const double DefaultInspectorWidth = 440;
+
+    internal const double LegacyInspectorWidth = 360;
+
+    internal const int CurrentInspectorLayoutVersion = 1;
+
     public double WindowWidth { get; set; } = 1500;
 
     public double WindowHeight { get; set; } = 930;
 
     public double HierarchyWidth { get; set; } = 300;
 
-    public double InspectorWidth { get; set; } = 360;
+    public double InspectorWidth { get; set; } = DefaultInspectorWidth;
+
+    public int InspectorLayoutVersion { get; set; }
 
     public double TimelineHeight { get; set; } = 250;
 
@@ -218,6 +226,21 @@ public static class EditorSettingsStore
 
     private static void Normalize(EditorSettings settings)
     {
+        if (settings.InspectorLayoutVersion <
+            EditorSettings.CurrentInspectorLayoutVersion)
+        {
+            if (Math.Abs(
+                    settings.InspectorWidth -
+                    EditorSettings.LegacyInspectorWidth) < 0.5)
+            {
+                settings.InspectorWidth =
+                    EditorSettings.DefaultInspectorWidth;
+            }
+
+            settings.InspectorLayoutVersion =
+                EditorSettings.CurrentInspectorLayoutVersion;
+        }
+
         settings.AssetRoots ??= [];
         settings.AdditionalAssetSources ??= [];
         settings.RecentFiles ??= [];

@@ -19,8 +19,8 @@ The Release build automatically runs the guarded single-file packaging target
 for `XuiEditor.Wpf` and writes the distributable to
 `artifacts\publish\win-x64`.
 
-The portable Debug run passed 178 tests and skipped 8 optional acceptance
-tests. Install-aware Debug and Release runs each passed 182 tests and skipped
+The portable Debug run passed 185 tests and skipped 8 optional acceptance
+tests. The install-aware Release run passed 189 tests and skipped
 only the 4 extracted-corpus tests, with zero failures and zero build warnings.
 Set `DYING_LIGHT_INSTALL` to a game installation and
 `XUI_EDITOR_TEST_CORPUS_ROOT` to an extracted data root to include those
@@ -29,13 +29,19 @@ developer-machine default paths for either source.
 
 Coverage includes:
 
-- byte-identical no-op saves and token-level mutation preservation
+- byte-identical no-op saves, token-level mutation preservation, and
+  UI-dispatched save-completion events after asynchronous file I/O
 - comments, whitespace, property order, duplicate/unknown nodes, CRLF/LF, and
   encoding
 - the embedded facts-only catalog: 168 Data0 XUIs, all 174 stock-authored
   properties plus 8 Dying Light binary properties, 349 classes, inheritance,
   defaults, types, choices, evidence levels, preview support, `noanim`, and all
   21 stock timeline property names
+- Unity-style inspector property transfer: protected identity/class fields,
+  authored quick-copy, searchable advanced selection including optional ghost
+  defaults, single-property copy, per-destination schema filtering,
+  multi-selection paste, skipped invalid/incompatible values, and one-step
+  undo
 - exhaustive mutation of every 16-bit `TextStyle` value while preserving all
   compatibility/unknown bits, decimal and hexadecimal parsing, semantic flag
   edits, standalone-property precedence, and legacy bottom alignment
@@ -164,8 +170,8 @@ The final Release-build artifact contains one file and no sidecars:
 
 ```text
 DyingLightXuiEditor.exe
-66,155,554 bytes
-SHA-256 899D3AFAEBF32106723F2D7FCB658093CDD10E85BCA9CA8D8A1A6C2C9593D287
+66,163,892 bytes
+SHA-256 175F2E86F422D3CD57A90BB921A7B5D4B17AB796E1BF4288BEAD8FC69D55B87F
 ```
 
 The self-contained executable was launched without Unity or an installed .NET

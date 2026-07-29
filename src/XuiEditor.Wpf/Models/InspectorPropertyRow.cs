@@ -48,11 +48,15 @@ public sealed class InspectorPropertyRow : INotifyPropertyChanged
     public XuiPropertyDefinition? Definition { get; }
 
     public string ToolTip => Definition is null
-        ? "Unknown mod-authored property. It will be preserved losslessly."
+        ? string.Join(
+            Environment.NewLine,
+            Name,
+            "Unknown mod-authored property. It will be preserved losslessly.")
         : string.Join(
             Environment.NewLine,
             new[]
             {
+                Name,
                 Definition.Description,
                 $"Evidence: {Definition.EvidenceLabel}",
                 $"Preview: {Definition.PreviewSupport}",

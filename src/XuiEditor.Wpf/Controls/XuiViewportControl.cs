@@ -141,6 +141,7 @@ public sealed class XuiViewportControl : FrameworkElement
     private const int VisibleTexturePriority = 10;
     private const int MaximumSnapshotDimension = 16_384;
     private const long MaximumSnapshotPixels = 64_000_000;
+    private const double BitmapItalicAngleDegrees = -12;
     [Flags]
     private enum ResizeHandle
     {
@@ -628,6 +629,46 @@ public sealed class XuiViewportControl : FrameworkElement
         XuiBitmapFontMetrics metrics,
         string text) =>
         BitmapFontSupportsText(metrics, text);
+
+    internal static DrawingGroup BitmapTextDrawingForTesting(
+        XuiRenderNode node,
+        Rect bounds,
+        ResolvedBitmapFont font)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        ArgumentNullException.ThrowIfNull(font);
+        LoadedBitmapFont loaded = new(
+            CreateFontMaskBitmap(
+                font.AtlasWidth,
+                font.AtlasHeight,
+                font.AtlasBgraPixels,
+                specialGlyphs: false),
+            CreateFontMaskBitmap(
+                font.AtlasWidth,
+                font.AtlasHeight,
+                font.AtlasBgraPixels,
+                specialGlyphs: true),
+            font);
+        XuiTextPresentation presentation =
+            XuiTextColorRunFormatter.Prepare(
+                node.Text,
+                node.TextColorRuns,
+                node.Uppercase,
+                CultureInfo.CurrentUICulture);
+        DrawingGroup drawing = new();
+        using (DrawingContext context = drawing.Open())
+        {
+            DrawBitmapText(
+                context,
+                node,
+                bounds,
+                loaded,
+                presentation);
+        }
+
+        drawing.Freeze();
+        return drawing;
+    }
 
     internal bool RetainedContainerHasClipForTesting(string nodeKey) =>
         _nodeVisuals[nodeKey].Container.Clip is not null;
@@ -2422,6 +2463,9 @@ public sealed class XuiViewportControl : FrameworkElement
         double blockHeight = Math.Min(
             textBounds.Height,
             visibleLines.Count * lineHeight);
+        double boldOffset = node.Bold
+            ? Math.Clamp(baseScale, 0.35, 2)
+            : 0;
         double y = node.VerticalTextAlignment switch
         {
             XuiTextVerticalAlignment.Middle =>
@@ -2434,7 +2478,7 @@ public sealed class XuiViewportControl : FrameworkElement
         drawing.PushClip(new RectangleGeometry(textBounds));
         if (node.Shadow)
         {
-            DrawBitmapTextPass(
+            DrawStyledBitmapTextPass(
                 drawing,
                 node,
                 font,
@@ -2444,6 +2488,7 @@ public sealed class XuiViewportControl : FrameworkElement
                 lineHeight,
                 node.ShadowOffset,
                 node.ShadowOffset,
+                boldOffset,
                 node.ShadowColor);
         }
 
@@ -2462,7 +2507,7 @@ public sealed class XuiViewportControl : FrameworkElement
                          (radius, radius),
                      })
             {
-                DrawBitmapTextPass(
+                DrawStyledBitmapTextPass(
                     drawing,
                     node,
                     font,
@@ -2472,11 +2517,12 @@ public sealed class XuiViewportControl : FrameworkElement
                     lineHeight,
                     x,
                     yOffset,
+                    boldOffset,
                     node.OutlineColor);
             }
         }
 
-        DrawBitmapTextPass(
+        DrawStyledBitmapTextPass(
             drawing,
             node,
             font,
@@ -2486,7 +2532,21 @@ public sealed class XuiViewportControl : FrameworkElement
             lineHeight,
             0,
             0,
+            boldOffset,
             uniformColor: null);
+        if (node.Underline)
+        {
+            DrawBitmapUnderlines(
+                drawing,
+                node,
+                visibleLines,
+                textBounds,
+                y,
+                lineHeight,
+                baseScale,
+                boldOffset);
+        }
+
         drawing.Pop();
     }
 
@@ -2594,6 +2654,95 @@ public sealed class XuiViewportControl : FrameworkElement
             : null;
     }
 
+    private static void DrawStyledBitmapTextPass(
+        DrawingContext drawing,
+        XuiRenderNode node,
+        LoadedBitmapFont font,
+        IReadOnlyList<BitmapTextLine> lines,
+        Rect textBounds,
+        double top,
+        double lineHeight,
+        double offsetX,
+        double offsetY,
+        double boldOffset,
+        XuiColor? uniformColor)
+    {
+        if (node.Bold)
+        {
+            DrawBitmapTextPass(
+                drawing,
+                node,
+                font,
+                lines,
+                textBounds,
+                top,
+                lineHeight,
+                offsetX + boldOffset,
+                offsetY,
+                uniformColor);
+        }
+
+        DrawBitmapTextPass(
+            drawing,
+            node,
+            font,
+            lines,
+            textBounds,
+            top,
+            lineHeight,
+            offsetX,
+            offsetY,
+            uniformColor);
+    }
+
+    private static void DrawBitmapUnderlines(
+        DrawingContext drawing,
+        XuiRenderNode node,
+        IReadOnlyList<BitmapTextLine> lines,
+        Rect textBounds,
+        double top,
+        double lineHeight,
+        double baseScale,
+        double boldOffset)
+    {
+        Brush brush = ToBrush(node.Color);
+        double thickness = Math.Clamp(baseScale, 0.5, 3);
+        for (int lineIndex = 0; lineIndex < lines.Count; lineIndex++)
+        {
+            BitmapTextLine line = lines[lineIndex];
+            double x = BitmapLineLeft(node, textBounds, line.Width);
+            double width = line.Width + boldOffset;
+            if (width <= 0)
+            {
+                continue;
+            }
+
+            double lineTop = top + (lineIndex * lineHeight);
+            double underlineTop = lineTop + Math.Max(
+                0,
+                Math.Min(
+                    lineHeight - thickness,
+                    lineHeight * 0.88));
+            drawing.DrawRectangle(
+                brush,
+                null,
+                new Rect(x, underlineTop, width, thickness));
+        }
+    }
+
+    private static double BitmapLineLeft(
+        XuiRenderNode node,
+        Rect textBounds,
+        double lineWidth) =>
+        node.HorizontalTextAlignment switch
+        {
+            XuiTextHorizontalAlignment.Center =>
+                textBounds.Left + ((textBounds.Width - lineWidth) * 0.5),
+            XuiTextHorizontalAlignment.Right =>
+                textBounds.Right - lineWidth,
+            _ => textBounds.Left,
+        };
+
     private static void DrawBitmapTextPass(
         DrawingContext drawing,
         XuiRenderNode node,
@@ -2614,15 +2763,20 @@ public sealed class XuiViewportControl : FrameworkElement
         for (int lineIndex = 0; lineIndex < lines.Count; lineIndex++)
         {
             BitmapTextLine line = lines[lineIndex];
-            double x = node.HorizontalTextAlignment switch
-            {
-                XuiTextHorizontalAlignment.Center =>
-                    textBounds.Left + ((textBounds.Width - line.Width) * 0.5),
-                XuiTextHorizontalAlignment.Right =>
-                    textBounds.Right - line.Width,
-                _ => textBounds.Left,
-            };
+            double x = BitmapLineLeft(node, textBounds, line.Width);
             double y = top + (lineIndex * lineHeight);
+            bool italic = node.Italic;
+            if (italic)
+            {
+                SkewTransform skew = new(
+                    BitmapItalicAngleDegrees,
+                    0,
+                    x + offsetX,
+                    y + offsetY + lineHeight);
+                skew.Freeze();
+                drawing.PushTransform(skew);
+            }
+
             foreach (BitmapGlyphPlacement placement in line.Glyphs)
             {
                 XuiColor color =
@@ -2665,6 +2819,11 @@ public sealed class XuiViewportControl : FrameworkElement
                 }
 
                 x += placement.Advance;
+            }
+
+            if (italic)
+            {
+                drawing.Pop();
             }
         }
     }

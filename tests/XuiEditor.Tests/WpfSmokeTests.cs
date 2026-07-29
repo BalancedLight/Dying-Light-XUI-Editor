@@ -7,6 +7,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using XuiEditor.Core.Assets;
@@ -15,6 +16,7 @@ using XuiEditor.Core.Diagnostics;
 using XuiEditor.Core.Documents;
 using XuiEditor.Core.Layout;
 using XuiEditor.Core.Navigation;
+using XuiEditor.Core.Schema;
 using XuiEditor.Core.Values;
 using XuiEditor.Wpf;
 using XuiEditor.Wpf.Controls;
@@ -26,6 +28,134 @@ namespace XuiEditor.Tests;
 [TestClass]
 public sealed class WpfSmokeTests
 {
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void BitmapFontTextStyleFlagsProduceVisiblePreviewChanges()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const int atlasWidth = 16;
+        const int atlasHeight = 16;
+        byte[] atlas = new byte[atlasWidth * atlasHeight * 4];
+        for (int y = 1; y < 15; y++)
+        {
+            for (int x = 2; x < 12; x++)
+            {
+                if (x > 3 && y > 2 && y != 7 && y != 8)
+                {
+                    continue;
+                }
+
+                int offset = ((y * atlasWidth) + x) * 4;
+                atlas[offset] = byte.MaxValue;
+                atlas[offset + 1] = byte.MaxValue;
+                atlas[offset + 2] = byte.MaxValue;
+                atlas[offset + 3] = byte.MaxValue;
+            }
+        }
+
+        XuiBitmapGlyph glyph = new(
+            'A',
+            12,
+            new XuiRect(0, 0, 12, 16),
+            0,
+            IsSpecial: false);
+        XuiBitmapFontMetrics metrics = new(
+            "bitmap",
+            "bitmap",
+            atlasWidth,
+            atlasHeight,
+            16,
+            new Dictionary<int, XuiBitmapGlyph>
+            {
+                ['A'] = glyph,
+            },
+            "test.fnt");
+        ResolvedBitmapFont font = new(
+            "bitmap",
+            "bitmap",
+            16,
+            16,
+            0,
+            1,
+            metrics,
+            atlasWidth,
+            atlasHeight,
+            atlas,
+            "test.dds",
+            "test",
+            []);
+
+        byte[] plain = Render(0);
+        byte[] bold = Render((int)XuiKnownTextStyle.Bold);
+        byte[] italic = Render((int)XuiKnownTextStyle.Italic);
+        byte[] underline = Render((int)XuiKnownTextStyle.Underline);
+
+        Assert.IsFalse(
+            plain.SequenceEqual(bold),
+            "Bold must visibly change a bitmap-font preview.");
+        Assert.IsFalse(
+            plain.SequenceEqual(italic),
+            "Italic must visibly change a bitmap-font preview.");
+        Assert.IsFalse(
+            plain.SequenceEqual(underline),
+            "Underline must visibly change a bitmap-font preview.");
+        Assert.IsGreaterThan(0, CountAlpha(plain));
+        Assert.IsGreaterThan(CountAlpha(plain), CountAlpha(bold));
+        Assert.IsGreaterThan(CountAlpha(plain), CountAlpha(underline));
+
+        byte[] Render(int textStyle)
+        {
+            XuiDocument document = XuiDocument.FromText(
+                "<XuiCanvas><Properties><Width>64</Width><Height>24</Height></Properties>" +
+                "<MyText><Properties><Id>T</Id><Width>64</Width><Height>24</Height>" +
+                "<Text>A</Text><Font>bitmap</Font><PointSize>16</PointSize>" +
+                $"<TextStyle>{textStyle}</TextStyle>" +
+                "</Properties></MyText></XuiCanvas>");
+            XuiRenderNode node = DyingLightLayoutEngine.Evaluate(
+                    document,
+                    new XuiViewport(64, 24),
+                    0)
+                .Nodes.Single(static candidate => candidate.Id == "T");
+            DrawingGroup drawing =
+                XuiViewportControl.BitmapTextDrawingForTesting(
+                    node,
+                    new Rect(0, 0, 64, 24),
+                    font);
+            DrawingVisual visual = new();
+            using (DrawingContext context = visual.RenderOpen())
+            {
+                context.DrawDrawing(drawing);
+            }
+
+            RenderTargetBitmap bitmap = new(
+                64,
+                24,
+                96,
+                96,
+                PixelFormats.Pbgra32);
+            bitmap.Render(visual);
+            int stride = bitmap.PixelWidth * 4;
+            byte[] pixels = new byte[stride * bitmap.PixelHeight];
+            bitmap.CopyPixels(pixels, stride, 0);
+            return pixels;
+        }
+
+        static int CountAlpha(byte[] pixels)
+        {
+            int count = 0;
+            for (int offset = 3; offset < pixels.Length; offset += 4)
+            {
+                if (pixels[offset] > 0)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void SystemAndBitmapTextPathsUsePerRunGlyphColors()
@@ -235,8 +365,77 @@ public sealed class WpfSmokeTests
         (double hierarchy, double inspector, double timeline) =
             window.PaneSizesForTesting;
         Assert.AreEqual(300, hierarchy, 0.5);
-        Assert.AreEqual(360, inspector, 0.5);
+        Assert.AreEqual(440, inspector, 0.5);
         Assert.AreEqual(250, timeline, 0.5);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void SaveCompletionMarshalsDocumentEventsBackToTheWindowDispatcher()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        using TestDirectory directory = new();
+        string path = directory.File("save-thread.xui");
+        File.WriteAllText(
+            path,
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<MyText><Properties><Id>T</Id><Width>100</Width><Height>20</Height>" +
+            "<Text>Before</Text></Properties></MyText></XuiCanvas>");
+        XuiDocument document = XuiDocument.OpenAsync(path)
+            .GetAwaiter()
+            .GetResult();
+        XuiSyntaxNode text =
+            XuiModelReader.VisualDescendants(document.Root).Single();
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        window.SelectNodeKeysForTesting([text.Key]);
+        window.SetInspectorValueForTesting("Text", "After");
+        Assert.IsTrue(document.IsDirty);
+
+        SynchronizationContext? priorContext = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(
+            new DispatcherSynchronizationContext(window.Dispatcher));
+        try
+        {
+            Task<bool> save = window.SaveDocumentForTesting();
+            PumpDispatcherUntilCompleted(window.Dispatcher, save);
+            Assert.IsTrue(save.GetAwaiter().GetResult());
+            DrainDispatcher(window.Dispatcher);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(priorContext);
+        }
+
+        Assert.IsFalse(document.IsDirty);
+        Assert.IsFalse(document.History.CanUndo);
+        StringAssert.Contains(File.ReadAllText(path), "<Text>After</Text>");
+        StringAssert.Contains(window.Title, "save-thread.xui");
+
+        static void PumpDispatcherUntilCompleted(
+            Dispatcher dispatcher,
+            Task task)
+        {
+            DispatcherFrame frame = new();
+            _ = task.ContinueWith(
+                _ => dispatcher.BeginInvoke(
+                    DispatcherPriority.Send,
+                    new Action(() => frame.Continue = false)),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            Dispatcher.PushFrame(frame);
+        }
+
+        static void DrainDispatcher(Dispatcher dispatcher)
+        {
+            DispatcherFrame frame = new();
+            _ = dispatcher.BeginInvoke(
+                DispatcherPriority.ApplicationIdle,
+                new Action(() => frame.Continue = false));
+            Dispatcher.PushFrame(frame);
+        }
     }
 
     [STATestMethod]
@@ -1875,6 +2074,26 @@ public sealed class WpfSmokeTests
     }
 
     [TestMethod]
+    public void LegacyDefaultInspectorWidthMigratesWithoutOverwritingCustomWidth()
+    {
+        EditorSettings legacy = EditorSettingsStore.Deserialize(
+            """{"InspectorWidth":360}""");
+        Assert.AreEqual(
+            EditorSettings.DefaultInspectorWidth,
+            legacy.InspectorWidth);
+        Assert.AreEqual(
+            EditorSettings.CurrentInspectorLayoutVersion,
+            legacy.InspectorLayoutVersion);
+
+        EditorSettings custom = EditorSettingsStore.Deserialize(
+            """{"InspectorWidth":377}""");
+        Assert.AreEqual(377, custom.InspectorWidth);
+        Assert.AreEqual(
+            EditorSettings.CurrentInspectorLayoutVersion,
+            custom.InspectorLayoutVersion);
+    }
+
+    [TestMethod]
     public void ExternalModXuiDiscoversSiblingLocaleRoot()
     {
         using TestDirectory directory = new();
@@ -2073,6 +2292,248 @@ public sealed class WpfSmokeTests
                 document.SyntaxTree.FindByKey(image.Key)!,
                 document.Text,
                 "Opacity"));
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void SemanticTextStyleEditsImmediatelyRefreshLegacyAndStandalonePreview()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>200</Width><Height>100</Height></Properties>" +
+            "<MyText><Properties><Id>Legacy</Id><Width>100</Width><Height>30</Height>" +
+            "<Text>Legacy</Text><TextStyle>1</TextStyle></Properties></MyText>" +
+            "<MyText><Properties><Id>Standalone</Id><Width>100</Width><Height>30</Height>" +
+            "<Text>Standalone</Text><TextStyle>1</TextStyle>" +
+            "<Italic>false</Italic><Underline>false</Underline>" +
+            "</Properties></MyText></XuiCanvas>");
+        XuiSyntaxNode[] textNodes =
+            XuiModelReader.VisualDescendants(document.Root).ToArray();
+        XuiSyntaxNode legacy = textNodes.Single(node =>
+            XuiModelReader.GetId(node, document.Text) == "Legacy");
+        XuiSyntaxNode standalone = textNodes.Single(node =>
+            XuiModelReader.GetId(node, document.Text) == "Standalone");
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+
+        window.SelectNodeKeysForTesting([legacy.Key]);
+        window.SetSemanticTextFlagForTesting(
+            XuiKnownTextStyle.Italic,
+            enabled: true);
+        window.SetSemanticTextFlagForTesting(
+            XuiKnownTextStyle.Underline,
+            enabled: true);
+        XuiSyntaxNode currentLegacy =
+            document.SyntaxTree.FindByKey(legacy.Key)!;
+        Assert.AreEqual(
+            "11",
+            XuiModelReader.GetPropertyValue(
+                currentLegacy,
+                document.Text,
+                "TextStyle"));
+        XuiRenderNode renderedLegacy =
+            window.ViewportForTesting.FrameForTesting!.Nodes
+                .Single(static node => node.Id == "Legacy");
+        Assert.IsTrue(renderedLegacy.Italic);
+        Assert.IsTrue(renderedLegacy.Underline);
+
+        window.SelectNodeKeysForTesting([standalone.Key]);
+        window.SetSemanticTextFlagForTesting(
+            XuiKnownTextStyle.Italic,
+            enabled: true);
+        window.SetSemanticTextFlagForTesting(
+            XuiKnownTextStyle.Underline,
+            enabled: true);
+        XuiSyntaxNode currentStandalone =
+            document.SyntaxTree.FindByKey(standalone.Key)!;
+        Assert.AreEqual(
+            "1",
+            XuiModelReader.GetPropertyValue(
+                currentStandalone,
+                document.Text,
+                "TextStyle"));
+        Assert.AreEqual(
+            "true",
+            XuiModelReader.GetPropertyValue(
+                currentStandalone,
+                document.Text,
+                "Italic"));
+        Assert.AreEqual(
+            "true",
+            XuiModelReader.GetPropertyValue(
+                currentStandalone,
+                document.Text,
+                "Underline"));
+        XuiRenderNode renderedStandalone =
+            window.ViewportForTesting.FrameForTesting!.Nodes
+                .Single(static node => node.Id == "Standalone");
+        Assert.IsTrue(renderedStandalone.Italic);
+        Assert.IsTrue(renderedStandalone.Underline);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void InspectorPropertyPasteFiltersEachDestinationAndUndoesAsOneEdit()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>300</Width><Height>160</Height></Properties>" +
+            "<MyText><Properties><Id>Source</Id><Width>100</Width><Height>30</Height>" +
+            "<Position>10,20,3</Position><Text>Hello</Text>" +
+            "<TextColor>0xff123456</TextColor><Font>boxed_r_10</Font>" +
+            "</Properties></MyText>" +
+            "<MyText><Properties><Id>TextDest</Id><Width>100</Width><Height>30</Height>" +
+            "<Position>0,0,0</Position><Text>Old</Text>" +
+            "<TextColor>0xffffffff</TextColor><Font>boxed_r_20</Font>" +
+            "</Properties></MyText>" +
+            "<MyImage><Properties><Id>ImageDest</Id><Width>40</Width><Height>40</Height>" +
+            "<Position>1,2,0</Position></Properties></MyImage></XuiCanvas>");
+        XuiSyntaxNode[] nodes =
+            XuiModelReader.VisualDescendants(document.Root).ToArray();
+        XuiSyntaxNode source = nodes.Single(node =>
+            XuiModelReader.GetId(node, document.Text) == "Source");
+        XuiSyntaxNode textDestination = nodes.Single(node =>
+            XuiModelReader.GetId(node, document.Text) == "TextDest");
+        XuiSyntaxNode imageDestination = nodes.Single(node =>
+            XuiModelReader.GetId(node, document.Text) == "ImageDest");
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+
+        window.SelectNodeKeysForTesting([source.Key]);
+        window.CopyInspectorPropertiesForTesting(
+        [
+            "Id",
+            "Position",
+            "Text",
+            "TextColor",
+            "Font",
+        ]);
+        Assert.AreEqual(4, window.CopiedInspectorPropertyCountForTesting);
+
+        window.SelectNodeKeysForTesting(
+            [textDestination.Key, imageDestination.Key]);
+        XuiInspectorPropertyPasteResult result =
+            window.PasteInspectorPropertiesForTesting();
+        Assert.AreEqual(2, result.DestinationCount);
+        Assert.AreEqual(5, result.PropertyAssignments);
+        Assert.AreEqual(3, result.IncompatibleAssignments);
+        Assert.AreEqual(0, result.UnchangedAssignments);
+        Assert.AreEqual(
+            "Paste 4 inspector properties",
+            document.History.UndoDescription);
+
+        XuiSyntaxNode currentText = document.SyntaxTree.FindByKey(
+            textDestination.Key)!;
+        XuiSyntaxNode currentImage = document.SyntaxTree.FindByKey(
+            imageDestination.Key)!;
+        Assert.AreEqual(
+            "10,20,3",
+            XuiModelReader.GetPropertyValue(
+                currentText,
+                document.Text,
+                "Position"));
+        Assert.AreEqual(
+            "Hello",
+            XuiModelReader.GetPropertyValue(
+                currentText,
+                document.Text,
+                "Text"));
+        Assert.AreEqual(
+            "0xff123456",
+            XuiModelReader.GetPropertyValue(
+                currentText,
+                document.Text,
+                "TextColor"));
+        Assert.AreEqual(
+            "boxed_r_10",
+            XuiModelReader.GetPropertyValue(
+                currentText,
+                document.Text,
+                "Font"));
+        Assert.AreEqual(
+            "10,20,3",
+            XuiModelReader.GetPropertyValue(
+                currentImage,
+                document.Text,
+                "Position"));
+        Assert.IsNull(XuiModelReader.GetPropertyValue(
+            currentImage,
+            document.Text,
+            "Text"));
+        Assert.IsNull(XuiModelReader.GetPropertyValue(
+            currentImage,
+            document.Text,
+            "TextColor"));
+        Assert.IsNull(XuiModelReader.GetPropertyValue(
+            currentImage,
+            document.Text,
+            "Font"));
+        Assert.AreEqual(
+            "ImageDest",
+            XuiModelReader.GetId(currentImage, document.Text));
+
+        document.Undo();
+        currentText = document.SyntaxTree.FindByKey(textDestination.Key)!;
+        currentImage = document.SyntaxTree.FindByKey(imageDestination.Key)!;
+        Assert.AreEqual(
+            "0,0,0",
+            XuiModelReader.GetPropertyValue(
+                currentText,
+                document.Text,
+                "Position"));
+        Assert.AreEqual(
+            "Old",
+            XuiModelReader.GetPropertyValue(
+                currentText,
+                document.Text,
+                "Text"));
+        Assert.AreEqual(
+            "1,2,0",
+            XuiModelReader.GetPropertyValue(
+                currentImage,
+                document.Text,
+                "Position"));
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void AdvancedPropertyCopyDefaultsToAuthoredValuesAndProtectsIdentity()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<MyText><Properties><Id>Source</Id><Text>Hello</Text>" +
+            "</Properties></MyText></XuiCanvas>");
+        XuiSyntaxNode source =
+            XuiModelReader.VisualDescendants(document.Root).Single();
+        IReadOnlyList<XuiCatalogPropertySelection> properties =
+            XuiClassCatalog.Default.SelectProperties(
+                [source],
+                document.Text,
+                includeAdvanced: true);
+        CopyXuiPropertiesWindow dialog = new(
+            "Source",
+            "MyText",
+            properties);
+
+        XuiCopyPropertyOption id = dialog.VisibleOptionsForTesting
+            .Single(option => option.Name == "Id");
+        XuiCopyPropertyOption text = dialog.VisibleOptionsForTesting
+            .Single(option => option.Name == "Text");
+        XuiCopyPropertyOption opacity = dialog.VisibleOptionsForTesting
+            .Single(option => option.Name == "Opacity");
+        Assert.IsFalse(id.CanCopy);
+        Assert.IsFalse(id.IsSelected);
+        Assert.IsTrue(text.IsSelected);
+        Assert.IsFalse(opacity.IsSelected);
+
+        dialog.SelectPropertiesForTesting(["Id", "Opacity"]);
+        Assert.IsFalse(id.IsSelected);
+        Assert.IsFalse(text.IsSelected);
+        Assert.IsTrue(opacity.IsSelected);
     }
 
     [STATestMethod]

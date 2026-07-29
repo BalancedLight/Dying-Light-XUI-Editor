@@ -83,6 +83,7 @@ public partial class MainWindow : Window, IDisposable
     private double _playbackRemainder;
     private long _layoutEvaluationCount;
     private string? _copiedKeyFrameXml;
+    private XuiInspectorPropertyClipboard? _propertyClipboard;
     private string? _selectedNamedFrameKey;
     private string? _rawXmlLoadedNodeKey;
     private long _rawXmlLoadedRevision = -1;
@@ -246,6 +247,43 @@ public partial class MainWindow : Window, IDisposable
         RefreshAll();
     }
 
+    internal Task<bool> SaveDocumentForTesting() =>
+        SaveDocumentAsync(forceSaveAs: false);
+
+    internal int CopiedInspectorPropertyCountForTesting =>
+        _propertyClipboard?.Properties.Count ?? 0;
+
+    internal void CopyInspectorPropertiesForTesting(
+        IEnumerable<string> propertyNames)
+    {
+        if (!TryGetSinglePropertySource(
+                out _,
+                out string sourceDisplayName,
+                out string sourceClassName,
+                out IReadOnlyList<XuiCatalogPropertySelection> properties))
+        {
+            throw new InvalidOperationException(
+                "A single source element must be selected.");
+        }
+
+        HashSet<string> names = propertyNames.ToHashSet(
+            StringComparer.Ordinal);
+        SetPropertyClipboard(
+            sourceDisplayName,
+            sourceClassName,
+            properties
+                .Where(property =>
+                    names.Contains(property.Definition.Name) &&
+                    XuiPropertyTransfer.CanCopy(
+                        property.Definition.Name))
+                .Select(ToCopiedProperty)
+                .ToArray());
+    }
+
+    internal XuiInspectorPropertyPasteResult
+        PasteInspectorPropertiesForTesting() =>
+        PasteInspectorProperties();
+
     internal BitmapSource ExportTransparentPngForTesting(
         string path,
         double scale = SnapshotExportScale) =>
@@ -370,6 +408,23 @@ public partial class MainWindow : Window, IDisposable
                     StringComparison.Ordinal));
         row.Value = value;
         CommitInspectorValue(row);
+    }
+
+    internal void SetSemanticTextFlagForTesting(
+        XuiKnownTextStyle style,
+        bool enabled)
+    {
+        string propertyName = style switch
+        {
+            XuiKnownTextStyle.Bold => "Bold",
+            XuiKnownTextStyle.Italic => "Italic",
+            XuiKnownTextStyle.Underline => "Underline",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(style),
+                style,
+                "Only semantic text-format flags are supported."),
+        };
+        ApplyTextStyleFlag(propertyName, style, enabled);
     }
 
     internal void ResetInspectorPropertyForTesting(string propertyName)
@@ -2659,6 +2714,374 @@ public partial class MainWindow : Window, IDisposable
         _document.Execute(command);
     }
 
+    private void InspectorList_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs eventArgs) =>
+        UpdatePropertyTransferChrome();
+
+    private void InspectorCopySingleProperty_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (sender is not Button
+            {
+                Tag: InspectorPropertyRow row,
+            })
+        {
+            return;
+        }
+
+        if (row.IsMixed || row.Value == MixedValue)
+        {
+            StatusText.Text =
+                "A mixed multi-selection value cannot be copied as one property.";
+            return;
+        }
+
+        if (!XuiPropertyTransfer.CanCopy(row.Name))
+        {
+            StatusText.Text =
+                $"{row.Name} is protected and cannot be copied between elements.";
+            return;
+        }
+
+        if (row.HasError)
+        {
+            StatusText.Text =
+                $"Fix the invalid {row.Name} value before copying it.";
+            return;
+        }
+
+        SelectionSnapshot selection = CaptureSelection();
+        string? sourceId = selection.Nodes.Length == 1
+            ? XuiModelReader.GetId(
+                selection.Nodes[0],
+                _document!.Text)
+            : null;
+        string sourceDisplayName = selection.Nodes.Length == 1
+            ? !string.IsNullOrWhiteSpace(sourceId)
+                ? sourceId
+                : selection.Nodes[0].Name
+            : $"{selection.Nodes.Length:N0} selected elements";
+        string sourceClassName = selection.Nodes.Length == 1
+            ? ClassCatalog.ResolveClass(
+                selection.Nodes[0],
+                _document!.Text).Class.Name
+            : "common selection";
+        SetPropertyClipboard(
+            sourceDisplayName,
+            sourceClassName,
+            [
+                new XuiCopiedInspectorProperty(
+                    row.Name,
+                    row.Value,
+                    row.Category,
+                    row.Definition?.Type ??
+                    XuiPropertyType.Textual,
+                    row.IsAuthored),
+            ]);
+    }
+
+    private void CopyInspectorProperties_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (!TryGetSinglePropertySource(
+                out _,
+                out string sourceDisplayName,
+                out string sourceClassName,
+                out IReadOnlyList<XuiCatalogPropertySelection> properties))
+        {
+            StatusText.Text =
+                "Select one source element before copying its properties.";
+            return;
+        }
+
+        SetPropertyClipboard(
+            sourceDisplayName,
+            sourceClassName,
+            properties
+                .Where(property =>
+                    property.IsAuthored &&
+                    XuiPropertyTransfer.CanCopy(
+                        property.Definition.Name))
+                .Select(ToCopiedProperty)
+                .ToArray());
+    }
+
+    private void AdvancedCopyInspectorProperties_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (!TryGetSinglePropertySource(
+                out _,
+                out string sourceDisplayName,
+                out string sourceClassName,
+                out IReadOnlyList<XuiCatalogPropertySelection> properties))
+        {
+            StatusText.Text =
+                "Select one source element before choosing properties to copy.";
+            return;
+        }
+
+        CopyXuiPropertiesWindow dialog = new(
+            sourceDisplayName,
+            sourceClassName,
+            properties)
+        {
+            Owner = this,
+        };
+        if (dialog.ShowDialog() == true)
+        {
+            SetPropertyClipboard(
+                sourceDisplayName,
+                sourceClassName,
+                dialog.SelectedProperties);
+        }
+    }
+
+    private void PasteInspectorProperties_Click(
+        object sender,
+        RoutedEventArgs eventArgs) =>
+        PasteInspectorProperties();
+
+    private bool TryGetSinglePropertySource(
+        [NotNullWhen(true)] out XuiSyntaxNode? source,
+        out string sourceDisplayName,
+        out string sourceClassName,
+        out IReadOnlyList<XuiCatalogPropertySelection> properties)
+    {
+        source = null;
+        sourceDisplayName = string.Empty;
+        sourceClassName = string.Empty;
+        properties = [];
+        if (_document is null ||
+            SelectedNodes() is not [XuiSyntaxNode selected])
+        {
+            return false;
+        }
+
+        source = selected;
+        string? id = XuiModelReader.GetId(source, _document.Text);
+        sourceDisplayName = string.IsNullOrWhiteSpace(id)
+            ? source.Name
+            : id;
+        sourceClassName = ClassCatalog.ResolveClass(
+            source,
+            _document.Text).Class.Name;
+        properties = ClassCatalog.SelectProperties(
+            [source],
+            _document.Text,
+            includeAdvanced: true);
+        return true;
+    }
+
+    private void SetPropertyClipboard(
+        string sourceDisplayName,
+        string sourceClassName,
+        IReadOnlyList<XuiCopiedInspectorProperty> properties)
+    {
+        XuiCopiedInspectorProperty[] copyable = properties
+            .Where(property =>
+                XuiPropertyTransfer.CanCopy(property.Name))
+            .GroupBy(
+                static property => property.Name,
+                StringComparer.Ordinal)
+            .Select(static group => group.Last())
+            .OrderBy(
+                static property => property.Category,
+                StringComparer.Ordinal)
+            .ThenBy(
+                static property => property.Name,
+                StringComparer.Ordinal)
+            .ToArray();
+        if (copyable.Length == 0)
+        {
+            _propertyClipboard = null;
+            StatusText.Text =
+                "The source has no copyable properties. Id and ClassOverride are protected.";
+            UpdatePropertyTransferChrome();
+            return;
+        }
+
+        _propertyClipboard = new XuiInspectorPropertyClipboard(
+            sourceDisplayName,
+            sourceClassName,
+            copyable);
+        StatusText.Text = copyable.Length == 1
+            ? $"Copied {copyable[0].Name} from {sourceDisplayName}"
+            : $"Copied {copyable.Length:N0} properties from {sourceDisplayName}";
+        UpdatePropertyTransferChrome();
+    }
+
+    private XuiInspectorPropertyPasteResult PasteInspectorProperties()
+    {
+        if (_document is null ||
+            _propertyClipboard is not
+                XuiInspectorPropertyClipboard clipboard)
+        {
+            StatusText.Text =
+                "Copy one or more inspector properties before pasting.";
+            return new XuiInspectorPropertyPasteResult(0, 0, 0, 0);
+        }
+
+        XuiSyntaxNode[] destinations = SelectedNodes();
+        if (destinations.Length == 0)
+        {
+            StatusText.Text =
+                "Select at least one destination element before pasting.";
+            return new XuiInspectorPropertyPasteResult(0, 0, 0, 0);
+        }
+
+        List<PropertyPasteAssignment> assignments = [];
+        int incompatible = 0;
+        int unchanged = 0;
+        foreach (XuiSyntaxNode destination in destinations)
+        {
+            if (IsLocked(destination.Key))
+            {
+                incompatible += clipboard.Properties.Count;
+                continue;
+            }
+
+            foreach (XuiCopiedInspectorProperty property in
+                     clipboard.Properties)
+            {
+                if (!XuiPropertyTransfer.IsApplicable(
+                        ClassCatalog,
+                        destination,
+                        _document.Text,
+                        property.Name) ||
+                    ValidateProperty(
+                        property.Name,
+                        property.Value) is not null)
+                {
+                    incompatible++;
+                    continue;
+                }
+
+                string? currentValue =
+                    XuiModelReader.GetPropertyValue(
+                        destination,
+                        _document.Text,
+                        property.Name);
+                if (string.Equals(
+                        currentValue,
+                        property.Value,
+                        StringComparison.Ordinal))
+                {
+                    unchanged++;
+                    continue;
+                }
+
+                assignments.Add(new PropertyPasteAssignment(
+                    destination.Key,
+                    property.Name,
+                    property.Value));
+            }
+        }
+
+        if (assignments.Count > 0)
+        {
+            string description = clipboard.Properties.Count == 1
+                ? $"Paste {clipboard.Properties[0].Name}"
+                : $"Paste {clipboard.Properties.Count:N0} inspector properties";
+            bool pasted = ExecuteBatch(
+                () =>
+                {
+                    foreach (PropertyPasteAssignment assignment in
+                             assignments)
+                    {
+                        XuiSyntaxNode? current =
+                            _document.SyntaxTree.FindByKey(
+                                assignment.NodeKey);
+                        if (current is not null)
+                        {
+                            SetNodeProperty(
+                                current,
+                                assignment.PropertyName,
+                                assignment.Value);
+                        }
+                    }
+                },
+                description);
+            if (!pasted)
+            {
+                return new XuiInspectorPropertyPasteResult(
+                    destinations.Length,
+                    0,
+                    incompatible,
+                    unchanged);
+            }
+        }
+
+        XuiInspectorPropertyPasteResult result = new(
+            destinations.Length,
+            assignments.Count,
+            incompatible,
+            unchanged);
+        StatusText.Text = assignments.Count == 0
+            ? incompatible > 0
+                ? $"Nothing pasted · {incompatible:N0} incompatible or locked · {unchanged:N0} already matched"
+                : "Nothing pasted · every applicable value already matched"
+            : $"Pasted {assignments.Count:N0} property value(s) to " +
+              $"{destinations.Length:N0} element(s) · " +
+              $"{incompatible:N0} incompatible or locked · " +
+              $"{unchanged:N0} already matched";
+        return result;
+    }
+
+    private void UpdatePropertyTransferChrome()
+    {
+        bool singleSource = _document is not null &&
+                            _selectedKeys.Count == 1;
+        bool hasDestination = _document is not null &&
+                              _selectedKeys.Count > 0;
+        bool hasClipboard =
+            _propertyClipboard?.Properties.Count > 0;
+        CopyInspectorPropertiesButton.IsEnabled = singleSource;
+        AdvancedCopyInspectorPropertiesButton.IsEnabled = singleSource;
+        PasteInspectorPropertiesButton.IsEnabled =
+            hasDestination && hasClipboard;
+        CopyInspectorPropertiesMenuItem.IsEnabled = singleSource;
+        AdvancedCopyInspectorPropertiesMenuItem.IsEnabled = singleSource;
+        PasteInspectorPropertiesMenuItem.IsEnabled =
+            hasDestination && hasClipboard;
+        PropertyClipboardText.Text = _propertyClipboard is null
+            ? "No copied properties"
+            : $"{_propertyClipboard.Properties.Count:N0} copied from " +
+              _propertyClipboard.SourceDisplayName;
+        PropertyClipboardText.ToolTip = _propertyClipboard is null
+            ? "Copy authored properties from a source element."
+            : BuildPropertyClipboardToolTip(_propertyClipboard);
+    }
+
+    private static string BuildPropertyClipboardToolTip(
+        XuiInspectorPropertyClipboard clipboard)
+    {
+        const int visiblePropertyLimit = 12;
+        IEnumerable<string> lines = clipboard.Properties
+            .Take(visiblePropertyLimit)
+            .Select(property =>
+                $"{property.Name} = {property.Value}");
+        if (clipboard.Properties.Count > visiblePropertyLimit)
+        {
+            lines = lines.Append(
+                $"…and {clipboard.Properties.Count - visiblePropertyLimit:N0} more");
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static XuiCopiedInspectorProperty ToCopiedProperty(
+        XuiCatalogPropertySelection property) =>
+        new(
+            property.Definition.Name,
+            property.EffectiveValue,
+            property.Definition.Category,
+            property.Definition.Type,
+            property.IsAuthored);
+
     private void InspectorValue_LostFocus(
         object sender,
         RoutedEventArgs eventArgs)
@@ -4097,6 +4520,26 @@ public partial class MainWindow : Window, IDisposable
         }
         else if (!editingText &&
                  modifiers == ModifierKeys.Control &&
+                 eventArgs.Key == Key.C)
+        {
+            CopyInspectorProperties_Click(this, new RoutedEventArgs());
+        }
+        else if (!editingText &&
+                 modifiers == (ModifierKeys.Control | ModifierKeys.Shift) &&
+                 eventArgs.Key == Key.C)
+        {
+            AdvancedCopyInspectorProperties_Click(
+                this,
+                new RoutedEventArgs());
+        }
+        else if (!editingText &&
+                 modifiers == ModifierKeys.Control &&
+                 eventArgs.Key == Key.V)
+        {
+            PasteInspectorProperties_Click(this, new RoutedEventArgs());
+        }
+        else if (!editingText &&
+                 modifiers == ModifierKeys.Control &&
                  eventArgs.Key == Key.Z)
         {
             Undo_Click(this, new RoutedEventArgs());
@@ -4552,6 +4995,18 @@ public partial class MainWindow : Window, IDisposable
 
     private void Document_Changed(object? sender, EventArgs eventArgs)
     {
+        if (!Dispatcher.CheckAccess())
+        {
+            if (!_disposed && !Dispatcher.HasShutdownStarted)
+            {
+                _ = Dispatcher.InvokeAsync(
+                    () => Document_Changed(sender, eventArgs),
+                    DispatcherPriority.DataBind);
+            }
+
+            return;
+        }
+
         _recoveryTimer.Stop();
         if (_document?.IsDirty == true)
         {
@@ -4567,8 +5022,22 @@ public partial class MainWindow : Window, IDisposable
         RefreshAll();
     }
 
-    private void History_HistoryChanged(object? sender, EventArgs eventArgs) =>
+    private void History_HistoryChanged(object? sender, EventArgs eventArgs)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            if (!_disposed && !Dispatcher.HasShutdownStarted)
+            {
+                _ = Dispatcher.InvokeAsync(
+                    UpdateChrome,
+                    DispatcherPriority.DataBind);
+            }
+
+            return;
+        }
+
         UpdateChrome();
+    }
 
     private void RefreshAll()
     {
@@ -5767,6 +6236,7 @@ public partial class MainWindow : Window, IDisposable
         UpdateNavigationConnections();
         SelectionSnapshot selection = CaptureSelection();
         BuildInspector(selection);
+        UpdatePropertyTransferChrome();
         ResolveTimelineScopeFromSelection(selection);
         RefreshPreviewState(selection);
         UpdateTimelineData(selection);
@@ -6413,10 +6883,11 @@ public partial class MainWindow : Window, IDisposable
         UpdateSelectionSurfaces();
     }
 
-    private void ExecuteBatch(
+    private bool ExecuteBatch(
         Action edits,
         string description = "Edit selection")
     {
+        bool succeeded = true;
         _suppressRefresh = true;
         _refreshPending = false;
         try
@@ -6436,6 +6907,7 @@ public partial class MainWindow : Window, IDisposable
             ArgumentException)
         {
             _refreshPending = true;
+            succeeded = false;
             StatusText.Text =
                 $"Edit rejected; the document was restored: {exception.Message}";
         }
@@ -6447,6 +6919,8 @@ public partial class MainWindow : Window, IDisposable
                 RefreshAll();
             }
         }
+
+        return succeeded;
     }
 
     private XuiSyntaxNode? FindNodeAtStart(int start) =>
@@ -6641,7 +7115,11 @@ public partial class MainWindow : Window, IDisposable
             return false;
         }
         catch (Exception exception) when (
-            exception is IOException or XuiParseException)
+            exception is IOException or
+            XuiParseException or
+            InvalidOperationException or
+            ArgumentException or
+            NotSupportedException)
         {
             MessageBox.Show(
                 this,
@@ -6754,6 +7232,7 @@ public partial class MainWindow : Window, IDisposable
                          Viewport.HasRenderedFrame;
         ExportPngButton.IsEnabled = canExport;
         ExportPngMenuItem.IsEnabled = canExport;
+        UpdatePropertyTransferChrome();
         UndoMenuItem.Header = _document?.History.UndoDescription is string undo
             ? $"_Undo {undo}"
             : "_Undo";
@@ -7186,6 +7665,11 @@ public partial class MainWindow : Window, IDisposable
 
     private sealed record TimelineVectorEdit(
         string PropertyNodeKey,
+        string Value);
+
+    private sealed record PropertyPasteAssignment(
+        string NodeKey,
+        string PropertyName,
         string Value);
 
     public void Dispose()

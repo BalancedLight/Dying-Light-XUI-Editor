@@ -72,6 +72,56 @@ public sealed class Chrome6SemanticTests
     }
 
     [TestMethod]
+    public void PropertyTransferProtectsIdentityAndFiltersDestinationSchema()
+    {
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<MyText><Properties><Id>Text</Id></Properties></MyText>" +
+            "<MyImage><Properties><Id>Image</Id><CustomFlag>x</CustomFlag>" +
+            "</Properties></MyImage></XuiCanvas>");
+        XuiSyntaxNode text = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Text");
+        XuiSyntaxNode image = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node =>
+                XuiModelReader.GetId(node, document.Text) == "Image");
+        XuiClassCatalog catalog = XuiClassCatalog.Default;
+
+        Assert.IsFalse(XuiPropertyTransfer.CanCopy("Id"));
+        Assert.IsFalse(XuiPropertyTransfer.CanCopy("ClassOverride"));
+        Assert.IsTrue(XuiPropertyTransfer.IsApplicable(
+            catalog,
+            text,
+            document.Text,
+            "Position"));
+        Assert.IsTrue(XuiPropertyTransfer.IsApplicable(
+            catalog,
+            image,
+            document.Text,
+            "Position"));
+        Assert.IsTrue(XuiPropertyTransfer.IsApplicable(
+            catalog,
+            text,
+            document.Text,
+            "Text"));
+        Assert.IsFalse(XuiPropertyTransfer.IsApplicable(
+            catalog,
+            image,
+            document.Text,
+            "Text"));
+        Assert.IsFalse(XuiPropertyTransfer.IsApplicable(
+            catalog,
+            text,
+            document.Text,
+            "CustomFlag"));
+        Assert.IsTrue(XuiPropertyTransfer.IsApplicable(
+            catalog,
+            image,
+            document.Text,
+            "CustomFlag"));
+    }
+
+    [TestMethod]
     public void TextStyleKnownMutationsPreserveEveryOtherSixteenBitFlag()
     {
         XuiKnownTextStyle[] flags =
