@@ -1,6 +1,14 @@
-# Dying Light XUI Editor
+<p align="center">
+  <img
+    src="https://github.com/user-attachments/assets/1cb1d515-c755-4456-bd4c-3ac5e4373d8e"
+    alt="XUI Editor logo"
+    width="1280"
+  />
+</p>
 
-A standalone Windows editor for Dying Light XUI documents.
+<p align="center">
+   A standalone Windows editor for Dying Light XUI documents.
+</p>
 
 ## Run the portable build
 You can either run the release, an artifact from the [Actions](https://github.com/BalancedLight/Dying-Light-XUI-Editor/actions) page, or build the executable yourself.
