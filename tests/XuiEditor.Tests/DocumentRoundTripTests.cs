@@ -150,7 +150,7 @@ public sealed class DocumentRoundTripTests
     }
 
     [TestMethod]
-    public async Task ExternalModificationBlocksAtomicSave()
+    public async Task ExplicitSaveOverwritesAnExternalModification()
     {
         using TestDirectory directory = new();
         string path = directory.File("conflict.xui");
@@ -166,10 +166,11 @@ public sealed class DocumentRoundTripTests
             "2"));
         await File.WriteAllTextAsync(path, "<XuiCanvas><Properties><Width>3</Width></Properties></XuiCanvas>");
 
-        IOException exception = await Assert.ThrowsExactlyAsync<IOException>(
-            () => document.SaveAsync());
-        StringAssert.Contains(exception.Message, "changed on disk");
-        StringAssert.Contains(await File.ReadAllTextAsync(path), "<Width>3</Width>");
+        XuiSaveResult result = await document.SaveAsync();
+
+        Assert.AreEqual(XuiSaveDisposition.Saved, result.Disposition);
+        StringAssert.Contains(await File.ReadAllTextAsync(path), "<Width>2</Width>");
+        Assert.IsFalse(document.IsDirty);
     }
 
     [TestMethod]

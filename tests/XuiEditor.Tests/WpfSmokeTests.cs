@@ -29,6 +29,9 @@ namespace XuiEditor.Tests;
 [TestClass]
 public sealed class WpfSmokeTests
 {
+    private static readonly string[] AlignmentTags =
+        ["Left", "Center", "Right", "Top", "Bottom"];
+
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void MainWindowStartsCenteredOnPrimaryWorkArea()
@@ -1241,6 +1244,46 @@ public sealed class WpfSmokeTests
 
         document.Undo();
         Assert.AreEqual(source, document.Text);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void ViewportContextMenuOffersAllAlignmentCommands()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>80</Height></Properties>" +
+            "<AdvGroup><Properties><Id>Parent</Id><Width>60</Width><Height>40</Height>" +
+            "</Properties><MyImage><Properties><Id>Child</Id><Width>20</Width><Height>10</Height>" +
+            "<Position>3,4,0</Position></Properties></MyImage></AdvGroup></XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        XuiSyntaxNode child = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node => XuiModelReader.GetId(node, document.Text) == "Child");
+        window.SelectNodeKeysForTesting([child.Key]);
+
+        ContextMenu menu = window.Viewport.ContextMenu!;
+        MenuItem alignment = menu.Items.OfType<MenuItem>().Single();
+        MenuItem[] commands = alignment.Items
+            .OfType<MenuItem>()
+            .ToArray();
+
+        CollectionAssert.AreEqual(
+            AlignmentTags,
+            commands.Select(static item => (string)item.Tag).ToArray());
+
+        commands.Single(item => Equals(item.Tag, "Center"))
+            .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        XuiSyntaxNode centeredChild = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node => XuiModelReader.GetId(node, document.Text) == "Child");
+        Assert.AreEqual(
+            "20.000000,15.000000,0.000000",
+            XuiModelReader.GetPropertyValue(
+                centeredChild,
+                document.Text,
+                "Position"));
     }
 
     [STATestMethod]

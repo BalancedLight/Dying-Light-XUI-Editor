@@ -431,27 +431,10 @@
                     <Button Content="{DynamicResource Ui.Xaml.MainWindow.064}" ToolTip="{DynamicResource Ui.Xaml.MainWindow.065}"
                             Click="Redo_Click" />
                     <Separator Margin="5,3" />
-                    <Button Content="{DynamicResource Ui.Xaml.MainWindow.066}" ToolTip="{DynamicResource Ui.Xaml.MainWindow.067}"
-                            Click="Fit_Click" />
-                    <Button Content="100%" ToolTip="{DynamicResource Ui.Xaml.MainWindow.068}"
-                            Click="ActualPixels_Click" />
-                    <Button Content="−" ToolTip="{DynamicResource Ui.Xaml.MainWindow.069}"
-                            Click="ZoomOut_Click" />
-                    <Button Content="+" ToolTip="{DynamicResource Ui.Xaml.MainWindow.070}"
-                            Click="ZoomIn_Click" />
-                    <Separator Margin="5,3" />
-                    <Button x:Name="ExportPngButton"
-                            Content="{DynamicResource Ui.Xaml.MainWindow.071}"
-                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.072}"
-                            Click="ExportPng_Click" />
-                    <Separator Margin="5,3" />
-                    <ToggleButton x:Name="ToolbarSnap"
-                                  Content="{DynamicResource Ui.Xaml.MainWindow.073}"
-                                  Padding="10,5"
-                                  Margin="2"
-                                  Checked="ToolbarSnap_Changed"
-                                  Unchecked="ToolbarSnap_Changed" />
-                    <Separator Margin="5,3" />
+                    <TextBlock Text="{DynamicResource Ui.Command.AlignSelection}"
+                               Margin="4,0,3,0"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               VerticalAlignment="Center" />
                     <Button x:Name="AlignLeftButton"
                             Style="{StaticResource CompactButton}"
                             Content="←"
@@ -492,6 +475,27 @@
                             Tag="Bottom"
                             IsEnabled="False"
                             Click="AlignSelection_Click" />
+                    <Separator Margin="5,3" />
+                    <Button Content="{DynamicResource Ui.Xaml.MainWindow.066}" ToolTip="{DynamicResource Ui.Xaml.MainWindow.067}"
+                            Click="Fit_Click" />
+                    <Button Content="100%" ToolTip="{DynamicResource Ui.Xaml.MainWindow.068}"
+                            Click="ActualPixels_Click" />
+                    <Button Content="−" ToolTip="{DynamicResource Ui.Xaml.MainWindow.069}"
+                            Click="ZoomOut_Click" />
+                    <Button Content="+" ToolTip="{DynamicResource Ui.Xaml.MainWindow.070}"
+                            Click="ZoomIn_Click" />
+                    <Separator Margin="5,3" />
+                    <Button x:Name="ExportPngButton"
+                            Content="{DynamicResource Ui.Xaml.MainWindow.071}"
+                            ToolTip="{DynamicResource Ui.Xaml.MainWindow.072}"
+                            Click="ExportPng_Click" />
+                    <Separator Margin="5,3" />
+                    <ToggleButton x:Name="ToolbarSnap"
+                                  Content="{DynamicResource Ui.Xaml.MainWindow.073}"
+                                  Padding="10,5"
+                                  Margin="2"
+                                  Checked="ToolbarSnap_Changed"
+                                  Unchecked="ToolbarSnap_Changed" />
                     <Separator Margin="5,3" />
                     <TextBlock Text="{DynamicResource Ui.Xaml.MainWindow.074}"
                                Margin="4,0,3,0"
@@ -685,7 +689,30 @@
                                              NavigationEditRequested="Viewport_NavigationEditRequested"
                                              DragOver="Viewport_AssetDragOver"
                                              DragLeave="Viewport_AssetDragLeave"
-                                             Drop="Viewport_AssetDrop" />
+                                             Drop="Viewport_AssetDrop">
+                    <controls:XuiViewportControl.ContextMenu>
+                        <ContextMenu Opened="ViewportContextMenu_Opened">
+                            <MenuItem Header="{DynamicResource Ui.Command.AlignSelection}">
+                                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.206}"
+                                          Tag="Left"
+                                          Click="AlignSelection_Click" />
+                                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.207}"
+                                          Tag="Center"
+                                          Click="AlignSelection_Click" />
+                                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.208}"
+                                          Tag="Right"
+                                          Click="AlignSelection_Click" />
+                                <Separator />
+                                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.209}"
+                                          Tag="Top"
+                                          Click="AlignSelection_Click" />
+                                <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.210}"
+                                          Tag="Bottom"
+                                          Click="AlignSelection_Click" />
+                            </MenuItem>
+                        </ContextMenu>
+                    </controls:XuiViewportControl.ContextMenu>
+                </controls:XuiViewportControl>
                 <Grid x:Name="ViewportLoadingOverlay"
                       Panel.ZIndex="100"
                       Background="#F0000000"

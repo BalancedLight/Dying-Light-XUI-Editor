@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using XuiEditor.Core.Assets;
 using XuiEditor.Core.Diagnostics;
 
@@ -43,15 +42,13 @@ public sealed class XuiDocument
     private readonly XuiSyntaxParser _parser;
     private readonly XuiDocumentOptions _options;
     private string _baselineText;
-    private FileFingerprint? _openedFingerprint;
 
     private XuiDocument(
         XuiSyntaxParser parser,
         XuiSyntaxTree syntaxTree,
         string? path,
         XuiDocumentSource? source,
-        XuiDocumentOptions options,
-        FileFingerprint? openedFingerprint)
+        XuiDocumentOptions options)
     {
         _parser = parser;
         _options = options;
@@ -59,7 +56,6 @@ public sealed class XuiDocument
         Path = path;
         Source = source;
         _baselineText = syntaxTree.Source;
-        _openedFingerprint = openedFingerprint;
         History = new XuiCommandHistory(this);
     }
 
@@ -98,9 +94,6 @@ public sealed class XuiDocument
         byte[] bytes = await File.ReadAllBytesAsync(fullPath, cancellationToken).ConfigureAwait(false);
         XuiSyntaxParser parser = new();
         XuiSyntaxTree tree = parser.Parse(bytes);
-        FileFingerprint fingerprint = await FileFingerprint.CreateAsync(
-            fullPath,
-            cancellationToken).ConfigureAwait(false);
         return new XuiDocument(
             parser,
             tree,
@@ -110,8 +103,7 @@ public sealed class XuiDocument
                 fullPath,
                 null,
                 IsReadOnly: false),
-            options ?? new XuiDocumentOptions(),
-            fingerprint);
+            options ?? new XuiDocumentOptions());
     }
 
     public static XuiDocument FromText(
@@ -127,8 +119,7 @@ public sealed class XuiDocument
             tree,
             path: null,
             source,
-            options ?? new XuiDocumentOptions(),
-            openedFingerprint: null);
+            options ?? new XuiDocumentOptions());
     }
 
     public static XuiDocument FromBytes(
@@ -144,8 +135,7 @@ public sealed class XuiDocument
             tree,
             path: null,
             source,
-            options ?? new XuiDocumentOptions(),
-            openedFingerprint: null);
+            options ?? new XuiDocumentOptions());
     }
 
     public static async Task<XuiDocument> OpenAssetAsync(
@@ -195,18 +185,6 @@ public sealed class XuiDocument
             return new XuiSaveResult(XuiSaveDisposition.Unchanged, resolvedPath, null);
         }
 
-        if (samePath && _openedFingerprint is not null && File.Exists(resolvedPath))
-        {
-            FileFingerprint current = await FileFingerprint.CreateAsync(
-                resolvedPath,
-                cancellationToken).ConfigureAwait(false);
-            if (current != _openedFingerprint)
-            {
-                throw new IOException(
-                    "The XUI file changed on disk after it was opened. Save As or reload it before saving.");
-            }
-        }
-
         string directory = System.IO.Path.GetDirectoryName(resolvedPath)
             ?? throw new IOException("The target XUI path has no parent directory.");
         Directory.CreateDirectory(directory);
@@ -253,9 +231,6 @@ public sealed class XuiDocument
                 null,
                 IsReadOnly: false);
             _baselineText = Text;
-            _openedFingerprint = await FileFingerprint.CreateAsync(
-                resolvedPath,
-                cancellationToken).ConfigureAwait(false);
             History.Clear();
             Changed?.Invoke(this, EventArgs.Empty);
             return new XuiSaveResult(
@@ -332,26 +307,4 @@ public sealed class XuiDocument
                    StringComparison.Ordinal);
     }
 
-    private sealed record FileFingerprint(long Length, DateTime LastWriteTimeUtc, string Sha256)
-    {
-        public static async Task<FileFingerprint> CreateAsync(
-            string path,
-            CancellationToken cancellationToken)
-        {
-            FileInfo info = new(path);
-            await using FileStream stream = new(
-                path,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.Read,
-                bufferSize: 64 * 1024,
-                FileOptions.Asynchronous | FileOptions.SequentialScan);
-            byte[] hash = await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false);
-            info.Refresh();
-            return new FileFingerprint(
-                info.Length,
-                info.LastWriteTimeUtc,
-                Convert.ToHexString(hash));
-        }
-    }
 }

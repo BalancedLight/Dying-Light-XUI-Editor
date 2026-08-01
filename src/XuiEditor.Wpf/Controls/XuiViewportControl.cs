@@ -1046,6 +1046,21 @@ public sealed class XuiViewportControl : FrameworkElement
 
         if (e.ChangedButton != MouseButton.Left)
         {
+            if (e.ChangedButton == MouseButton.Right)
+            {
+                XuiRenderNode? contextHit = HitTest(logical, cycle: false);
+                if (contextHit is not null &&
+                    !_selectedKeys.Contains(contextHit.SelectionKey))
+                {
+                    SelectionRequested?.Invoke(
+                        this,
+                        new XuiSelectionRequestedEventArgs(
+                            contextHit.SelectionKey,
+                            additive: false,
+                            toggle: false));
+                }
+            }
+
             return;
         }
 

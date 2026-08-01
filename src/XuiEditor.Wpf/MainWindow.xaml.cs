@@ -71,7 +71,6 @@ public partial class MainWindow : Window, IDisposable
     private string? _lastHierarchyFilter;
     private XuiTimelineSet? _timelineSet;
     private XuiTimelineWorkspace? _timelineWorkspace;
-    private FileSystemWatcher? _watcher;
     private bool _syncingSelection;
     private bool _updatingTick;
     private bool _updatingTimelineEditors;
@@ -88,7 +87,6 @@ public partial class MainWindow : Window, IDisposable
     private string? _selectedNamedFrameKey;
     private string? _rawXmlLoadedNodeKey;
     private long _rawXmlLoadedRevision = -1;
-    private DateTime _ignoreWatcherUntilUtc;
     private XuiPreviewScenario _previewScenario = XuiPreviewScenario.Empty;
     private bool _allowClose;
     private string? _recoverySuggestedPath;
@@ -2214,6 +2212,17 @@ public partial class MainWindow : Window, IDisposable
         UpdateSelectionSurfaces();
     }
 
+    private void ViewportContextMenu_Opened(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (sender is ContextMenu menu &&
+            menu.Items.OfType<MenuItem>().FirstOrDefault() is MenuItem alignmentMenu)
+        {
+            alignmentMenu.IsEnabled = CanAlignSelection();
+        }
+    }
+
     private void UpdateNavigationConnections()
     {
         if (_document is null ||
@@ -2499,7 +2508,7 @@ public partial class MainWindow : Window, IDisposable
         object sender,
         RoutedEventArgs eventArgs)
     {
-        if (sender is not Button { Tag: string tag } ||
+        if (sender is not FrameworkElement { Tag: string tag } ||
             !Enum.TryParse<XuiElementAlignment>(
                 tag,
                 ignoreCase: true,
@@ -4282,8 +4291,6 @@ public partial class MainWindow : Window, IDisposable
                     IsReadOnly: true),
                 CreateDocumentOptions());
             AttachDocument(document);
-            _watcher?.Dispose();
-            _watcher = null;
             RefreshAll();
             await RebuildAssetResolverAsync().ConfigureAwait(true);
             SelectOpenedVisual(asset);
@@ -4775,7 +4782,6 @@ public partial class MainWindow : Window, IDisposable
                     currentPath,
                     StringComparison.OrdinalIgnoreCase)))
         {
-            _ignoreWatcherUntilUtc = DateTime.UtcNow.AddSeconds(2);
             await OpenDocumentAsync(currentPath).ConfigureAwait(true);
             return;
         }
@@ -4996,7 +5002,6 @@ public partial class MainWindow : Window, IDisposable
             _recoverySuggestedPath = null;
             _activeRecovery = null;
             AddRecentFile(path);
-            ConfigureWatcher(path);
             RefreshAll();
             await RebuildAssetResolverAsync().ConfigureAwait(true);
             SetStatus("Ui.Main.Status.Ready");
@@ -5032,8 +5037,6 @@ public partial class MainWindow : Window, IDisposable
             AttachDocument(document);
             _recoverySuggestedPath = null;
             _activeRecovery = null;
-            _watcher?.Dispose();
-            _watcher = null;
             RefreshAll();
             await RebuildAssetResolverAsync().ConfigureAwait(true);
             SetStatus("Ui.Main.Status.StockOpened");
@@ -7554,7 +7557,6 @@ public partial class MainWindow : Window, IDisposable
         try
         {
             string? priorPath = _document.Path;
-            _ignoreWatcherUntilUtc = DateTime.UtcNow.AddSeconds(1);
             XuiSaveResult result = await _document.SaveAsync(target).ConfigureAwait(true);
             RecoveryService.DeleteForPath(priorPath);
             if (_activeRecovery is not null)
@@ -7565,7 +7567,6 @@ public partial class MainWindow : Window, IDisposable
 
             _recoverySuggestedPath = null;
             AddRecentFile(result.Path);
-            ConfigureWatcher(result.Path);
             SetStatus(
                 result.Disposition == XuiSaveDisposition.Unchanged
                     ? "Ui.Main.Status.NoChanges"
@@ -7654,41 +7655,6 @@ public partial class MainWindow : Window, IDisposable
         {
             SetStatus("Ui.Main.Status.RecoveryFailed");
         }
-    }
-
-    private void ConfigureWatcher(string path)
-    {
-        _watcher?.Dispose();
-        string? directory = Path.GetDirectoryName(path);
-        if (directory is null)
-        {
-            return;
-        }
-
-        _watcher = new FileSystemWatcher(directory, Path.GetFileName(path))
-        {
-            NotifyFilter =
-                NotifyFilters.LastWrite |
-                NotifyFilters.Size |
-                NotifyFilters.FileName,
-            EnableRaisingEvents = true,
-        };
-        _watcher.Changed += ExternalFile_Changed;
-        _watcher.Renamed += ExternalFile_Changed;
-        _watcher.Deleted += ExternalFile_Changed;
-    }
-
-    private void ExternalFile_Changed(object sender, FileSystemEventArgs eventArgs)
-    {
-        if (DateTime.UtcNow <= _ignoreWatcherUntilUtc)
-        {
-            return;
-        }
-
-        _ = Dispatcher.InvokeAsync(() =>
-        {
-            SetStatus("Ui.Main.Status.SourceChanged");
-        });
     }
 
     private void SetStatus(string key, params object?[] arguments)
@@ -7813,15 +7779,17 @@ public partial class MainWindow : Window, IDisposable
 
     private void UpdateAlignmentChrome()
     {
-        bool canAlign = _document is not null &&
-                        Viewport.FrameForTesting is not null &&
-                        SelectedTransformRootKeys().Length > 0;
+        bool canAlign = CanAlignSelection();
         AlignLeftButton.IsEnabled = canAlign;
         AlignCenterButton.IsEnabled = canAlign;
         AlignRightButton.IsEnabled = canAlign;
         AlignTopButton.IsEnabled = canAlign;
         AlignBottomButton.IsEnabled = canAlign;
     }
+
+    private bool CanAlignSelection() =>
+        _document is not null &&
+        SelectedTransformRootKeys().Length > 0;
 
     private void ApplyViewportSettings()
     {
@@ -8275,8 +8243,6 @@ public partial class MainWindow : Window, IDisposable
 
         _disposed = true;
         UiLocalization.LanguageChanged -= UiLocalization_LanguageChanged;
-        _watcher?.Dispose();
-        _watcher = null;
         _playbackTimer.Stop();
         _recoveryTimer.Stop();
         _hierarchySearchTimer.Stop();
