@@ -298,6 +298,11 @@
     <system:String x:Key="Ui.Xaml.MainWindow.203">Bericht</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.204">Knooppunt</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.205">Gereed</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.206">Lijn links uit binnen het bovenliggende item</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.207">Midden binnen ouder</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.208">Recht binnen de bovenliggende lijn uitlijnen</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.209">Lijn de bovenkant uit binnen de bovenliggende lijn</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.210">Lijn de onderkant uit binnen de bovenliggende lijn</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.001">Inspecteer/vervang werkruimtereferenties</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.002">Alleen werkruimte XUI bestanden. Voorbeeld is vereist; archieven zijn uitgesloten. Apply maakt bestandsback-ups en draait atomair terug bij een fout.</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.003">Huidige waarde</system:String>
@@ -522,6 +527,7 @@
     <system:String x:Key="Ui.Command.MoveSelection">Selectie verplaatsen</system:String>
     <system:String x:Key="Ui.Command.ResizeElement">Formaat van element wijzigen</system:String>
     <system:String x:Key="Ui.Command.RotateSelection">Selectie roteren</system:String>
+    <system:String x:Key="Ui.Command.AlignSelection">Selectie uitlijnen</system:String>
     <system:String x:Key="Ui.Command.PasteProperty">Plak {0}</system:String>
     <system:String x:Key="Ui.Command.PasteInspectorProperties">Plak {0:N0} eigenschappen van de inspecteur</system:String>
     <system:String x:Key="Ui.Command.SetImageTexture">Afbeeldingstextuur instellen</system:String>

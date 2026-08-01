@@ -298,6 +298,11 @@
     <system:String x:Key="Ui.Xaml.MainWindow.203">Wiadomość</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.204">Węzeł</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.205">Gotowe</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.206">WyrÃ³wnaj do lewej w obrÄ™bie elementu nadrzÄ™dnego</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.207">Centrum w obrÄ™bie rodzica</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.208">WyrÃ³wnaj bezpoÅ›rednio w obrÄ™bie elementu nadrzÄ™dnego</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.209">WyrÃ³wnaj gÃ³rÄ™ w obrÄ™bie elementu nadrzÄ™dnego</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.210">WyrÃ³wnaj dÃ³Å‚ w obrÄ™bie elementu nadrzÄ™dnego</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.001">Sprawdź/wymień odniesienia do obszaru roboczego</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.002">Tylko pliki Workspace XUI. Wymagany jest podgląd; archiwa są wykluczone. Apply tworzy kopie zapasowe plików i wycofuje je atomowo w przypadku niepowodzenia.</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.003">Aktualna wartość</system:String>
@@ -522,6 +527,7 @@
     <system:String x:Key="Ui.Command.MoveSelection">Przesuń zaznaczenie</system:String>
     <system:String x:Key="Ui.Command.ResizeElement">Zmień rozmiar elementu</system:String>
     <system:String x:Key="Ui.Command.RotateSelection">Obróć zaznaczenie</system:String>
+    <system:String x:Key="Ui.Command.AlignSelection">WyrÃ³wnaj zaznaczenie</system:String>
     <system:String x:Key="Ui.Command.PasteProperty">Wklej {0}</system:String>
     <system:String x:Key="Ui.Command.PasteInspectorProperties">Wklej właściwości inspektora {0:N0}</system:String>
     <system:String x:Key="Ui.Command.SetImageTexture">Ustaw teksturę obrazu</system:String>

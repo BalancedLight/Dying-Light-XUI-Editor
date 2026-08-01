@@ -298,6 +298,11 @@
     <system:String x:Key="Ui.Xaml.MainWindow.203">留言</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.204">節點</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.205">就緒</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.206">åœ¨çˆ¶ç´šå…§å·¦å°é½Š</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.207">çˆ¶ç´šå…§çš„ä¸­å¿ƒ</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.208">åœ¨çˆ¶ç´šå…§å³å°é½Š</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.209">åœ¨çˆ¶ç´šå…§å°é½Šé ‚éƒ¨</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.210">åœ¨çˆ¶ç´šå…§å°é½Šåº•éƒ¨</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.001">檢查/替換工作區引用</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.002">僅工作區 XUI 檔案。需要預覽；檔案被排除在外。應用建立檔案備份並在失敗時自動回滾。</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.003">目前值</system:String>
@@ -522,6 +527,7 @@
     <system:String x:Key="Ui.Command.MoveSelection">移動選擇</system:String>
     <system:String x:Key="Ui.Command.ResizeElement">調整元素大小</system:String>
     <system:String x:Key="Ui.Command.RotateSelection">旋轉選擇</system:String>
+    <system:String x:Key="Ui.Command.AlignSelection">å°é½Šé¸æ“‡</system:String>
     <system:String x:Key="Ui.Command.PasteProperty">貼上{0}</system:String>
     <system:String x:Key="Ui.Command.PasteInspectorProperties">貼上 {0:N0} 檢查器屬性</system:String>
     <system:String x:Key="Ui.Command.SetImageTexture">設定圖像紋理</system:String>

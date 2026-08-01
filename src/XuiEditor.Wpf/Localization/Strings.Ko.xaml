@@ -298,6 +298,11 @@
     <system:String x:Key="Ui.Xaml.MainWindow.203">메시지</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.204">노드</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.205">준비</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.206">ìƒìœ„ ë‚´ì—ì„œ ì™¼ìª½ ì •ë ¬</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.207">ìƒìœ„ ë‚´ì˜ ì¤‘ì‹¬</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.208">ìƒìœ„ ë‚´ì—ì„œ ì˜¤ë¥¸ìª½ ì •ë ¬</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.209">ìƒìœ„ ë‚´ì—ì„œ ìƒë‹¨ ì •ë ¬</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.210">ë¶€ëª¨ ë‚´ì—ì„œ ì•„ëž˜ìª½ ì •ë ¬</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.001">작업공간 참조 검사/교체</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.002">작업공간 XUI 파일만 해당됩니다. 미리보기가 필요합니다. 아카이브는 제외됩니다. 적용은 파일 백업을 생성하고 실패 시 원자적으로 롤백합니다.</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.003">현재 가치</system:String>
@@ -522,6 +527,7 @@
     <system:String x:Key="Ui.Command.MoveSelection">선택 항목 이동</system:String>
     <system:String x:Key="Ui.Command.ResizeElement">요소 크기 조정</system:String>
     <system:String x:Key="Ui.Command.RotateSelection">선택 항목 회전</system:String>
+    <system:String x:Key="Ui.Command.AlignSelection">ì„ íƒ í•­ëª© ì •ë ¬</system:String>
     <system:String x:Key="Ui.Command.PasteProperty">{0} 붙여넣기</system:String>
     <system:String x:Key="Ui.Command.PasteInspectorProperties">{0:N0} 검사기 속성 붙여넣기</system:String>
     <system:String x:Key="Ui.Command.SetImageTexture">이미지 질감 설정</system:String>

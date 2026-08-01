@@ -298,6 +298,11 @@
     <system:String x:Key="Ui.Xaml.MainWindow.203">Mesaj</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.204">Düğüm</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.205">Hazır</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.206">Ãœst Ã¶ÄŸenin iÃ§inde sola hizala</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.207">Ebeveyn iÃ§inde merkezle</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.208">Ebeveyn iÃ§inde saÄŸa hizala</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.209">Ãœst Ã¶ÄŸenin iÃ§inde Ã¼ste hizala</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.210">Alt kÄ±smÄ± Ã¼st Ã¶ÄŸenin iÃ§inde hizalayÄ±n</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.001">Çalışma Alanı Referanslarını İnceleyin / Değiştirin</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.002">Yalnızca çalışma alanı XUI dosyaları. Önizleme gerekli; arşivler hariçtir. Uygula, dosya yedeklemeleri oluşturur ve başarısızlık durumunda atomik olarak geri alınır.</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.003">Mevcut değer</system:String>
@@ -522,6 +527,7 @@
     <system:String x:Key="Ui.Command.MoveSelection">Seçimi taşı</system:String>
     <system:String x:Key="Ui.Command.ResizeElement">Öğeyi yeniden boyutlandır</system:String>
     <system:String x:Key="Ui.Command.RotateSelection">Seçimi döndür</system:String>
+    <system:String x:Key="Ui.Command.AlignSelection">SeÃ§imi hizala</system:String>
     <system:String x:Key="Ui.Command.PasteProperty">{0} yapıştır</system:String>
     <system:String x:Key="Ui.Command.PasteInspectorProperties">{0:N0} denetçi özelliklerini yapıştır</system:String>
     <system:String x:Key="Ui.Command.SetImageTexture">Görüntü dokusunu ayarlayın</system:String>

@@ -298,6 +298,11 @@
     <system:String x:Key="Ui.Xaml.MainWindow.203">Zpráva</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.204">Uzel</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.205">Připraveno</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.206">Zarovnat doleva v rÃ¡mci nadÅ™azenÃ©ho prvku</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.207">Centrum v rÃ¡mci rodiÄe</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.208">Zarovnat vpravo v rÃ¡mci rodiÄe</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.209">Zarovnat hornÃ­ ÄÃ¡st v rÃ¡mci rodiÄe</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.210">Zarovnat spodnÃ­ ÄÃ¡st v rÃ¡mci rodiÄe</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.001">Zkontrolovat/nahradit reference pracovního prostoru</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.002">Pouze soubory pracovního prostoru XUI. Je vyžadován náhled; archivy jsou vyloučeny. Použít vytvoří zálohy souborů a při selhání se atomicky vrátí zpět.</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.003">Aktuální hodnota</system:String>
@@ -522,6 +527,7 @@
     <system:String x:Key="Ui.Command.MoveSelection">Přesunout výběr</system:String>
     <system:String x:Key="Ui.Command.ResizeElement">Změnit velikost prvku</system:String>
     <system:String x:Key="Ui.Command.RotateSelection">Otočit výběr</system:String>
+    <system:String x:Key="Ui.Command.AlignSelection">Zarovnat vÃ½bÄ›r</system:String>
     <system:String x:Key="Ui.Command.PasteProperty">Vložte {0}</system:String>
     <system:String x:Key="Ui.Command.PasteInspectorProperties">Vložte vlastnosti inspektoru {0:N0}</system:String>
     <system:String x:Key="Ui.Command.SetImageTexture">Nastavit texturu obrázku</system:String>

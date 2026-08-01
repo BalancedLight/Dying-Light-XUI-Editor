@@ -298,6 +298,11 @@
     <system:String x:Key="Ui.Xaml.MainWindow.203">Mensaje</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.204">Nodo</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.205">Listo</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.206">Alinear a la izquierda dentro del padre</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.207">Centro dentro de los padres</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.208">Alinear a la derecha dentro del padre</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.209">Alinear la parte superior dentro del padre</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.210">Alinear la parte inferior dentro del padre</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.001">Inspeccionar/reemplazar referencias del espacio de trabajo</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.002">Solo archivos del espacio de trabajo XUI. Se requiere vista previa; Los archivos están excluidos. Apply crea copias de seguridad de archivos y las revierte atómicamente en caso de falla.</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.003">Valor actual</system:String>
@@ -522,6 +527,7 @@
     <system:String x:Key="Ui.Command.MoveSelection">Mover selección</system:String>
     <system:String x:Key="Ui.Command.ResizeElement">Cambiar tamaño de elemento</system:String>
     <system:String x:Key="Ui.Command.RotateSelection">Girar selección</system:String>
+    <system:String x:Key="Ui.Command.AlignSelection">Alinear selecciÃ³n</system:String>
     <system:String x:Key="Ui.Command.PasteProperty">Pegar {0}</system:String>
     <system:String x:Key="Ui.Command.PasteInspectorProperties">Pegar {0:N0} propiedades del inspector</system:String>
     <system:String x:Key="Ui.Command.SetImageTexture">Establecer textura de imagen</system:String>

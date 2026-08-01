@@ -298,6 +298,11 @@
     <system:String x:Key="Ui.Xaml.MainWindow.203">メッセージ</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.204">ノード</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.205">準備完了</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.206">è¦ªå†…ã§å·¦æƒãˆ</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.207">è¦ªå†…ã®ä¸­å¿ƒ</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.208">è¦ªå†…ã§å³æƒãˆ</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.209">è¦ªå†…ã§ä¸Šã‚’æƒãˆã‚‹</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.210">è¦ªå†…ã§ä¸‹ç«¯ã‚’æƒãˆã‚‹</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.001">ワークスペース参照の検査/置換</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.002">ワークスペース XUI ファイルのみ。プレビューが必要です。アーカイブは除外されます。適用はファイルのバックアップを作成し、失敗時にアトミックにロールバックします。</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.003">現在値</system:String>
@@ -522,6 +527,7 @@
     <system:String x:Key="Ui.Command.MoveSelection">選択範囲を移動する</system:String>
     <system:String x:Key="Ui.Command.ResizeElement">要素のサイズを変更する</system:String>
     <system:String x:Key="Ui.Command.RotateSelection">選択範囲を回転</system:String>
+    <system:String x:Key="Ui.Command.AlignSelection">é¸æŠžç¯„å›²ã‚’æƒãˆã‚‹</system:String>
     <system:String x:Key="Ui.Command.PasteProperty">{0} を貼り付けます</system:String>
     <system:String x:Key="Ui.Command.PasteInspectorProperties">{0:N0} インスペクタのプロパティを貼り付けます</system:String>
     <system:String x:Key="Ui.Command.SetImageTexture">画像テクスチャを設定する</system:String>

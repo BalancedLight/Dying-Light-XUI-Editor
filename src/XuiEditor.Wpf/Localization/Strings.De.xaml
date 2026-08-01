@@ -298,6 +298,11 @@
     <system:String x:Key="Ui.Xaml.MainWindow.203">Nachricht</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.204">Knoten</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.205">Bereit</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.206">Innerhalb des Ã¼bergeordneten Elements linksbÃ¼ndig ausrichten</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.207">Zentrum innerhalb des Ã¼bergeordneten Elements</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.208">Direkt im Ã¼bergeordneten Element ausrichten</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.209">Oben innerhalb des Ã¼bergeordneten Elements ausrichten</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.210">Unten innerhalb des Ã¼bergeordneten Elements ausrichten</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.001">Arbeitsbereichsverweise prüfen/ersetzen</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.002">Nur Workspace-XUI-Dateien. Vorschau ist erforderlich; Archive sind ausgeschlossen. Apply erstellt Dateisicherungen und führt bei einem Fehler atomar ein Rollback durch.</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.003">Aktueller Wert</system:String>
@@ -522,6 +527,7 @@
     <system:String x:Key="Ui.Command.MoveSelection">Auswahl verschieben</system:String>
     <system:String x:Key="Ui.Command.ResizeElement">Elementgröße ändern</system:String>
     <system:String x:Key="Ui.Command.RotateSelection">Auswahl drehen</system:String>
+    <system:String x:Key="Ui.Command.AlignSelection">Auswahl ausrichten</system:String>
     <system:String x:Key="Ui.Command.PasteProperty">Fügen Sie {0} ein</system:String>
     <system:String x:Key="Ui.Command.PasteInspectorProperties">Fügen Sie die Eigenschaften des Inspektors {0:N0} ein</system:String>
     <system:String x:Key="Ui.Command.SetImageTexture">Bildtextur festlegen</system:String>

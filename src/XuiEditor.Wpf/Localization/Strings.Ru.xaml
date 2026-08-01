@@ -298,6 +298,11 @@
     <system:String x:Key="Ui.Xaml.MainWindow.203">Сообщение</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.204">Узел</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.205">Готово</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.206">Ð’Ñ‹Ñ€Ð¾Ð²Ð½ÑÑ‚ÑŒ Ð¿Ð¾ Ð»ÐµÐ²Ð¾Ð¼Ñƒ ÐºÑ€Ð°ÑŽ Ñ€Ð¾Ð´Ð¸Ñ‚ÐµÐ»ÑŒÑÐºÐ¾Ð³Ð¾ ÑÐ»ÐµÐ¼ÐµÐ½Ñ‚Ð°</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.207">Ð¦ÐµÐ½Ñ‚Ñ€ Ð²Ð½ÑƒÑ‚Ñ€Ð¸ Ñ€Ð¾Ð´Ð¸Ñ‚ÐµÐ»Ñ</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.208">Ð’Ñ‹Ñ€Ð¾Ð²Ð½ÑÑ‚ÑŒ Ð¿Ð¾ Ð¿Ñ€Ð°Ð²Ð¾Ð¼Ñƒ ÐºÑ€Ð°ÑŽ Ñ€Ð¾Ð´Ð¸Ñ‚ÐµÐ»ÑŒÑÐºÐ¾Ð³Ð¾ ÑÐ»ÐµÐ¼ÐµÐ½Ñ‚Ð°</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.209">Ð’Ñ‹Ñ€Ð¾Ð²Ð½ÑÑ‚ÑŒ Ð²ÐµÑ€Ñ… Ð²Ð½ÑƒÑ‚Ñ€Ð¸ Ñ€Ð¾Ð´Ð¸Ñ‚ÐµÐ»Ñ</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.210">Ð’Ñ‹Ñ€Ð¾Ð²Ð½ÑÑ‚ÑŒ Ð½Ð¸Ð¶Ð½ÑŽÑŽ Ñ‡Ð°ÑÑ‚ÑŒ Ñ€Ð¾Ð´Ð¸Ñ‚ÐµÐ»ÑŒÑÐºÐ¾Ð³Ð¾ ÑÐ»ÐµÐ¼ÐµÐ½Ñ‚Ð°</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.001">Проверка/замена ссылок на рабочую область</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.002">Только файлы рабочей области XUI. Требуется предварительный просмотр; архивы исключены. Apply создает резервные копии файлов и выполняет автоматический откат в случае сбоя.</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.003">Текущее значение</system:String>
@@ -522,6 +527,7 @@
     <system:String x:Key="Ui.Command.MoveSelection">Переместить выделение</system:String>
     <system:String x:Key="Ui.Command.ResizeElement">Изменить размер элемента</system:String>
     <system:String x:Key="Ui.Command.RotateSelection">Повернуть выделение</system:String>
+    <system:String x:Key="Ui.Command.AlignSelection">Ð’Ñ‹Ñ€Ð¾Ð²Ð½ÑÑ‚ÑŒ Ð²Ñ‹Ð´ÐµÐ»ÐµÐ½Ð¸Ðµ</system:String>
     <system:String x:Key="Ui.Command.PasteProperty">Вставьте {0}</system:String>
     <system:String x:Key="Ui.Command.PasteInspectorProperties">Вставьте свойства инспектора {0:N0}</system:String>
     <system:String x:Key="Ui.Command.SetImageTexture">Установить текстуру изображения</system:String>

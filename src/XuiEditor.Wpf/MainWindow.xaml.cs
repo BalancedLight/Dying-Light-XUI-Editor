@@ -586,6 +586,9 @@ public partial class MainWindow : Window, IDisposable
         XuiTransformCommittedEventArgs eventArgs) =>
         Viewport_TransformCommitted(this, eventArgs);
 
+    internal void AlignSelectionForTesting(XuiElementAlignment alignment) =>
+        AlignSelection(alignment);
+
     internal void CommitPivotForTesting(
         string nodeKey,
         XuiVector3 pivot,
@@ -2490,6 +2493,87 @@ public partial class MainWindow : Window, IDisposable
                 "Ui.Command.RotateSelection",
                 "Rotate selection"));
         }
+    }
+
+    private void AlignSelection_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (sender is not Button { Tag: string tag } ||
+            !Enum.TryParse<XuiElementAlignment>(
+                tag,
+                ignoreCase: true,
+                out XuiElementAlignment alignment))
+        {
+            return;
+        }
+
+        AlignSelection(alignment);
+    }
+
+    private void AlignSelection(XuiElementAlignment alignment)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        if (Viewport.FrameForTesting is null)
+        {
+            RefreshEvaluation();
+        }
+
+        XuiRenderFrame? frame = Viewport.FrameForTesting;
+        string[] targetKeys = SelectedTransformRootKeys();
+        if (frame is null || targetKeys.Length == 0)
+        {
+            return;
+        }
+
+        Dictionary<string, XuiRenderNode> renderedNodes = frame.Nodes
+            .GroupBy(static node => node.Key, StringComparer.Ordinal)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.Last(),
+                StringComparer.Ordinal);
+        ExecuteBatch(
+            () =>
+            {
+                List<PositionMovePlan> plans = [];
+                foreach (string key in targetKeys)
+                {
+                    XuiSyntaxNode? node =
+                        _document.SyntaxTree.FindByKey(key);
+                    if (node is null ||
+                        !renderedNodes.TryGetValue(key, out XuiRenderNode? rendered) ||
+                        rendered.ParentKey is not string parentKey ||
+                        !renderedNodes.TryGetValue(
+                            parentKey,
+                            out XuiRenderNode? parent) ||
+                        !XuiElementAlignmentCalculator.TryGetPositionDelta(
+                            alignment,
+                            parent.Size,
+                            rendered.Position,
+                            rendered.Size,
+                            out XuiVector2 delta) ||
+                        (Math.Abs(delta.X) <= 0.0001 &&
+                         Math.Abs(delta.Y) <= 0.0001))
+                    {
+                        continue;
+                    }
+
+                    plans.Add(PreparePositionMove(node, delta));
+                }
+
+                foreach (PositionMovePlan plan in plans)
+                {
+                    ApplyPositionMove(plan);
+                }
+            },
+            "Align selection",
+            new XuiMessageDescriptor(
+                "Ui.Command.AlignSelection",
+                "Align selection"));
     }
 
     private string[] SelectedTransformRootKeys()
@@ -6550,6 +6634,7 @@ public partial class MainWindow : Window, IDisposable
         }
 
         Viewport.SetSelectedKeys(_selectedKeys);
+        UpdateAlignmentChrome();
         UpdateNavigationConnections();
         SelectionSnapshot selection = CaptureSelection();
         BuildInspector(selection);
@@ -7708,6 +7793,7 @@ public partial class MainWindow : Window, IDisposable
                          Viewport.HasRenderedFrame;
         ExportPngButton.IsEnabled = canExport;
         ExportPngMenuItem.IsEnabled = canExport;
+        UpdateAlignmentChrome();
         UpdatePropertyTransferChrome();
         UndoMenuItem.Header = _document?.History.UndoDescription is string undo
             ? UiLocalization.Format(
@@ -7723,6 +7809,18 @@ public partial class MainWindow : Window, IDisposable
                     _document.History.RedoDescriptionDescriptor,
                     redo))
             : UiLocalization.Text("Ui.Xaml.MainWindow.013");
+    }
+
+    private void UpdateAlignmentChrome()
+    {
+        bool canAlign = _document is not null &&
+                        Viewport.FrameForTesting is not null &&
+                        SelectedTransformRootKeys().Length > 0;
+        AlignLeftButton.IsEnabled = canAlign;
+        AlignCenterButton.IsEnabled = canAlign;
+        AlignRightButton.IsEnabled = canAlign;
+        AlignTopButton.IsEnabled = canAlign;
+        AlignBottomButton.IsEnabled = canAlign;
     }
 
     private void ApplyViewportSettings()

@@ -295,6 +295,11 @@
     "Ui.Xaml.MainWindow.203":  "Message",
     "Ui.Xaml.MainWindow.204":  "Node",
     "Ui.Xaml.MainWindow.205":  "Ready",
+    "Ui.Xaml.MainWindow.206":  "Align left within parent",
+    "Ui.Xaml.MainWindow.207":  "Center within parent",
+    "Ui.Xaml.MainWindow.208":  "Align right within parent",
+    "Ui.Xaml.MainWindow.209":  "Align top within parent",
+    "Ui.Xaml.MainWindow.210":  "Align bottom within parent",
     "Ui.Xaml.ReferenceReplacementWindow.001":  "Inspect / Replace Workspace References",
     "Ui.Xaml.ReferenceReplacementWindow.002":  "Workspace XUI files only. Preview is required; archives are excluded. Apply creates file backups and rolls back atomically on failure.",
     "Ui.Xaml.ReferenceReplacementWindow.003":  "Current value",
@@ -519,6 +524,7 @@
     ,"Ui.Command.MoveSelection": "Move selection"
     ,"Ui.Command.ResizeElement": "Resize element"
     ,"Ui.Command.RotateSelection": "Rotate selection"
+    ,"Ui.Command.AlignSelection": "Align selection"
     ,"Ui.Command.PasteProperty": "Paste {0}"
     ,"Ui.Command.PasteInspectorProperties": "Paste {0:N0} inspector properties"
     ,"Ui.Command.SetImageTexture": "Set image texture"

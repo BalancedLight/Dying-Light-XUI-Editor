@@ -14,6 +14,7 @@ using XuiEditor.Core.Assets;
 using XuiEditor.Core.Animation;
 using XuiEditor.Core.Diagnostics;
 using XuiEditor.Core.Documents;
+using XuiEditor.Core.Editing;
 using XuiEditor.Core.Layout;
 using XuiEditor.Core.Navigation;
 using XuiEditor.Core.Schema;
@@ -1191,6 +1192,52 @@ public sealed class WpfSmokeTests
         Assert.AreEqual("10.000000,13.000000,0.000000", positions["Trailing"]);
         Assert.AreEqual("12.000000,15.000000,0.000000", positions["Centered"]);
         Assert.AreEqual("Move selection", document.History.UndoDescription);
+
+        document.Undo();
+        Assert.AreEqual(source, document.Text);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void AlignSelectionCentersWithinItsImmediateParentAsOneUndoStep()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>80</Height></Properties>" +
+            "<AdvGroup><Properties><Id>Parent</Id><Width>60</Width><Height>40</Height>" +
+            "</Properties><MyImage><Properties><Id>Child</Id><Width>20</Width><Height>10</Height>" +
+            "<Position>3,4,0</Position></Properties></MyImage>" +
+            "<MyImage><Properties><Id>Other</Id><Width>10</Width><Height>20</Height>" +
+            "<Position>48,7,0</Position></Properties></MyImage></AdvGroup></XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        XuiSyntaxNode child = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node => XuiModelReader.GetId(node, document.Text) == "Child");
+        XuiSyntaxNode other = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node => XuiModelReader.GetId(node, document.Text) == "Other");
+        window.SelectNodeKeysForTesting([child.Key, other.Key]);
+
+        window.AlignSelectionForTesting(XuiElementAlignment.Center);
+
+        XuiSyntaxNode currentChild = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node => XuiModelReader.GetId(node, document.Text) == "Child");
+        Assert.AreEqual(
+            "20.000000,15.000000,0.000000",
+            XuiModelReader.GetPropertyValue(
+                currentChild,
+                document.Text,
+                "Position"));
+        XuiSyntaxNode currentOther = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node => XuiModelReader.GetId(node, document.Text) == "Other");
+        Assert.AreEqual(
+            "25.000000,10.000000,0.000000",
+            XuiModelReader.GetPropertyValue(
+                currentOther,
+                document.Text,
+                "Position"));
+        Assert.AreEqual("Align selection", document.History.UndoDescription);
 
         document.Undo();
         Assert.AreEqual(source, document.Text);

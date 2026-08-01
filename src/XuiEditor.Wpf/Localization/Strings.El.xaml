@@ -298,6 +298,11 @@
     <system:String x:Key="Ui.Xaml.MainWindow.203">Μήνυμα</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.204">Κόμβος</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.205">Έτοιμο</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.206">Î£Ï„Î¿Î¯Ï‡Î¹ÏƒÎ· Î±ÏÎ¹ÏƒÏ„ÎµÏÎ¬ ÎµÎ½Ï„ÏŒÏ‚ Î³Î¿Î½Î­Î±</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.207">ÎšÎ­Î½Ï„ÏÎ¿ ÎµÎ½Ï„ÏŒÏ‚ Î³Î¿Î½Î­Î±</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.208">Î•Ï…Î¸Ï…Î³ÏÎ¬Î¼Î¼Î¹ÏƒÎ· Î´ÎµÎ¾Î¹Î¬ Î¼Î­ÏƒÎ± ÏƒÏ„Î¿Î½ Î³Î¿Î½Î­Î±</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.209">Î•Ï…Î¸Ï…Î³ÏÎ±Î¼Î¼Î¯ÏƒÏ„Îµ Ï„Î·Î½ ÎºÎ¿ÏÏ…Ï†Î® ÎµÎ½Ï„ÏŒÏ‚ Ï„Î¿Ï… Î³Î¿Î½Î­Î±</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.210">Î•Ï…Î¸Ï…Î³ÏÎ±Î¼Î¼Î¯ÏƒÏ„Îµ Ï„Î¿ ÎºÎ¬Ï„Ï‰ Î¼Î­ÏÎ¿Ï‚ Î¼Î­ÏƒÎ± ÏƒÏ„Î¿Î½ Î³Î¿Î½Î­Î±</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.001">Επιθεωρήστε / Αντικαταστήστε τις αναφορές χώρου εργασίας</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.002">Μόνο αρχεία χώρου εργασίας XUI. Απαιτείται προεπισκόπηση. τα αρχεία εξαιρούνται. Το Apply δημιουργεί αντίγραφα ασφαλείας αρχείων και επαναφέρει ατομικά σε περίπτωση αποτυχίας.</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.003">Τρέχουσα αξία</system:String>
@@ -522,6 +527,7 @@
     <system:String x:Key="Ui.Command.MoveSelection">Μετακίνηση επιλογής</system:String>
     <system:String x:Key="Ui.Command.ResizeElement">Αλλαγή μεγέθους στοιχείου</system:String>
     <system:String x:Key="Ui.Command.RotateSelection">Περιστροφή επιλογής</system:String>
+    <system:String x:Key="Ui.Command.AlignSelection">Î£Ï„Î¿Î¯Ï‡Î¹ÏƒÎ· ÎµÏ€Î¹Î»Î¿Î³Î®Ï‚</system:String>
     <system:String x:Key="Ui.Command.PasteProperty">Επικόλληση {0}</system:String>
     <system:String x:Key="Ui.Command.PasteInspectorProperties">Επικόλληση ιδιοτήτων επιθεωρητή {0:N0}</system:String>
     <system:String x:Key="Ui.Command.SetImageTexture">Ορισμός υφής εικόνας</system:String>

@@ -298,6 +298,11 @@
     <system:String x:Key="Ui.Xaml.MainWindow.203">Messaggio</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.204">Nodo</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.205">Pronto</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.206">Allinea a sinistra all'interno del genitore</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.207">Centro all'interno del genitore</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.208">Allinea a destra all'interno del genitore</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.209">Allinea la parte superiore all'interno del genitore</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.210">Allinea il fondo all'interno del genitore</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.001">Ispeziona/sostituisci i riferimenti all'area di lavoro</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.002">Solo file XUI dell'area di lavoro. È richiesta l'anteprima; sono esclusi gli archivi. Applica crea backup di file ed esegue il rollback atomico in caso di errore.</system:String>
     <system:String x:Key="Ui.Xaml.ReferenceReplacementWindow.003">Valore attuale</system:String>
@@ -522,6 +527,7 @@
     <system:String x:Key="Ui.Command.MoveSelection">Sposta la selezione</system:String>
     <system:String x:Key="Ui.Command.ResizeElement">Ridimensiona elemento</system:String>
     <system:String x:Key="Ui.Command.RotateSelection">Ruota la selezione</system:String>
+    <system:String x:Key="Ui.Command.AlignSelection">Allinea la selezione</system:String>
     <system:String x:Key="Ui.Command.PasteProperty">Incolla {0}</system:String>
     <system:String x:Key="Ui.Command.PasteInspectorProperties">Incolla le proprietà dell'ispettore {0:N0}</system:String>
     <system:String x:Key="Ui.Command.SetImageTexture">Imposta la trama dell'immagine</system:String>
