@@ -5237,17 +5237,37 @@ public partial class MainWindow : Window, IDisposable
     }
 
     private XuiDocumentOptions CreateDocumentOptions()
+        => CreateDocumentOptions(_settings);
+
+    internal static XuiDocumentOptions CreateDocumentOptions(
+        EditorSettings settings)
     {
-        IEnumerable<string> configured = _settings.AssetRoots
+        IEnumerable<string> protectedRoots = settings.AssetRoots
             .Where(static root => root.EffectiveIsReadOnly)
             .Select(static root => root.Path);
-        if (!string.IsNullOrWhiteSpace(_settings.DyingLightInstallPath))
+        IEnumerable<string> writableRoots = settings.AssetRoots
+            .Where(static root => !root.EffectiveIsReadOnly)
+            .Select(static root => root.Path);
+        if (!string.IsNullOrWhiteSpace(settings.WorkspaceRoot))
         {
-            configured = configured.Append(_settings.DyingLightInstallPath);
+            writableRoots = writableRoots.Append(settings.WorkspaceRoot);
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.DyingLightInstallPath))
+        {
+            protectedRoots = protectedRoots.Append(
+                settings.DyingLightInstallPath);
+            writableRoots = writableRoots.Append(Path.Combine(
+                settings.DyingLightInstallPath,
+                "DevTools",
+                "workshop"));
         }
 
         return new XuiDocumentOptions(
-            configured
+            protectedRoots
+                .Where(static path => !string.IsNullOrWhiteSpace(path))
+                .ToArray(),
+            writableRoots
                 .Where(static path => !string.IsNullOrWhiteSpace(path))
                 .ToArray());
     }
@@ -7473,7 +7493,7 @@ public partial class MainWindow : Window, IDisposable
             UpdateChrome();
             return true;
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException exception)
         {
             if (!forceSaveAs)
             {
@@ -7481,6 +7501,14 @@ public partial class MainWindow : Window, IDisposable
                 return await SaveDocumentAsync(forceSaveAs: true).ConfigureAwait(true);
             }
 
+            MessageBox.Show(
+                this,
+                UiLocalization.Format(
+                    "Ui.Common.ErrorDetails",
+                    exception.Message),
+                UiLocalization.Text("Ui.Main.Error.SaveXui"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
             return false;
         }
         catch (Exception exception) when (

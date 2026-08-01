@@ -4,10 +4,18 @@ using XuiEditor.Core.Diagnostics;
 
 namespace XuiEditor.Core.Documents;
 
-public sealed record XuiDocumentOptions(IReadOnlyList<string>? ProtectedRoots = null)
+public sealed record XuiDocumentOptions(
+    IReadOnlyList<string>? ProtectedRoots = null,
+    IReadOnlyList<string>? WritableRoots = null)
 {
     public IReadOnlyList<string> NormalizedProtectedRoots { get; } =
         (ProtectedRoots ?? [])
+        .Select(static path => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+
+    public IReadOnlyList<string> NormalizedWritableRoots { get; } =
+        (WritableRoots ?? [])
         .Select(static path => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)))
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .ToArray();
@@ -298,19 +306,30 @@ public sealed class XuiDocument
 
     private void EnsureWritablePath(string path)
     {
+        if (_options.NormalizedWritableRoots.Any(root =>
+                PathIsInside(root, path)))
+        {
+            return;
+        }
+
         foreach (string protectedRoot in _options.NormalizedProtectedRoots)
         {
-            string relative = System.IO.Path.GetRelativePath(protectedRoot, path);
-            bool outside = relative.Equals("..", StringComparison.Ordinal) ||
-                           relative.StartsWith(
-                               ".." + System.IO.Path.DirectorySeparatorChar,
-                               StringComparison.Ordinal);
-            if (!outside && !System.IO.Path.IsPathRooted(relative))
+            if (PathIsInside(protectedRoot, path))
             {
                 throw new UnauthorizedAccessException(
                     $"'{path}' is inside the protected asset root '{protectedRoot}'. Use Save As into a writable workspace.");
             }
         }
+    }
+
+    private static bool PathIsInside(string root, string candidate)
+    {
+        string relative = System.IO.Path.GetRelativePath(root, candidate);
+        return !System.IO.Path.IsPathRooted(relative) &&
+               !relative.Equals("..", StringComparison.Ordinal) &&
+               !relative.StartsWith(
+                   ".." + System.IO.Path.DirectorySeparatorChar,
+                   StringComparison.Ordinal);
     }
 
     private sealed record FileFingerprint(long Length, DateTime LastWriteTimeUtc, string Sha256)

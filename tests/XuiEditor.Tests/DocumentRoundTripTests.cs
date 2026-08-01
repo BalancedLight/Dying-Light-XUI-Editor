@@ -205,6 +205,30 @@ public sealed class DocumentRoundTripTests
     }
 
     [TestMethod]
+    public async Task WritableWorkspaceInsideProtectedRootCanBeSaved()
+    {
+        using TestDirectory directory = new();
+        string protectedRoot = directory.File("game");
+        string workspace = Path.Combine(
+            protectedRoot,
+            "DevTools",
+            "workshop",
+            "ExampleProject");
+        Directory.CreateDirectory(workspace);
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>2</Width></Properties></XuiCanvas>",
+            options: new XuiDocumentOptions([protectedRoot], [workspace]));
+        string workspacePath = Path.Combine(workspace, "screen.xui");
+
+        XuiSaveResult result = await document.SaveAsync(workspacePath);
+
+        Assert.AreEqual(workspacePath, result.Path);
+        StringAssert.Contains(
+            await File.ReadAllTextAsync(workspacePath),
+            "<Width>2</Width>");
+    }
+
+    [TestMethod]
     public void UndoRedoUsesTheSameValidatedPatch()
     {
         XuiDocument document = XuiDocument.FromText(

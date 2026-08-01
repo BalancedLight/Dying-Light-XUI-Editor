@@ -457,6 +457,34 @@ public sealed class WpfSmokeTests
         }
     }
 
+    [TestMethod]
+    public async Task DyingLightWorkshopIsWritableInsideProtectedInstallRoot()
+    {
+        using TestDirectory directory = new();
+        string install = directory.File("Dying Light");
+        string target = Path.Combine(
+            install,
+            "DevTools",
+            "workshop",
+            "MenuOverride",
+            "data",
+            "menu",
+            "dlw",
+            "menumain.xui");
+        EditorSettings settings = new()
+        {
+            DyingLightInstallPath = install,
+        };
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>2</Width></Properties></XuiCanvas>",
+            options: MainWindow.CreateDocumentOptions(settings));
+
+        XuiSaveResult result = await document.SaveAsync(target);
+
+        Assert.AreEqual(target, result.Path);
+        Assert.IsTrue(File.Exists(target));
+    }
+
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
     public void ViewportLoadingOverlayIsNestedAndUsesAnimatedPackagedGears()
