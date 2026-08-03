@@ -11,12 +11,18 @@ public sealed record XuiAnimationScopeOption(
     string OwnerKey,
     string DisplayName,
     int StartTick,
-    bool IsLocal);
+    bool IsLocal)
+{
+    public override string ToString() => DisplayName;
+}
 
 public sealed record XuiAnimationPresetOption(
     XuiAnimationPreset Preset,
     string Name,
-    string Description);
+    string Description)
+{
+    public override string ToString() => Name;
+}
 
 public sealed record XuiAnimationDialogSelection(
     XuiAnimationPreset Preset,

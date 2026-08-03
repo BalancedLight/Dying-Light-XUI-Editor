@@ -4,6 +4,8 @@
         Title="{DynamicResource Ui.Animation.TrackDialog.Title}"
         Width="480"
         Height="245"
+        Background="{StaticResource WindowBrush}"
+        Foreground="{StaticResource TextBrush}"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False">

@@ -154,7 +154,7 @@
       "Dying Light XUI Editor": {
         "type": "Project",
         "dependencies": {
-          "XuiEditor.Core": "[1.0.0, )"
+          "XuiEditor.Core": "[1.1.0, )"
         }
       },
       "xuieditor.core": {

@@ -131,6 +131,48 @@ public sealed class WpfSmokeTests
 
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
+    public void AnimationAuthoringDialogsUseDarkSurfacesAndFriendlyOptionText()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiAnimationScopeOption scope = new(
+            "/0/e1/e1",
+            "I_NewImage - local scope",
+            0,
+            IsLocal: true);
+        CreateXuiAnimationWindow animationWindow = new(
+            [scope],
+            ["Opacity", "Show"],
+            static _ => new XuiAnimationConflictReport([]),
+            "quick-show-hide");
+        AddXuiTimelineTrackWindow trackWindow = new(
+            ["Opacity"],
+            static _ => "1",
+            "Opacity");
+
+        ComboBox presetCombo = (ComboBox)animationWindow.FindName(
+            "PresetComboBox");
+        ComboBox scopeCombo = (ComboBox)animationWindow.FindName(
+            "ScopeComboBox");
+        XuiAnimationPresetOption preset =
+            (XuiAnimationPresetOption)presetCombo.SelectedItem;
+
+        Assert.IsTrue(IsDark(animationWindow.Background));
+        Assert.IsTrue(IsDark(trackWindow.Background));
+        Assert.AreEqual(preset.Name, preset.ToString());
+        Assert.AreEqual(scope.DisplayName, scope.ToString());
+        Assert.IsFalse(preset.ToString().Contains(
+            nameof(XuiAnimationPresetOption),
+            StringComparison.Ordinal));
+        Assert.IsFalse(scope.ToString().Contains(
+            nameof(XuiAnimationScopeOption),
+            StringComparison.Ordinal));
+        Assert.AreSame(preset, presetCombo.SelectedItem);
+        Assert.AreSame(scope, scopeCombo.SelectedItem);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
     public void InspectorTrackActionCreatesAndUpdatesTheActiveKey()
     {
         App application = Application.Current as App ?? new App();

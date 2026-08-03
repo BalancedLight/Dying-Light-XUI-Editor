@@ -6,6 +6,8 @@
         Height="650"
         MinWidth="610"
         MinHeight="560"
+        Background="{StaticResource WindowBrush}"
+        Foreground="{StaticResource TextBrush}"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         ResizeMode="CanResize">
