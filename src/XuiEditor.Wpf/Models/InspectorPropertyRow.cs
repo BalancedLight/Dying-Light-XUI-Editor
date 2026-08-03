@@ -9,6 +9,8 @@ public sealed class InspectorPropertyRow : INotifyPropertyChanged
 {
     private string _value;
     private string? _error;
+    private bool _hasAnimationTrack;
+    private bool _hasAnimationKey;
 
     public InspectorPropertyRow(
         string name,
@@ -19,7 +21,9 @@ public sealed class InspectorPropertyRow : INotifyPropertyChanged
         IReadOnlyList<string>? choices = null,
         bool isBooleanToggle = false,
         bool isAuthored = true,
-        XuiPropertyDefinition? definition = null)
+        XuiPropertyDefinition? definition = null,
+        bool hasAnimationTrack = false,
+        bool hasAnimationKey = false)
     {
         Name = name;
         _value = value;
@@ -30,6 +34,8 @@ public sealed class InspectorPropertyRow : INotifyPropertyChanged
         IsBooleanToggle = isBooleanToggle;
         IsAuthored = isAuthored;
         Definition = definition;
+        _hasAnimationTrack = hasAnimationTrack;
+        _hasAnimationKey = hasAnimationKey;
     }
 
     public string Name { get; }
@@ -47,6 +53,43 @@ public sealed class InspectorPropertyRow : INotifyPropertyChanged
     public bool CanReset => IsAuthored;
 
     public XuiPropertyDefinition? Definition { get; }
+
+    public bool IsAnimatable => Definition?.IsAnimatable == true;
+
+    public bool HasAnimationTrack => _hasAnimationTrack;
+
+    public bool HasAnimationKey => _hasAnimationKey;
+
+    public string AnimationGlyph => HasAnimationKey ? "◆" : "◇";
+
+    public string AnimationToolTip => HasAnimationKey
+        ? UiLocalization.Text("Ui.Animation.Inspector.UpdateKey")
+        : HasAnimationTrack
+            ? UiLocalization.Text("Ui.Animation.Inspector.AddKey")
+            : UiLocalization.Text("Ui.Animation.Inspector.AddTrack");
+
+    public void UpdateAnimationState(bool hasTrack, bool hasKey)
+    {
+        bool trackChanged = SetField(
+            ref _hasAnimationTrack,
+            hasTrack,
+            nameof(HasAnimationTrack));
+        bool keyChanged = SetField(
+            ref _hasAnimationKey,
+            hasKey,
+            nameof(HasAnimationKey));
+        if (!trackChanged && !keyChanged)
+        {
+            return;
+        }
+
+        PropertyChanged?.Invoke(
+            this,
+            new PropertyChangedEventArgs(nameof(AnimationGlyph)));
+        PropertyChanged?.Invoke(
+            this,
+            new PropertyChangedEventArgs(nameof(AnimationToolTip)));
+    }
 
     public string ToolTip =>
         InspectorHelpText.BuildToolTip(Name, Definition, IsAuthored);

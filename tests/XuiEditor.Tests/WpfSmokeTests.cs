@@ -34,6 +34,136 @@ public sealed class WpfSmokeTests
 
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
+    public void AssetsAndRawCustomPropertySurfacesUseDarkTemplates()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        ListView list = new()
+        {
+            Style = (Style)application.Resources[typeof(ListView)],
+            View = new GridView
+            {
+                Columns =
+                {
+                    new GridViewColumn { Header = "Kind", DisplayMemberBinding = new System.Windows.Data.Binding("Kind") },
+                    new GridViewColumn { Header = "Name", DisplayMemberBinding = new System.Windows.Data.Binding("Name") },
+                },
+            },
+        };
+        list.Items.Add(new { Kind = "Texture", Name = "menu" });
+        GridViewColumnHeader header = new()
+        {
+            Style = (Style)application.Resources[typeof(GridViewColumnHeader)],
+            Content = "Name",
+        };
+        list.ApplyTemplate();
+        header.ApplyTemplate();
+        list.Measure(new Size(420, 180));
+        list.Arrange(new Rect(0, 0, 420, 180));
+        list.UpdateLayout();
+
+        Assert.IsTrue(IsDark(list.Background));
+        Assert.IsTrue(IsDark(header.Background));
+        AddXuiPropertyWindow propertyWindow = new("I_Test");
+        propertyWindow.SetRawModeForTesting(true);
+        Assert.IsTrue(propertyWindow.RawEditorVisibleForTesting);
+        Assert.IsFalse(propertyWindow.CatalogVisibleForTesting);
+        propertyWindow.SetRawModeForTesting(false);
+        Assert.IsFalse(propertyWindow.RawEditorVisibleForTesting);
+        Assert.IsTrue(propertyWindow.CatalogVisibleForTesting);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void AnimationCreationWorksBeforeASelectionHasTracks()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>1280</Width><Height>720</Height></Properties><MyImage><Properties><Id>I</Id><Opacity>1</Opacity></Properties></MyImage><MyImage><Properties><Id>Later</Id></Properties></MyImage></XuiCanvas>");
+        XuiSyntaxNode image = document.Root.Elements("MyImage").First();
+        XuiSyntaxNode later = document.Root.Elements("MyImage").Last();
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        window.SelectNodeKeysForTesting([image.Key]);
+        HierarchyRow? hierarchyRow = window.HierarchyRowForTesting(image.Key);
+        HierarchyRow? laterHierarchyRow =
+            window.HierarchyRowForTesting(later.Key);
+
+        Assert.IsTrue(window.AnimationCreationEnabledForTesting);
+        Assert.IsTrue(window.TrackCreationEnabledForTesting);
+        Assert.IsFalse(window.TimelineForTesting.HasVisibleTracks);
+        window.CreateAnimationForTesting(
+            "quick-show-hide",
+            image.Key,
+            [image.Key]);
+
+        XuiTimelineSet timelines = XuiTimelineParser.Parse(document);
+        Assert.AreEqual(2, timelines.Timelines.Count);
+        Assert.AreEqual(4, timelines.NamedFrames.Count);
+        Assert.IsTrue(window.TimelineForTesting.HasVisibleTracks);
+        Assert.IsTrue(document.History.CanUndo);
+        Assert.AreSame(
+            hierarchyRow,
+            window.HierarchyRowForTesting(image.Key),
+            "Animation-only edits should preserve the retained hierarchy rows.");
+        Assert.AreSame(
+            laterHierarchyRow,
+            window.HierarchyRowForTesting(later.Key),
+            "Animation metadata insertion should not rebuild later siblings.");
+        XuiRenderNode rendered = window.ViewportForTesting.FrameForTesting!
+            .Nodes.Single(static node => node.Id == "I");
+        Assert.AreEqual(
+            0,
+            rendered.Opacity,
+            0.0001,
+            "The retained layout must immediately sample the new local scope.");
+        Assert.IsTrue(window.ViewportForTesting.FrameForTesting.Nodes.Any(
+            static node => node.Id == "Later"));
+        InspectorPropertyRow opacity = window.InspectorProperties.Single(
+            static row => row.Name == "Opacity");
+        Assert.IsTrue(opacity.HasAnimationTrack);
+        Assert.IsTrue(opacity.HasAnimationKey);
+        Assert.AreEqual("◆", opacity.AnimationGlyph);
+        document.Undo();
+        Assert.AreEqual(0, XuiTimelineParser.Parse(document).Timelines.Count);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void InspectorTrackActionCreatesAndUpdatesTheActiveKey()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><MyImage><Properties><Id>I</Id><Opacity>0.35</Opacity></Properties></MyImage></XuiCanvas>");
+        XuiSyntaxNode image = document.Root.Elements("MyImage").Single();
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        window.SelectNodeKeysForTesting([image.Key]);
+
+        window.AddTimelineTrackForTesting("Opacity");
+        XuiTrack created = XuiTimelineParser.Parse(document)
+            .Timelines.Single().Tracks.Single();
+        Assert.AreEqual(0.35, TimelineEvaluator.Sample(created, 0)!.Number, 0.0001);
+        window.AddTimelineTrackForTesting("Opacity", "0.7");
+        XuiTrack updated = XuiTimelineParser.Parse(document)
+            .Timelines.Single().Tracks.Single();
+        Assert.AreEqual(0.7, TimelineEvaluator.Sample(updated, 0)!.Number, 0.0001);
+
+        document.Undo();
+        Assert.AreEqual(
+            0.35,
+            TimelineEvaluator.Sample(
+                XuiTimelineParser.Parse(document).Timelines.Single().Tracks.Single(),
+                0)!.Number,
+            0.0001);
+        document.Undo();
+        Assert.AreEqual(0, XuiTimelineParser.Parse(document).Timelines.Count);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
     public void MainWindowStartsCenteredOnPrimaryWorkArea()
     {
         App application = Application.Current as App ?? new App();
@@ -2203,6 +2333,137 @@ public sealed class WpfSmokeTests
             childRow.LockState);
         Assert.AreEqual(source, document.Text);
         Assert.IsFalse(document.IsDirty);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void HierarchyReparentMovesTheElementSelectsItAndIsUndoable()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<AdvGroup><Properties><Id>A</Id></Properties>" +
+            "<MyImage><Properties><Id>Child</Id></Properties></MyImage>" +
+            "</AdvGroup>" +
+            "<AdvGroup><Properties><Id>B</Id></Properties></AdvGroup>" +
+            "</XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        XuiSyntaxNode Node(string id) =>
+            XuiModelReader.VisualDescendants(document.Root)
+                .Single(node =>
+                    XuiModelReader.GetId(node, document.Text) == id);
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        XuiSyntaxNode child = Node("Child");
+        XuiSyntaxNode destination = Node("B");
+
+        Assert.IsTrue(window.ReparentHierarchyForTesting(
+            child.Key,
+            destination.Key));
+
+        XuiSyntaxNode moved = Node("Child");
+        Assert.AreEqual("B", XuiModelReader.GetId(
+            moved.Parent!,
+            document.Text));
+        Assert.IsTrue(window.SelectedKeysForTesting.Contains(moved.Key));
+        Assert.IsTrue(window.ExpandedKeysForTesting.Contains(
+            moved.Parent!.Key));
+        StringAssert.Contains(window.UndoHeaderForTesting, "Reparent");
+
+        document.Undo();
+        Assert.AreEqual("A", XuiModelReader.GetId(
+            Node("Child").Parent!,
+            document.Text));
+
+        XuiSyntaxNode restored = Node("Child");
+        Assert.IsTrue(window.ReparentHierarchyForTesting(
+            restored.Key,
+            document.Root.Key));
+        Assert.AreSame(document.Root, Node("Child").Parent);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void HierarchyReparentRejectsCyclesAndLockedElements()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<AdvGroup><Properties><Id>Parent</Id></Properties>" +
+            "<AdvGroup><Properties><Id>Child</Id></Properties></AdvGroup>" +
+            "</AdvGroup><AdvGroup><Properties><Id>Target</Id></Properties></AdvGroup>" +
+            "</XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        Dictionary<string, XuiSyntaxNode> nodes =
+            XuiModelReader.VisualDescendants(document.Root)
+                .ToDictionary(
+                    node => XuiModelReader.GetId(node, document.Text)!,
+                    StringComparer.Ordinal);
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+
+        Assert.IsFalse(window.ReparentHierarchyForTesting(
+            nodes["Parent"].Key,
+            nodes["Child"].Key));
+        window.SetEditorLockedForTesting(nodes["Parent"].Key, locked: true);
+        Assert.IsFalse(window.ReparentHierarchyForTesting(
+            nodes["Parent"].Key,
+            nodes["Target"].Key));
+        Assert.AreEqual(source, document.Text);
+        Assert.IsFalse(document.IsDirty);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void HierarchySiblingDropsReorderWithoutChangingParents()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<AdvGroup><Properties><Id>Parent</Id></Properties>" +
+            "<MyImage><Properties><Id>A</Id></Properties></MyImage>" +
+            "<MyImage><Properties><Id>B</Id></Properties></MyImage>" +
+            "<MyImage><Properties><Id>C</Id></Properties></MyImage>" +
+            "</AdvGroup><AdvGroup><Properties><Id>Other</Id></Properties>" +
+            "<MyImage><Properties><Id>D</Id></Properties></MyImage>" +
+            "</AdvGroup></XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        XuiSyntaxNode Node(string id) =>
+            XuiModelReader.VisualDescendants(document.Root)
+                .Single(node =>
+                    XuiModelReader.GetId(node, document.Text) == id);
+        string[] ChildIds() =>
+            XuiModelReader.VisualChildren(Node("Parent"))
+                .Select(node => XuiModelReader.GetId(node, document.Text)!)
+                .ToArray();
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+
+        Assert.IsTrue(window.ReorderHierarchyForTesting(
+            Node("C").Key,
+            Node("A").Key,
+            after: false));
+        Assert.AreEqual("C|A|B", string.Join('|', ChildIds()));
+        Assert.AreSame(Node("Parent"), Node("C").Parent);
+        StringAssert.Contains(window.UndoHeaderForTesting, "Move");
+
+        Assert.IsTrue(window.ReorderHierarchyForTesting(
+            Node("C").Key,
+            Node("B").Key,
+            after: true));
+        Assert.AreEqual("A|B|C", string.Join('|', ChildIds()));
+        Assert.IsFalse(window.ReorderHierarchyForTesting(
+            Node("A").Key,
+            Node("D").Key,
+            after: false));
+
+        document.Undo();
+        Assert.AreEqual("C|A|B", string.Join('|', ChildIds()));
+        document.Undo();
+        Assert.AreEqual(source, document.Text);
     }
 
     [STATestMethod]

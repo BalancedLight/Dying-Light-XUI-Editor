@@ -1,0 +1,176 @@
+<Window x:Class="XuiEditor.Wpf.CreateXuiAnimationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource Ui.Animation.Dialog.Title}"
+        Width="690"
+        Height="650"
+        MinWidth="610"
+        MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        ResizeMode="CanResize">
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="170" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.Column="0"
+                   Text="{DynamicResource Ui.Animation.Dialog.Preset}"
+                   Foreground="{StaticResource MutedTextBrush}"
+                   VerticalAlignment="Center" />
+        <ComboBox x:Name="PresetComboBox"
+                  Grid.Row="0" Grid.Column="1"
+                  DisplayMemberPath="Name"
+                  SelectionChanged="DialogValue_Changed" />
+
+        <TextBlock Grid.Row="1" Grid.Column="0"
+                   Margin="0,8,0,0"
+                   Text="{DynamicResource Ui.Animation.Dialog.Scope}"
+                   Foreground="{StaticResource MutedTextBrush}"
+                   VerticalAlignment="Center" />
+        <ComboBox x:Name="ScopeComboBox"
+                  Grid.Row="1" Grid.Column="1"
+                  Margin="0,8,0,0"
+                  DisplayMemberPath="DisplayName"
+                  SelectionChanged="DialogValue_Changed" />
+
+        <TextBlock Grid.Row="2" Grid.Column="0"
+                   Margin="0,8,0,0"
+                   Text="{DynamicResource Ui.Animation.Dialog.StartTick}"
+                   Foreground="{StaticResource MutedTextBrush}"
+                   VerticalAlignment="Center" />
+        <TextBox x:Name="StartTickTextBox"
+                 Grid.Row="2" Grid.Column="1"
+                 Margin="0,8,0,0"
+                 Text="0"
+                 TextChanged="DialogValue_Changed" />
+
+        <TextBlock Grid.Row="3" Grid.Column="0"
+                   Margin="0,8,0,0"
+                   Text="{DynamicResource Ui.Animation.Dialog.Prefix}"
+                   Foreground="{StaticResource MutedTextBrush}"
+                   VerticalAlignment="Center" />
+        <TextBox x:Name="PrefixTextBox"
+                 Grid.Row="3" Grid.Column="1"
+                 Margin="0,8,0,0"
+                 TextChanged="DialogValue_Changed" />
+
+        <CheckBox x:Name="MarkersOnlyCheckBox"
+                  Grid.Row="4" Grid.Column="1"
+                  Margin="0,9,0,0"
+                  Content="{DynamicResource Ui.Animation.Dialog.MarkersOnly}"
+                  Checked="DialogValue_Changed"
+                  Unchecked="DialogValue_Changed" />
+
+        <Border x:Name="CustomPropertyPanel"
+                Grid.Row="5" Grid.ColumnSpan="2"
+                Margin="0,10,0,0"
+                Padding="10"
+                Visibility="Collapsed"
+                Background="{StaticResource PanelRaisedBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="150" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="70" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Text="{DynamicResource Ui.Animation.Dialog.Property}"
+                           Foreground="{StaticResource MutedTextBrush}"
+                           VerticalAlignment="Center" />
+                <ComboBox x:Name="PropertyComboBox"
+                          Grid.Column="1" Grid.ColumnSpan="3"
+                          IsEditable="True"
+                          SelectionChanged="DialogValue_Changed"
+                          LostKeyboardFocus="DialogValue_Changed" />
+                <TextBlock Grid.Row="1"
+                           Margin="0,8,0,0"
+                           Text="{DynamicResource Ui.Animation.Dialog.Values}"
+                           Foreground="{StaticResource MutedTextBrush}"
+                           VerticalAlignment="Center" />
+                <TextBox x:Name="StartValueTextBox"
+                         Grid.Row="1" Grid.Column="1"
+                         Margin="0,8,8,0"
+                         Text="0"
+                         TextChanged="DialogValue_Changed" />
+                <TextBlock Grid.Row="1" Grid.Column="2"
+                           Margin="0,8,6,0"
+                           Text="{DynamicResource Ui.Animation.Dialog.Duration}"
+                           Foreground="{StaticResource MutedTextBrush}"
+                           VerticalAlignment="Center" />
+                <StackPanel Grid.Row="1" Grid.Column="3"
+                            Orientation="Horizontal"
+                            Margin="0,8,0,0">
+                    <TextBox x:Name="DurationTextBox"
+                             Width="55"
+                             Text="5"
+                             TextChanged="DialogValue_Changed" />
+                    <TextBlock Margin="8,0,6,0"
+                               Text="→"
+                               VerticalAlignment="Center" />
+                    <TextBox x:Name="EndValueTextBox"
+                             MinWidth="100"
+                             Text="1"
+                             TextChanged="DialogValue_Changed" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="6" Grid.ColumnSpan="2" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <GroupBox Header="{DynamicResource Ui.Animation.Dialog.Generated}" Margin="0,0,5,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <TextBlock x:Name="GeneratedText"
+                               Margin="8"
+                               TextWrapping="Wrap"
+                               Foreground="{StaticResource TextBrush}" />
+                </ScrollViewer>
+            </GroupBox>
+            <GroupBox Grid.Column="1"
+                      Header="{DynamicResource Ui.Animation.Dialog.Conflicts}"
+                      Margin="5,0,0,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <TextBlock x:Name="ConflictText"
+                               Margin="8"
+                               TextWrapping="Wrap"
+                               Foreground="{StaticResource MutedTextBrush}" />
+                </ScrollViewer>
+            </GroupBox>
+        </Grid>
+
+        <StackPanel Grid.Row="7" Grid.ColumnSpan="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,12,0,0">
+            <Button Content="{DynamicResource Ui.Common.Cancel}"
+                    MinWidth="88"
+                    Margin="0,0,8,0"
+                    IsCancel="True" />
+            <Button x:Name="CreateButton"
+                    Content="{DynamicResource Ui.Animation.Dialog.Create}"
+                    MinWidth="110"
+                    IsDefault="True"
+                    Click="Create_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

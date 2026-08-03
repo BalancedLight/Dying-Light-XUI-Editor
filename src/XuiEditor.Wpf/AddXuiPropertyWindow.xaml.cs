@@ -47,6 +47,16 @@ public partial class AddXuiPropertyWindow : Window
             .Select(static option => option.Definition)
             .ToArray();
 
+    internal bool RawEditorVisibleForTesting =>
+        RawEditorPanel.Visibility == Visibility.Visible;
+
+    internal bool CatalogVisibleForTesting =>
+        PropertyList.Visibility == Visibility.Visible &&
+        SearchTextBox.Visibility == Visibility.Visible;
+
+    internal void SetRawModeForTesting(bool enabled) =>
+        RawModeCheckBox.IsChecked = enabled;
+
     private void SearchTextBox_TextChanged(
         object sender,
         TextChangedEventArgs eventArgs) =>
@@ -156,8 +166,19 @@ public partial class AddXuiPropertyWindow : Window
         RoutedEventArgs eventArgs)
     {
         bool raw = RawModeCheckBox.IsChecked == true;
-        PropertyList.IsEnabled = !raw;
-        SearchTextBox.IsEnabled = !raw;
+        CatalogSearchPanel.Visibility = Visibility.Visible;
+        SearchLabel.Visibility = raw
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        SearchTextBox.Visibility = raw
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        PropertyList.Visibility = raw
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        RawEditorPanel.Visibility = raw
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         NameTextBox.IsEnabled = raw;
         ChoiceValueCombo.Visibility = Visibility.Collapsed;
         ValueTextBox.Visibility = Visibility.Visible;

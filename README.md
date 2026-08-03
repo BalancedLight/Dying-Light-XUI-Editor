@@ -52,7 +52,10 @@ workspace before it can be saved.
   undo/redo, recent files, and isolated recovery snapshots.
 - An indexed, virtualized, fixed-height hierarchy with stable expansion
   state, debounced search, collapse/reveal commands, breadcrumbs, and
-  synchronized selection. Eye and padlock icons distinguish direct and
+  synchronized selection. Rows can be dragged onto other elements to
+  reparent them, onto a sibling's upper or lower edge to reorder them, or
+  onto hierarchy whitespace to return them to the canvas root; the move is
+  validated and undoable. Eye and padlock icons distinguish direct and
   inherited editor-only visibility/lock states without modifying the XUI.
   A row context menu can hide everything except that item and its subtree,
   then restore the exact prior visibility state.

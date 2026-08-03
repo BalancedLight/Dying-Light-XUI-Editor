@@ -266,6 +266,93 @@ public sealed class XuiTextEditCommand : IXuiCommand
         document.ApplyValidatedEdit(_start, _newText, _oldText);
 }
 
+public sealed record XuiTextPatch(
+    int Start,
+    string ExpectedText,
+    string ReplacementText);
+
+/// <summary>
+/// Applies a set of non-overlapping source patches against one document
+/// revision.  The patches are composed in descending source order and the
+/// resulting XML is parsed once, so creation of a complete animation is both
+/// transactional and a single undo step without rewriting unrelated bytes.
+/// </summary>
+public sealed class XuiTextPatchCommand : IXuiCommand
+{
+    private readonly string _before;
+    private readonly string _after;
+
+    public XuiTextPatchCommand(
+        XuiDocument document,
+        string description,
+        IReadOnlyList<XuiTextPatch> patches,
+        XuiMessageDescriptor? descriptionDescriptor = null)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        ArgumentNullException.ThrowIfNull(patches);
+        if (patches.Count == 0)
+        {
+            throw new ArgumentException(
+                "A text-patch command requires at least one patch.",
+                nameof(patches));
+        }
+
+        Description = description;
+        DescriptionDescriptor = descriptionDescriptor;
+        _before = document.Text;
+        _after = Compose(_before, patches);
+    }
+
+    public string Description { get; }
+
+    public XuiMessageDescriptor? DescriptionDescriptor { get; }
+
+    public void Execute(XuiDocument document) =>
+        document.ApplyValidatedEdit(0, _before, _after);
+
+    public void Undo(XuiDocument document) =>
+        document.ApplyValidatedEdit(0, _after, _before);
+
+    private static string Compose(
+        string source,
+        IReadOnlyList<XuiTextPatch> patches)
+    {
+        XuiTextPatch[] ordered = patches
+            .OrderByDescending(static patch => patch.Start)
+            .ToArray();
+        int previousStart = source.Length;
+        string candidate = source;
+        foreach (XuiTextPatch patch in ordered)
+        {
+            if (patch.Start < 0 ||
+                patch.Start > source.Length ||
+                patch.ExpectedText.Length > source.Length - patch.Start ||
+                !source.AsSpan(patch.Start, patch.ExpectedText.Length)
+                    .SequenceEqual(patch.ExpectedText))
+            {
+                throw new InvalidOperationException(
+                    "An animation edit no longer matches the current XUI document revision.");
+            }
+
+            int patchEnd = patch.Start + patch.ExpectedText.Length;
+            if (patchEnd > previousStart)
+            {
+                throw new InvalidOperationException(
+                    "Animation source patches overlap.");
+            }
+
+            candidate = string.Concat(
+                candidate.AsSpan(0, patch.Start),
+                patch.ReplacementText,
+                candidate.AsSpan(patchEnd));
+            previousStart = patch.Start;
+        }
+
+        return candidate;
+    }
+}
+
 public static class XuiCommandFactory
 {
     public static IXuiCommand SetElementValue(
@@ -804,8 +891,14 @@ public static class XuiCommandFactory
                 $"Element '{newParent.Name}' cannot receive children.");
         }
 
+        List<XuiSyntaxNode> originalDestinationChildren =
+            XuiModelReader.VisualChildren(newParent).ToList();
+        bool isSiblingReorder = element.Parent == newParent;
+        int originalChildIndex = isSiblingReorder
+            ? originalDestinationChildren.IndexOf(element)
+            : -1;
         List<XuiSyntaxNode> destinationChildren =
-            XuiModelReader.VisualChildren(newParent)
+            originalDestinationChildren
                 .Where(child => child != element)
                 .ToList();
         int destinationIndex = Math.Clamp(
@@ -873,14 +966,28 @@ public static class XuiCommandFactory
         string replacement = withoutElement.Insert(
             adjustedInsertion,
             insertion);
+        bool movedUp = isSiblingReorder &&
+                       destinationIndex < originalChildIndex;
         return new XuiTextEditCommand(
-            $"Reparent {element.Name}",
+            isSiblingReorder
+                ? movedUp
+                    ? $"Move {element.Name} up"
+                    : $"Move {element.Name} down"
+                : $"Reparent {element.Name}",
             0,
             document.Text,
             replacement,
             new XuiMessageDescriptor(
-                "Ui.Command.Reparent",
-                "Reparent {0}",
+                isSiblingReorder
+                    ? movedUp
+                        ? "Ui.Command.MoveUp"
+                        : "Ui.Command.MoveDown"
+                    : "Ui.Command.Reparent",
+                isSiblingReorder
+                    ? movedUp
+                        ? "Move {0} up"
+                        : "Move {0} down"
+                    : "Reparent {0}",
                 element.Name));
     }
 

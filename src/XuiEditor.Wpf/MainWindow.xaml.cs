@@ -33,6 +33,8 @@ public partial class MainWindow : Window, IDisposable
         UiLocalization.Text("Ui.Common.Mixed");
     private const int AutomaticRawXmlCharacterLimit = 256 * 1024;
     private const double SnapshotExportScale = 2;
+    private const string HierarchyDragDataFormat =
+        "XuiEditor.Wpf.HierarchyNodeKey";
     private static readonly string[] NavigationPropertyNames =
     [
         "NavLeft",
@@ -95,6 +97,10 @@ public partial class MainWindow : Window, IDisposable
     private int _viewportLoadingDepth;
     private bool _disposed;
     private Point _assetDragStart;
+    private Point _hierarchyDragStart;
+    private string? _hierarchyDragSourceKey;
+    private string? _hierarchyDropTargetKey;
+    private HierarchyDropPlacement _hierarchyDropPlacement;
     private XuiMessageDescriptor? _statusDescriptor;
     private string? _lastLocalizedStatusText;
     private XuiMessageDescriptor? _assetStatusDescriptor;
@@ -262,6 +268,12 @@ public partial class MainWindow : Window, IDisposable
     internal bool IncludeDescendantsEnabledForTesting =>
         IncludeDescendantsToggle.IsEnabled;
 
+    internal bool AnimationCreationEnabledForTesting =>
+        AddAnimationButton.IsEnabled && AnimationMenuItem.IsEnabled;
+
+    internal bool TrackCreationEnabledForTesting =>
+        AddTrackButton.IsEnabled;
+
     internal long LayoutEvaluationCountForTesting =>
         _layoutEvaluationCount;
 
@@ -419,6 +431,27 @@ public partial class MainWindow : Window, IDisposable
         _hierarchySearchTimer.Stop();
         ApplyHierarchyFilter();
     }
+
+    internal bool ReparentHierarchyForTesting(
+        string sourceKey,
+        string targetKey) =>
+        MoveHierarchy(
+            sourceKey,
+            new HierarchyDropIntent(
+                targetKey,
+                HierarchyDropPlacement.Inside));
+
+    internal bool ReorderHierarchyForTesting(
+        string sourceKey,
+        string targetKey,
+        bool after) =>
+        MoveHierarchy(
+            sourceKey,
+            new HierarchyDropIntent(
+                targetKey,
+                after
+                    ? HierarchyDropPlacement.After
+                    : HierarchyDropPlacement.Before));
 
     internal void SetEditorHiddenForTesting(string nodeKey, bool hidden)
     {
@@ -660,6 +693,35 @@ public partial class MainWindow : Window, IDisposable
 
         InsertProperty(element, name, value);
     }
+
+    internal void CreateAnimationForTesting(
+        string presetId,
+        string ownerKey,
+        IReadOnlyList<string> targetKeys,
+        int startTick = 0,
+        string prefix = "",
+        bool markersOnly = false)
+    {
+        if (_document is null)
+        {
+            throw new InvalidOperationException("No test document is attached.");
+        }
+
+        ExecuteAnimationPlan(XuiAnimationAuthoringService.Plan(
+            _document,
+            new XuiAnimationAuthoringRequest(
+                ownerKey,
+                targetKeys,
+                XuiAnimationPresets.Find(presetId),
+                startTick,
+                prefix,
+                markersOnly)));
+    }
+
+    internal void AddTimelineTrackForTesting(
+        string propertyName,
+        string? value = null) =>
+        AddTimelineTrack(propertyName, value, showDialog: false);
 
     internal void ApplyTextureDiagnosticsForTesting(
         string imagePath,
@@ -1805,6 +1867,314 @@ public partial class MainWindow : Window, IDisposable
             CurrentTimelineTick + 1));
     }
 
+    private void AddAnimation_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        SelectionSnapshot selection = CaptureSelection();
+        if (selection.Nodes.Length == 0)
+        {
+            SetStatus("Ui.Animation.Status.SelectTarget");
+            return;
+        }
+
+        List<XuiAnimationScopeOption> scopes =
+            AnimationScopeOptions(selection);
+        if (scopes.Count == 0)
+        {
+            SetStatus("Ui.Animation.Status.MixedScopes");
+            return;
+        }
+
+        string[] targetKeys = selection.Nodes
+            .Select(static node => node.Key)
+            .ToArray();
+        CreateXuiAnimationWindow dialog = new(
+            scopes,
+            ClassCatalog.TimelinePropertyNames,
+            dialogSelection => XuiAnimationAuthoringService.Plan(
+                _document,
+                BuildAuthoringRequest(dialogSelection, targetKeys),
+                _timelineSet)
+                .ConflictReport)
+        {
+            Owner = this,
+        };
+        if (dialog.ShowDialog() != true ||
+            dialog.Selection is not XuiAnimationDialogSelection chosen)
+        {
+            return;
+        }
+
+        XuiAnimationAuthoringResult plan =
+            XuiAnimationAuthoringService.Plan(
+                _document,
+                BuildAuthoringRequest(chosen, targetKeys),
+                _timelineSet);
+        ExecuteAnimationPlan(plan);
+    }
+
+    private void AddTrack_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        AddTimelineTrack(initialProperty: null);
+    }
+
+    private void InspectorAnimationDiamond_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (sender is not Button { Tag: InspectorPropertyRow row } ||
+            !row.IsAnimatable)
+        {
+            return;
+        }
+
+        CommitInspectorValue(row);
+        AddTimelineTrack(row.Name, row.Value, showDialog: false);
+    }
+
+    private void AddTimelineTrack(
+        string? initialProperty,
+        string? initialValue = null,
+        bool showDialog = true)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        SelectionSnapshot selection = CaptureSelection();
+        if (selection.Nodes.Length != 1)
+        {
+            SetStatus("Ui.Animation.Status.OneTargetForTrack");
+            return;
+        }
+
+        XuiSyntaxNode target = selection.Nodes[0];
+        XuiTimelineScope? activeScope = _timelineWorkspace?.ActiveScope;
+        string ownerKey = activeScope?.ScopeKey ?? target.Key;
+        string propertyName = initialProperty ?? string.Empty;
+        string propertyValue = initialValue ?? string.Empty;
+        if (showDialog)
+        {
+            AddXuiTimelineTrackWindow dialog = new(
+                ClassCatalog.TimelinePropertyNames,
+                property => EffectiveTimelinePropertyValue(
+                    target,
+                    property),
+                initialProperty)
+            {
+                Owner = this,
+            };
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            propertyName = dialog.PropertyName;
+            propertyValue = dialog.PropertyValue;
+        }
+
+        if (string.IsNullOrWhiteSpace(propertyName))
+        {
+            return;
+        }
+
+        if (string.IsNullOrEmpty(propertyValue))
+        {
+            propertyValue = EffectiveTimelinePropertyValue(target, propertyName);
+        }
+
+        XuiAnimationAuthoringResult plan =
+            XuiAnimationAuthoringService.PlanTrackKey(
+                _document,
+                ownerKey,
+                target.Key,
+                propertyName,
+                propertyValue,
+                CurrentTimelineTick,
+                _timelineSet);
+        ExecuteAnimationPlan(plan);
+    }
+
+    private List<XuiAnimationScopeOption> AnimationScopeOptions(
+        SelectionSnapshot selection)
+    {
+        if (_document is null || selection.Nodes.Length == 0)
+        {
+            return [];
+        }
+
+        if (selection.Nodes.Length > 1)
+        {
+            XuiTimelineScope[] scopes = selection.Scopes
+                .DistinctBy(static scope => scope.ScopeKey)
+                .ToArray();
+            return scopes.Length == 1
+                ? [new XuiAnimationScopeOption(
+                    scopes[0].ScopeKey,
+                    scopes[0].DisplayName,
+                    _timelineWorkspace?.TickFor(scopes[0].ScopeKey) ?? 0,
+                    IsLocal: false)]
+                : [];
+        }
+
+        XuiSyntaxNode target = selection.Nodes[0];
+        string displayName = XuiModelReader.GetId(target, _document.Text) ??
+                             target.Name;
+        List<XuiAnimationScopeOption> options =
+        [
+            new(
+                target.Key,
+                UiLocalization.Format(
+                    "Ui.Animation.Scope.Local",
+                    displayName),
+                0,
+                IsLocal: true),
+        ];
+        if (_layoutSession is not null)
+        {
+            options.AddRange(_layoutSession.TimelineScopes.Scopes
+                .Where(scope =>
+                    KeyIsAncestorOrSelf(scope.ScopeKey, target.Key) &&
+                    !scope.ScopeKey.Equals(target.Key, StringComparison.Ordinal))
+                .OrderByDescending(static scope => scope.ScopeKey.Length)
+                .Select(scope => new XuiAnimationScopeOption(
+                    scope.ScopeKey,
+                    UiLocalization.Format(
+                        "Ui.Animation.Scope.Existing",
+                        scope.DisplayName),
+                    _timelineWorkspace?.TickFor(scope.ScopeKey) ?? 0,
+                    IsLocal: false)));
+        }
+
+        return options;
+    }
+
+    private static XuiAnimationAuthoringRequest BuildAuthoringRequest(
+        XuiAnimationDialogSelection selection,
+        IReadOnlyList<string> targetKeys) =>
+        new(
+            selection.Scope.OwnerKey,
+            targetKeys,
+            selection.Preset,
+            selection.StartTick,
+            selection.Prefix,
+            selection.MarkersOnly,
+            selection.PropertyName,
+            selection.StartValue,
+            selection.EndValue,
+            selection.Duration);
+
+    private void ExecuteAnimationPlan(
+        XuiAnimationAuthoringResult plan)
+    {
+        XuiAnimationConflict? error = plan.ConflictReport.Conflicts
+            .FirstOrDefault(static conflict =>
+                conflict.Severity == XuiAnimationConflictSeverity.Error);
+        if (error is not null)
+        {
+            _statusDescriptor = null;
+            _lastLocalizedStatusText = null;
+            StatusText.Text = error.ResourceKey is null
+                ? error.Message
+                : UiLocalization.Format(
+                    error.ResourceKey,
+                    error.Arguments?.ToArray() ?? []);
+            return;
+        }
+
+        if (_document is null || plan.Command is null)
+        {
+            SetStatus("Ui.Animation.Status.NoChanges");
+            return;
+        }
+
+        if (!ExecuteBatch(
+                () => _document.Execute(plan.Command),
+                plan.Command.Description,
+                animationMetadataOnly: true))
+        {
+            return;
+        }
+        if (_timelineWorkspace?.Catalog.Find(plan.OwnerKey) is
+            XuiTimelineScope createdScope)
+        {
+            _timelineWorkspace.ResolveScopes(
+                [createdScope],
+                createdScope.ScopeKey);
+            _timelineWorkspace.SetActiveTick(plan.FirstTick);
+            UpdateTimelineData();
+            if (plan.GeneratedTracks.Count > 0)
+            {
+                (string targetId, string propertyName) =
+                    plan.GeneratedTracks[0];
+                XuiKeyFrame? firstKey = createdScope.Timelines
+                    .Where(timeline => timeline.TargetId.Equals(
+                        targetId,
+                        StringComparison.Ordinal))
+                    .SelectMany(static timeline => timeline.Tracks)
+                    .Where(track => track.PropertyName.Equals(
+                        propertyName,
+                        StringComparison.Ordinal))
+                    .SelectMany(static track => track.KeyFrames)
+                    .OrderBy(static key => key.Tick)
+                    .FirstOrDefault();
+                TimelineEditor.SelectKeyFrame(firstKey?.Syntax.Key);
+                RefreshKeyFrameEditor();
+            }
+            RefreshInspectorAnimationIndicators();
+            RefreshEvaluation();
+        }
+
+        SetStatus("Ui.Animation.Status.Created");
+    }
+
+    private string EffectiveTimelinePropertyValue(
+        XuiSyntaxNode target,
+        string propertyName)
+    {
+        if (_document is not null &&
+            XuiModelReader.GetId(target, _document.Text) is string targetId &&
+            _timelineWorkspace?.ActiveScope is XuiTimelineScope scope)
+        {
+            XuiTrack? track = scope.Timelines
+                .Where(timeline => timeline.TargetId.Equals(
+                    targetId,
+                    StringComparison.Ordinal))
+                .SelectMany(static timeline => timeline.Tracks)
+                .FirstOrDefault(candidate => candidate.PropertyName.Equals(
+                    propertyName,
+                    StringComparison.Ordinal));
+            if (track is not null &&
+                TimelineEvaluator.Sample(track, CurrentTimelineTick) is
+                    XuiAnimatedValue sampled)
+            {
+                return sampled.ToXuiString();
+            }
+        }
+
+        return _document is null
+            ? "0"
+            : XuiModelReader.GetPropertyValue(
+                  target,
+                  _document.Text,
+                  propertyName) ??
+              ClassCatalog.FindProperty(propertyName)?.DefaultValue ??
+              propertyName switch
+              {
+                  "Show" => "true",
+                  "Opacity" => "1",
+                  "Scale" => "1,1,1",
+                  "Color" or "TextColor" or "OutlineColor" or
+                      "DefaultFontColor" => "0xffffffff",
+                  _ => "0",
+              };
+    }
+
     private void AddKeyFrame_Click(object sender, RoutedEventArgs eventArgs)
     {
         if (_document is null || _timelineSet is null)
@@ -2211,6 +2581,263 @@ public partial class MainWindow : Window, IDisposable
         SelectRowsFromKeys(scrollIntoView: true);
         UpdateSelectionSurfaces();
     }
+
+    private void HierarchyList_MouseLeftButtonDown(
+        object sender,
+        MouseButtonEventArgs eventArgs)
+    {
+        _hierarchyDragStart = eventArgs.GetPosition(HierarchyList);
+        _hierarchyDragSourceKey =
+            HierarchyRowFromEventSource(eventArgs.OriginalSource)?.NodeKey;
+    }
+
+    private void HierarchyList_MouseMove(
+        object sender,
+        MouseEventArgs eventArgs)
+    {
+        if (eventArgs.LeftButton != MouseButtonState.Pressed ||
+            _hierarchyDragSourceKey is null)
+        {
+            return;
+        }
+
+        Vector delta =
+            eventArgs.GetPosition(HierarchyList) - _hierarchyDragStart;
+        if (Math.Abs(delta.X) <
+                SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(delta.Y) <
+                SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        string sourceKey = _hierarchyDragSourceKey;
+        _hierarchyDragSourceKey = null;
+        DataObject data = new(HierarchyDragDataFormat, sourceKey);
+        DragDrop.DoDragDrop(HierarchyList, data, DragDropEffects.Move);
+        ClearHierarchyDropTarget();
+    }
+
+    private void HierarchyList_DragOver(
+        object sender,
+        DragEventArgs eventArgs)
+    {
+        string? sourceKey =
+            eventArgs.Data.GetData(HierarchyDragDataFormat) as string;
+        HierarchyDropIntent? intent = HierarchyDropIntentFor(eventArgs);
+        bool canMove = sourceKey is not null &&
+                       intent is HierarchyDropIntent dropIntent &&
+                       TryGetHierarchyMove(
+                           sourceKey,
+                           dropIntent,
+                           out _,
+                           out _,
+                           out _);
+        SetHierarchyDropTarget(canMove ? intent : null);
+        eventArgs.Effects = canMove
+            ? DragDropEffects.Move
+            : DragDropEffects.None;
+        eventArgs.Handled = true;
+    }
+
+    private void HierarchyList_DragLeave(
+        object sender,
+        DragEventArgs eventArgs)
+    {
+        if (!HierarchyList.IsMouseOver)
+        {
+            ClearHierarchyDropTarget();
+        }
+    }
+
+    private void HierarchyList_Drop(
+        object sender,
+        DragEventArgs eventArgs)
+    {
+        string? sourceKey =
+            eventArgs.Data.GetData(HierarchyDragDataFormat) as string;
+        HierarchyDropIntent? intent = HierarchyDropIntentFor(eventArgs);
+        ClearHierarchyDropTarget();
+        if (sourceKey is not null &&
+            intent is HierarchyDropIntent dropIntent &&
+            MoveHierarchy(sourceKey, dropIntent))
+        {
+            eventArgs.Effects = DragDropEffects.Move;
+        }
+        else
+        {
+            eventArgs.Effects = DragDropEffects.None;
+        }
+
+        eventArgs.Handled = true;
+    }
+
+    private HierarchyRow? HierarchyRowFromEventSource(object? source)
+    {
+        if (source is not DependencyObject dependencyObject)
+        {
+            return null;
+        }
+
+        return ItemsControl.ContainerFromElement(
+                   HierarchyList,
+                   dependencyObject) is ListBoxItem item
+            ? item.DataContext as HierarchyRow
+            : null;
+    }
+
+    private HierarchyDropIntent? HierarchyDropIntentFor(
+        DragEventArgs eventArgs)
+    {
+        if (_document is null)
+        {
+            return null;
+        }
+
+        if (eventArgs.OriginalSource is not DependencyObject source ||
+            ItemsControl.ContainerFromElement(
+                HierarchyList,
+                source) is not ListBoxItem item ||
+            item.DataContext is not HierarchyRow row)
+        {
+            return new HierarchyDropIntent(
+                _document.Root.Key,
+                HierarchyDropPlacement.Inside);
+        }
+
+        double height = item.ActualHeight > 0 ? item.ActualHeight : 24;
+        double y = eventArgs.GetPosition(item).Y;
+        HierarchyDropPlacement placement = y < height * 0.25
+            ? HierarchyDropPlacement.Before
+            : y > height * 0.75
+                ? HierarchyDropPlacement.After
+                : HierarchyDropPlacement.Inside;
+        return new HierarchyDropIntent(row.NodeKey, placement);
+    }
+
+    private bool TryGetHierarchyMove(
+        string sourceKey,
+        HierarchyDropIntent intent,
+        [NotNullWhen(true)] out XuiSyntaxNode? source,
+        [NotNullWhen(true)] out XuiSyntaxNode? destinationParent,
+        out int childIndex)
+    {
+        source = null;
+        destinationParent = null;
+        childIndex = int.MaxValue;
+        if (_document is null)
+        {
+            return false;
+        }
+
+        source = _document.SyntaxTree.FindByKey(sourceKey);
+        XuiSyntaxNode? target =
+            _document.SyntaxTree.FindByKey(intent.TargetKey);
+        if (source is null ||
+            target is null ||
+            source == _document.Root ||
+            source == target ||
+            IsLocked(source.Key))
+        {
+            return false;
+        }
+
+        if (intent.Placement == HierarchyDropPlacement.Inside)
+        {
+            if (IsLocked(target.Key) ||
+                target.IsSelfClosing ||
+                target.EndTagStart < 0 ||
+                source.DescendantsAndSelf().Contains(target) ||
+                (source.Parent == target &&
+                 XuiModelReader.VisualChildren(target).LastOrDefault() ==
+                 source))
+            {
+                return false;
+            }
+
+            destinationParent = target;
+            return true;
+        }
+
+        if (intent.Placement is not (
+                HierarchyDropPlacement.Before or
+                HierarchyDropPlacement.After) ||
+            source.Parent is null ||
+            target.Parent != source.Parent ||
+            IsLocked(target.Key) ||
+            IsLocked(source.Parent.Key))
+        {
+            return false;
+        }
+
+        destinationParent = source.Parent;
+        List<XuiSyntaxNode> original =
+            XuiModelReader.VisualChildren(destinationParent).ToList();
+        List<XuiSyntaxNode> reordered = original.ToList();
+        reordered.Remove(source);
+        int targetIndex = reordered.IndexOf(target);
+        if (targetIndex < 0)
+        {
+            return false;
+        }
+
+        childIndex = targetIndex +
+                     (intent.Placement == HierarchyDropPlacement.After
+                         ? 1
+                         : 0);
+        reordered.Insert(childIndex, source);
+        return !original.SequenceEqual(reordered);
+    }
+
+    private bool MoveHierarchy(
+        string sourceKey,
+        HierarchyDropIntent intent)
+    {
+        if (!TryGetHierarchyMove(
+                sourceKey,
+                intent,
+                out XuiSyntaxNode? source,
+                out XuiSyntaxNode? destinationParent,
+                out int childIndex))
+        {
+            return false;
+        }
+
+        ReparentAndReselect(source, destinationParent, childIndex);
+        return true;
+    }
+
+    private void SetHierarchyDropTarget(HierarchyDropIntent? intent)
+    {
+        string? nodeKey = intent?.TargetKey;
+        HierarchyDropPlacement placement =
+            intent?.Placement ?? HierarchyDropPlacement.None;
+        if (string.Equals(
+                _hierarchyDropTargetKey,
+                nodeKey,
+                StringComparison.Ordinal) &&
+            _hierarchyDropPlacement == placement)
+        {
+            return;
+        }
+
+        if (_hierarchyDropTargetKey is string previousKey &&
+            _hierarchyIndex?.FindRow(previousKey) is HierarchyRow previous)
+        {
+            previous.DropPlacement = HierarchyDropPlacement.None;
+        }
+
+        _hierarchyDropTargetKey = nodeKey;
+        _hierarchyDropPlacement = placement;
+        if (nodeKey is not null &&
+            _hierarchyIndex?.FindRow(nodeKey) is HierarchyRow current)
+        {
+            current.DropPlacement = placement;
+        }
+    }
+
+    private void ClearHierarchyDropTarget() =>
+        SetHierarchyDropTarget(null);
 
     private void ViewportContextMenu_Opened(
         object sender,
@@ -4041,6 +4668,7 @@ public partial class MainWindow : Window, IDisposable
             AssetKindComboBox is null)
         {
             AssetRows.ReplaceAll([]);
+            UpdateAssetEmptyState();
             return;
         }
 
@@ -4062,6 +4690,17 @@ public partial class MainWindow : Window, IDisposable
              asset.SourceDisplayPath.Contains(
                  query,
                  StringComparison.OrdinalIgnoreCase))));
+        UpdateAssetEmptyState();
+    }
+
+    private void UpdateAssetEmptyState()
+    {
+        if (AssetEmptyStateText is not null)
+        {
+            AssetEmptyStateText.Visibility = AssetRows.Count == 0
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
     }
 
     private void AssetList_MouseLeftButtonDown(
@@ -5196,6 +5835,7 @@ public partial class MainWindow : Window, IDisposable
             inputGlyphScheme: _settings.InputGlyphScheme);
         _assetCatalog = null;
         AssetRows.ReplaceAll([]);
+        UpdateAssetEmptyState();
         _textureDiagnostics.Clear();
         _layoutSession = null;
         Viewport.SetAssetResolver(null);
@@ -5416,10 +6056,10 @@ public partial class MainWindow : Window, IDisposable
         BuildHierarchy();
         SelectRowsFromKeys(scrollIntoView: false);
         SelectionSnapshot selection = CaptureSelection();
-        BuildInspector(selection);
         ResolveTimelineScopeFromSelection(
             selection,
             preferSelectedKeyFrame: true);
+        BuildInspector(selection);
         UpdateTimelineData(selection);
         RefreshNamedFrameEditor();
         RefreshEvaluation();
@@ -5645,6 +6285,27 @@ public partial class MainWindow : Window, IDisposable
             bool mixed = anyAuthored &&
                          (values.Any(static value => value is null) ||
                           values.Distinct(StringComparer.Ordinal).Count() > 1);
+            bool hasAnimationTrack = false;
+            bool hasAnimationKey = false;
+            if (nodes.Length == 1 &&
+                propertySelection.Definition.IsAnimatable &&
+                _timelineWorkspace?.ActiveScope is XuiTimelineScope activeScope &&
+                snapshot.Ids.FirstOrDefault() is string targetId)
+            {
+                XuiTrack[] animationTracks = activeScope.Timelines
+                    .Where(timeline => timeline.TargetId.Equals(
+                        targetId,
+                        StringComparison.Ordinal))
+                    .SelectMany(static timeline => timeline.Tracks)
+                    .Where(track => track.PropertyName.Equals(
+                        name,
+                        StringComparison.Ordinal))
+                    .ToArray();
+                hasAnimationTrack = animationTracks.Length > 0;
+                hasAnimationKey = animationTracks.Any(track =>
+                    track.KeyFrames.Any(frame =>
+                        frame.Tick == CurrentTimelineTick));
+            }
             InspectorPropertyRow row = new(
                 name,
                 mixed
@@ -5659,7 +6320,9 @@ public partial class MainWindow : Window, IDisposable
                     propertySelection.Definition.Type ==
                     XuiPropertyType.Boolean,
                 isAuthored: anyAuthored,
-                propertySelection.Definition);
+                propertySelection.Definition,
+                hasAnimationTrack,
+                hasAnimationKey);
             row.Error = mixed ? null : ValidateProperty(name, row.Value);
             InspectorProperties.Add(row);
         }
@@ -6640,9 +7303,9 @@ public partial class MainWindow : Window, IDisposable
         UpdateAlignmentChrome();
         UpdateNavigationConnections();
         SelectionSnapshot selection = CaptureSelection();
+        ResolveTimelineScopeFromSelection(selection);
         BuildInspector(selection);
         UpdatePropertyTransferChrome();
-        ResolveTimelineScopeFromSelection(selection);
         RefreshPreviewState(selection);
         UpdateTimelineData(selection);
         RefreshNamedFrameEditor();
@@ -6817,14 +7480,18 @@ public partial class MainWindow : Window, IDisposable
                         _timelineWorkspace?.HasMixedSelection != true;
         bool hasVisibleTracks =
             hasScope && TimelineEditor.HasVisibleTracks;
-        TimelineTransportPanel.IsEnabled = hasScope;
+        TimelineTransportPanel.IsEnabled = _document is not null;
+        AddAnimationButton.IsEnabled =
+            _document is not null && _selectedKeys.Count > 0;
+        AddTrackButton.IsEnabled =
+            _document is not null && _selectedKeys.Count == 1;
         IncludeDescendantsToggle.IsEnabled =
             hasScope && _selectedKeys.Count > 0;
         TimelineActionsPanel.IsEnabled = hasVisibleTracks;
         TimelineEditPanel.IsEnabled = hasVisibleTracks;
         TimelineEditor.IsEnabled = hasVisibleTracks;
         TickSlider.IsEnabled = hasVisibleTracks;
-        AnimationMenuItem.IsEnabled = hasVisibleTracks;
+        AnimationMenuItem.IsEnabled = _document is not null;
         RestoreComposedPoseButton.IsEnabled =
             hasVisibleTracks &&
             _timelineWorkspace?.ActiveTickIsComposed == false;
@@ -7348,7 +8015,8 @@ public partial class MainWindow : Window, IDisposable
     private bool ExecuteBatch(
         Action edits,
         string description = "Edit selection",
-        XuiMessageDescriptor? descriptionDescriptor = null)
+        XuiMessageDescriptor? descriptionDescriptor = null,
+        bool animationMetadataOnly = false)
     {
         bool succeeded = true;
         _suppressRefresh = true;
@@ -7386,11 +8054,40 @@ public partial class MainWindow : Window, IDisposable
             _suppressRefresh = false;
             if (_refreshPending)
             {
-                RefreshAll();
+                if (!animationMetadataOnly ||
+                    !TryRefreshAnimationMetadataOnly())
+                {
+                    RefreshAll();
+                }
             }
         }
 
         return succeeded;
+    }
+
+    private bool TryRefreshAnimationMetadataOnly()
+    {
+        if (_document is null ||
+            _layoutSession is null ||
+            !_layoutSession.TryRebindAnimationMetadata(
+                _document,
+                _assetResolver))
+        {
+            return false;
+        }
+
+        _timelineSet = _layoutSession.Timelines;
+        if (_timelineWorkspace is null)
+        {
+            _timelineWorkspace =
+                new XuiTimelineWorkspace(_layoutSession.TimelineScopes);
+        }
+        else
+        {
+            _timelineWorkspace.Rebind(_layoutSession.TimelineScopes);
+        }
+
+        return true;
     }
 
     private XuiSyntaxNode? FindNodeAtStart(int start) =>
@@ -7405,7 +8102,45 @@ public partial class MainWindow : Window, IDisposable
         }
 
         _timelineWorkspace.SetActiveTick(tick);
+        RefreshInspectorAnimationIndicators();
         RefreshEvaluation();
+    }
+
+    private void RefreshInspectorAnimationIndicators()
+    {
+        if (_document is null ||
+            _selectedKeys.Count != 1 ||
+            _timelineWorkspace?.ActiveScope is not XuiTimelineScope scope ||
+            _document.SyntaxTree.FindByKey(_selectedKeys.First()) is not
+                XuiSyntaxNode node ||
+            XuiModelReader.GetId(node, _document.Text) is not string targetId)
+        {
+            foreach (InspectorPropertyRow row in InspectorProperties)
+            {
+                row.UpdateAnimationState(false, false);
+            }
+            return;
+        }
+
+        Dictionary<string, XuiTrack[]> tracks = scope.Timelines
+            .Where(timeline => timeline.TargetId.Equals(
+                targetId,
+                StringComparison.Ordinal))
+            .SelectMany(static timeline => timeline.Tracks)
+            .GroupBy(static track => track.PropertyName, StringComparer.Ordinal)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.ToArray(),
+                StringComparer.Ordinal);
+        int tick = CurrentTimelineTick;
+        foreach (InspectorPropertyRow row in InspectorProperties)
+        {
+            XuiTrack[] matching = tracks.GetValueOrDefault(row.Name) ?? [];
+            row.UpdateAnimationState(
+                matching.Length > 0,
+                matching.Any(track => track.KeyFrames.Any(frame =>
+                    frame.Tick == tick)));
+        }
     }
 
     private void PlaybackTimer_Tick(object? sender, EventArgs eventArgs)
@@ -8205,6 +8940,10 @@ public partial class MainWindow : Window, IDisposable
             tick.ToString(CultureInfo.InvariantCulture),
             raw.AsSpan(end));
     }
+
+    private readonly record struct HierarchyDropIntent(
+        string TargetKey,
+        HierarchyDropPlacement Placement);
 
     private sealed record SelectionSnapshot(
         XuiSyntaxNode[] Nodes,

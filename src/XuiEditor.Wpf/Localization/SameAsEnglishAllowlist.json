@@ -821,7 +821,76 @@
     "Ui.Main.Error.MissingPositionProp",
     "Ui.Main.Error.InvalidPositionKey",
     "Ui.Main.Error.InvalidTextStyleSemantic",
-    "Ui.Main.Error.InvalidVectorKey"
+    "Ui.Main.Error.InvalidVectorKey",
+    "Ui.Common.Cancel",
+    "Ui.Animation.AddAnimation",
+    "Ui.Animation.AddTrack",
+    "Ui.Animation.Dialog.Title",
+    "Ui.Animation.Dialog.Preset",
+    "Ui.Animation.Dialog.Scope",
+    "Ui.Animation.Dialog.StartTick",
+    "Ui.Animation.Dialog.Prefix",
+    "Ui.Animation.Dialog.MarkersOnly",
+    "Ui.Animation.Dialog.Property",
+    "Ui.Animation.Dialog.Values",
+    "Ui.Animation.Dialog.Duration",
+    "Ui.Animation.Dialog.Generated",
+    "Ui.Animation.Dialog.Conflicts",
+    "Ui.Animation.Dialog.InvalidFields",
+    "Ui.Animation.Dialog.NoConflicts",
+    "Ui.Animation.Dialog.Create",
+    "Ui.Animation.Dialog.TrackSummary",
+    "Ui.Animation.Dialog.MarkerSummary",
+    "Ui.Animation.Evidence.Stock",
+    "Ui.Animation.Evidence.Convenience",
+    "Ui.Animation.Inspector.AddTrack",
+    "Ui.Animation.Inspector.AddKey",
+    "Ui.Animation.Inspector.UpdateKey",
+    "Ui.Animation.TrackDialog.Title",
+    "Ui.Animation.TrackDialog.Value",
+    "Ui.Animation.TrackDialog.Hint",
+    "Ui.Animation.TrackDialog.Create",
+    "Ui.Animation.Status.SelectTarget",
+    "Ui.Animation.Status.MixedScopes",
+    "Ui.Animation.Status.OneTargetForTrack",
+    "Ui.Animation.Status.NoChanges",
+    "Ui.Animation.Status.Created",
+    "Ui.Animation.Scope.Local",
+    "Ui.Animation.Scope.Existing",
+    "Ui.Animation.Preset.QuickShowHide.Name",
+    "Ui.Animation.Preset.QuickShowHide.Description",
+    "Ui.Animation.Preset.MenuTransition.Name",
+    "Ui.Animation.Preset.MenuTransition.Description",
+    "Ui.Animation.Preset.HudPop.Name",
+    "Ui.Animation.Preset.HudPop.Description",
+    "Ui.Animation.Preset.ButtonStates.Name",
+    "Ui.Animation.Preset.ButtonStates.Description",
+    "Ui.Animation.Preset.CustomProperty.Name",
+    "Ui.Animation.Preset.CustomProperty.Description",
+    "Ui.AddProperty.RawHeading",
+    "Ui.Assets.Empty",
+    "Ui.Command.CreateAnimation",
+    "Ui.Command.CreateAnimation.QuickShowHide",
+    "Ui.Command.CreateAnimation.MenuTransition",
+    "Ui.Command.CreateAnimation.HudPop",
+    "Ui.Command.CreateAnimation.ButtonStates",
+    "Ui.Command.CreateAnimation.CustomProperty",
+    "Ui.Command.CreateTrack",
+    "Ui.Animation.Error.OwnerMissing",
+    "Ui.Animation.Error.OwnerCannotContain",
+    "Ui.Animation.Error.TargetMissing",
+    "Ui.Animation.Error.SelectTarget",
+    "Ui.Animation.Info.FrameReused",
+    "Ui.Animation.Error.FrameConflict",
+    "Ui.Animation.Error.MissingId",
+    "Ui.Animation.Error.DuplicateTrack",
+    "Ui.Animation.Error.PropertyRequired",
+    "Ui.Animation.Error.PropertyIncompatible",
+    "Ui.Animation.Error.Duration",
+    "Ui.Animation.Error.KeyConflict",
+    "Ui.Animation.Error.SiblingSample",
+    "Ui.Animation.Error.InvalidValue",
+    "Ui.Animation.Error.DuplicateTargetId"
   ],
   "De": [
     "Ui.Xaml.AddXuiElementWindow.003",
@@ -862,7 +931,9 @@
     "Ui.Main.Transport.Pause",
     "Ui.Enum.XuiElementPreset.Text",
     "Ui.Enum.XuiInputGlyphScheme.Xbox",
-    "Ui.Enum.XuiInputGlyphScheme.DualShock4"
+    "Ui.Enum.XuiInputGlyphScheme.DualShock4",
+    "Ui.Animation.AddAnimation",
+    "Ui.Animation.Preset.HudPop.Name"
   ],
   "Fr": [
     "Ui.Xaml.AddXuiElementWindow.003",
@@ -899,7 +970,8 @@
     "Ui.Main.Transport.Pause",
     "Ui.Enum.XuiInputGlyphScheme.Xbox",
     "Ui.Enum.XuiInputGlyphScheme.DualShock4",
-    "Ui.Enum.XuiAssetRootKind.DyingLightInstall"
+    "Ui.Enum.XuiAssetRootKind.DyingLightInstall",
+    "Ui.Animation.Preset.HudPop.Name"
   ],
   "It": [
     "Ui.Xaml.AddXuiElementWindow.003",
@@ -1019,7 +1091,8 @@
     "Ui.Main.Hierarchy.Count",
     "Ui.Main.Status.NavigationAmbiguousDetails",
     "Ui.Enum.XuiInputGlyphScheme.Xbox",
-    "Ui.Enum.XuiInputGlyphScheme.DualShock4"
+    "Ui.Enum.XuiInputGlyphScheme.DualShock4",
+    "Ui.Animation.Preset.HudPop.Name"
   ],
   "Nl": [
     "Ui.Xaml.AddXuiElementWindow.003",
@@ -1044,12 +1117,14 @@
     "Ui.Inspector.CopySource",
     "Ui.AddElement.Field.Width",
     "Ui.AddElement.Field.Height",
+    "Ui.Diagnostic.Severity.Info",
     "Ui.Main.Filter.Xui",
     "Ui.Main.Hierarchy.Count",
     "Ui.Main.Status.NavigationAmbiguousDetails",
     "Ui.Main.WindowTitle",
     "Ui.Enum.XuiInputGlyphScheme.Xbox",
-    "Ui.Enum.XuiInputGlyphScheme.DualShock4"
+    "Ui.Enum.XuiInputGlyphScheme.DualShock4",
+    "Ui.Animation.Preset.HudPop.Name"
   ],
   "Br": [
     "Ui.Xaml.AddXuiElementWindow.003",
@@ -1075,7 +1150,8 @@
     "Ui.Main.Status.NavigationAmbiguousDetails",
     "Ui.Main.WindowTitle",
     "Ui.Enum.XuiInputGlyphScheme.Xbox",
-    "Ui.Enum.XuiInputGlyphScheme.DualShock4"
+    "Ui.Enum.XuiInputGlyphScheme.DualShock4",
+    "Ui.Animation.Preset.HudPop.Name"
   ],
   "Ko": [
     "Ui.Xaml.AddXuiElementWindow.003",
@@ -1184,7 +1260,8 @@
     "Ui.Main.Hierarchy.Count",
     "Ui.Main.Status.NavigationAmbiguousDetails",
     "Ui.Enum.XuiInputGlyphScheme.Xbox",
-    "Ui.Enum.XuiInputGlyphScheme.DualShock4"
+    "Ui.Enum.XuiInputGlyphScheme.DualShock4",
+    "Ui.Animation.Preset.HudPop.Name"
   ],
   "Th": [
     "Ui.Xaml.AddXuiElementWindow.003",
@@ -1237,6 +1314,7 @@
     "Ui.Main.WindowTitle",
     "Ui.Enum.XuiElementPreset.Text",
     "Ui.Enum.XuiInputGlyphScheme.Xbox",
-    "Ui.Enum.XuiInputGlyphScheme.DualShock4"
+    "Ui.Enum.XuiInputGlyphScheme.DualShock4",
+    "Ui.Animation.Preset.HudPop.Name"
   ]
 }

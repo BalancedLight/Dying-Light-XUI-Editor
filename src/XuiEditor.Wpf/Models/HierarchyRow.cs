@@ -19,9 +19,18 @@ public enum HierarchyLockState
     LockedByAncestor,
 }
 
+public enum HierarchyDropPlacement
+{
+    None,
+    Before,
+    Inside,
+    After,
+}
+
 public sealed class HierarchyRow : INotifyPropertyChanged
 {
     private bool _isExpanded;
+    private HierarchyDropPlacement _dropPlacement;
     private bool _isEditorVisible = true;
     private bool _isLocked;
     private HierarchyVisibilityState _visibilityState;
@@ -181,6 +190,12 @@ public sealed class HierarchyRow : INotifyPropertyChanged
         Notify(nameof(LockToolTip));
         Notify(nameof(VisibilityAutomationName));
         Notify(nameof(LockAutomationName));
+    }
+
+    public HierarchyDropPlacement DropPlacement
+    {
+        get => _dropPlacement;
+        set => SetField(ref _dropPlacement, value);
     }
 
     private void SetField<T>(

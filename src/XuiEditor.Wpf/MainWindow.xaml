@@ -386,6 +386,11 @@
             </MenuItem>
             <MenuItem x:Name="AnimationMenuItem"
                       Header="{DynamicResource Ui.Xaml.MainWindow.044}">
+                <MenuItem Header="{DynamicResource Ui.Animation.AddAnimation}"
+                          Click="AddAnimation_Click" />
+                <MenuItem Header="{DynamicResource Ui.Animation.AddTrack}"
+                          Click="AddTrack_Click" />
+                <Separator />
                 <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.045}" InputGestureText="Space"
                           Click="PlayPause_Click" />
                 <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.046}" Click="Stop_Click" />
@@ -572,6 +577,12 @@
                              SelectionMode="Extended"
                              SelectionChanged="HierarchyList_SelectionChanged"
                              KeyDown="HierarchyList_KeyDown"
+                             AllowDrop="True"
+                             PreviewMouseLeftButtonDown="HierarchyList_MouseLeftButtonDown"
+                             PreviewMouseMove="HierarchyList_MouseMove"
+                             DragOver="HierarchyList_DragOver"
+                             DragLeave="HierarchyList_DragLeave"
+                             Drop="HierarchyList_Drop"
                              VirtualizingPanel.IsVirtualizing="True"
                              VirtualizingPanel.VirtualizationMode="Recycling"
                              VirtualizingPanel.ScrollUnit="Pixel"
@@ -585,6 +596,27 @@
                             <Style TargetType="ListBoxItem"
                                    BasedOn="{StaticResource {x:Type ListBoxItem}}">
                                 <Setter Property="Height" Value="24" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DropPlacement}"
+                                                 Value="{x:Static models:HierarchyDropPlacement.Inside}">
+                                        <Setter Property="Background" Value="#3A4047" />
+                                        <Setter Property="BorderBrush"
+                                                Value="{StaticResource AccentBrush}" />
+                                        <Setter Property="BorderThickness" Value="2,0,0,0" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding DropPlacement}"
+                                                 Value="{x:Static models:HierarchyDropPlacement.Before}">
+                                        <Setter Property="BorderBrush"
+                                                Value="{StaticResource AccentBrush}" />
+                                        <Setter Property="BorderThickness" Value="0,2,0,0" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding DropPlacement}"
+                                                 Value="{x:Static models:HierarchyDropPlacement.After}">
+                                        <Setter Property="BorderBrush"
+                                                Value="{StaticResource AccentBrush}" />
+                                        <Setter Property="BorderThickness" Value="0,0,0,2" />
+                                    </DataTrigger>
+                                </Style.Triggers>
                             </Style>
                         </ListBox.ItemContainerStyle>
                         <ListBox.ItemTemplate>
@@ -1050,6 +1082,7 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="25" />
                                         <ColumnDefinition Width="25" />
+                                        <ColumnDefinition Width="25" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0"
                                                Text="{Binding Name}"
@@ -1155,6 +1188,34 @@
                                         </CheckBox.Style>
                                     </CheckBox>
                                     <Button Grid.Column="2"
+                                            Content="{Binding AnimationGlyph}"
+                                            FontFamily="Segoe UI Symbol"
+                                            Padding="2,0"
+                                            Margin="3,0,0,0"
+                                            Tag="{Binding}"
+                                            ToolTip="{Binding AnimationToolTip}"
+                                            AutomationProperties.Name="{Binding AnimationToolTip}"
+                                            Click="InspectorAnimationDiamond_Click">
+                                        <Button.Style>
+                                            <Style TargetType="Button"
+                                                   BasedOn="{StaticResource {x:Type Button}}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsAnimatable}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding HasAnimationTrack}" Value="True">
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding HasAnimationKey}" Value="True">
+                                                        <Setter Property="Foreground" Value="#4FC3F7" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Grid.Column="3"
                                             Content="⧉"
                                             FontFamily="Segoe UI Symbol"
                                             Padding="2,0"
@@ -1163,7 +1224,7 @@
                                             ToolTip="{DynamicResource Ui.Xaml.MainWindow.140}"
                                             AutomationProperties.Name="{DynamicResource Ui.Xaml.MainWindow.141}"
                                             Click="InspectorCopySingleProperty_Click" />
-                                    <Button Grid.Column="3"
+                                    <Button Grid.Column="4"
                                             Content="×"
                                             Padding="2,0"
                                             Margin="3,0,0,0"
@@ -1230,6 +1291,14 @@
                                                VerticalAlignment="Center"
                                                Margin="2,0,8,0"
                                                Text="{DynamicResource Ui.Xaml.MainWindow.144}" />
+                                    <Button x:Name="AddAnimationButton"
+                                            Content="{DynamicResource Ui.Animation.AddAnimation}"
+                                            Margin="0,0,5,0"
+                                            Click="AddAnimation_Click" />
+                                    <Button x:Name="AddTrackButton"
+                                            Content="{DynamicResource Ui.Animation.AddTrack}"
+                                            Margin="0,0,5,0"
+                                            Click="AddTrack_Click" />
                                     <ToggleButton x:Name="IncludeDescendantsToggle"
                                                   Content="{DynamicResource Ui.Xaml.MainWindow.145}"
                                                   Margin="0,0,5,0"
@@ -1477,6 +1546,7 @@
                             </WrapPanel>
                         </StackPanel>
                     </Border>
+                    <Grid>
                     <ListView x:Name="AssetList"
                               ItemsSource="{Binding AssetRows}"
                               PreviewMouseLeftButtonDown="AssetList_MouseLeftButtonDown"
@@ -1502,6 +1572,14 @@
                             </GridView>
                         </ListView.View>
                     </ListView>
+                    <TextBlock x:Name="AssetEmptyStateText"
+                               Visibility="Collapsed"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               Text="{DynamicResource Ui.Assets.Empty}"
+                               IsHitTestVisible="False" />
+                    </Grid>
                 </DockPanel>
             </TabItem>
             <TabItem Header="{DynamicResource Ui.Xaml.MainWindow.199}">

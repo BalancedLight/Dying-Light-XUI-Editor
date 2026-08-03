@@ -45,6 +45,8 @@ LANGUAGES = {
 }
 
 TRANSLATION_OVERRIDES = {
+    ("Fr", "Ui.Animation.Evidence.Stock"): "exact dans le jeu",
+    ("Fr", "Ui.Animation.Evidence.Convenience"): "valeur pratique de l'éditeur",
     ("De", "Ui.Command.Reparent"):
         "Übergeordnetes Element von {0} ändern",
     ("De", "Ui.Xaml.GridSettingsWindow.009"): "Haupt",

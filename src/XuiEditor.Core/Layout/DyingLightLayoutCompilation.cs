@@ -9,7 +9,7 @@ internal sealed class DyingLightLayoutCompilation
 {
     private readonly XuiDocument _document;
     private readonly IAssetResolver? _assetResolver;
-    private readonly Dictionary<string, XuiSyntaxNode> _documentNodesByKey;
+    private Dictionary<string, XuiSyntaxNode> _documentNodesByKey;
     private readonly Dictionary<XuiSyntaxNode, CompiledXuiNode> _nodes =
         new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, XuiVisualTemplate?> _visuals =
@@ -149,6 +149,73 @@ internal sealed class DyingLightLayoutCompilation
 
     public XuiSyntaxNode? DocumentNode(string key) =>
         _documentNodesByKey.GetValueOrDefault(key);
+
+    public bool TryRebindAfterAnimationEdit(XuiDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        Dictionary<string, XuiSyntaxNode> currentNodesByKey = document.Root
+            .DescendantsAndSelf()
+            .ToDictionary(
+                static node => node.Key,
+                StringComparer.Ordinal);
+        XuiSyntaxNode oldRoot = _documentNodesByKey[document.Root.Key];
+        Dictionary<string, XuiSyntaxNode> oldVisualNodes =
+            new[] { oldRoot }
+                .Concat(XuiModelReader.VisualDescendants(oldRoot))
+                .ToDictionary(static node => node.Key, StringComparer.Ordinal);
+        Dictionary<string, XuiSyntaxNode> currentVisualNodes =
+            new[] { document.Root }
+                .Concat(XuiModelReader.VisualDescendants(document.Root))
+                .ToDictionary(static node => node.Key, StringComparer.Ordinal);
+        if (oldVisualNodes.Count != currentVisualNodes.Count ||
+            oldVisualNodes.Any(pair =>
+                !currentVisualNodes.TryGetValue(
+                    pair.Key,
+                    out XuiSyntaxNode? current) ||
+                !current.Name.Equals(
+                    pair.Value.Name,
+                    StringComparison.Ordinal)))
+        {
+            return false;
+        }
+
+        Dictionary<XuiSyntaxNode, CompiledXuiNode> rebound =
+            new(ReferenceEqualityComparer.Instance);
+        foreach ((XuiSyntaxNode syntax, CompiledXuiNode compiled) in _nodes)
+        {
+            if (!_documentNodesByKey.TryGetValue(
+                    syntax.Key,
+                    out XuiSyntaxNode? documentSyntax) ||
+                !ReferenceEquals(syntax, documentSyntax))
+            {
+                rebound[syntax] = compiled;
+                continue;
+            }
+
+            XuiSyntaxNode currentSyntax = currentNodesByKey[syntax.Key];
+            XuiSyntaxNode[] currentVisualChildren = compiled.VisualChildren
+                .Select(child =>
+                    _documentNodesByKey.TryGetValue(
+                        child.Key,
+                        out XuiSyntaxNode? oldChild) &&
+                    ReferenceEquals(child, oldChild)
+                        ? currentNodesByKey[child.Key]
+                        : child)
+                .ToArray();
+            rebound[currentSyntax] = compiled with
+            {
+                VisualChildren = currentVisualChildren,
+            };
+        }
+
+        _nodes.Clear();
+        foreach ((XuiSyntaxNode syntax, CompiledXuiNode compiled) in rebound)
+        {
+            _nodes.Add(syntax, compiled);
+        }
+        _documentNodesByKey = currentNodesByKey;
+        return true;
+    }
 
     public bool HasAuthoredProperty(string key, string property) =>
         DocumentNode(key) is XuiSyntaxNode syntax &&

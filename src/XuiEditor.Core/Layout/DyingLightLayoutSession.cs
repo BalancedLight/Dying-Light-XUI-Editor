@@ -9,10 +9,10 @@ public sealed class DyingLightLayoutSession
 {
     private readonly XuiDocument _document;
     private readonly IAssetResolver? _assetResolver;
-    private readonly long _documentRevision;
+    private long _documentRevision;
     private readonly long _assetRevision;
     private readonly DyingLightLayoutCompilation _compilation;
-    private readonly TimelineAnimationCache _timelineAnimationCache;
+    private TimelineAnimationCache _timelineAnimationCache;
     private readonly Dictionary<string, int> _renderNodeIndexByKey =
         new(StringComparer.Ordinal);
     private XuiRenderFrame? _previousFrame;
@@ -38,9 +38,9 @@ public sealed class DyingLightLayoutSession
             assetResolver);
     }
 
-    public XuiTimelineSet Timelines { get; }
+    public XuiTimelineSet Timelines { get; private set; }
 
-    public XuiTimelineScopeCatalog TimelineScopes { get; }
+    public XuiTimelineScopeCatalog TimelineScopes { get; private set; }
 
     internal int CompiledNodeCount => _compilation.NodeCount;
 
@@ -70,6 +70,30 @@ public sealed class DyingLightLayoutSession
         ReferenceEquals(_assetResolver, assetResolver) &&
         _documentRevision == document.Revision &&
         _assetRevision == (assetResolver?.Revision ?? 0);
+
+    public bool TryRebindAnimationMetadata(
+        XuiDocument document,
+        IAssetResolver? assetResolver = null)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        if (!ReferenceEquals(_document, document) ||
+            !ReferenceEquals(_assetResolver, assetResolver) ||
+            _assetRevision != (assetResolver?.Revision ?? 0) ||
+            !_compilation.TryRebindAfterAnimationEdit(document))
+        {
+            return false;
+        }
+
+        Timelines = XuiTimelineParser.Parse(document);
+        TimelineScopes = XuiTimelineScopeCatalog.Build(document, Timelines);
+        _timelineAnimationCache = new TimelineAnimationCache(TimelineScopes);
+        _documentRevision = document.Revision;
+        _previousFrame = null;
+        _previousTimelineState = null;
+        _previousRenderContext = null;
+        _renderNodeIndexByKey.Clear();
+        return true;
+    }
 
     public XuiRenderFrame Sample(
         XuiViewport viewport,
