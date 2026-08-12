@@ -579,6 +579,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">Svislé zarovnání textu není známo; používá se horní zarovnání.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">Automatická šířka tlačítka byla neplatná; autorská geometrie je zachována.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">Aktivní profil ovladače mění efektivní stav náhledu.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">Starší skalární nebo Eulerova hodnota Rotation bude při uložení dokumentu převedena na kvaternion Dying Light.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">Lokalizační katalog nelze přečíst.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">Lokalizační klíč je deklarován více než jednou.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">Katalog lokalizace má koncové bajty.</system:String>
@@ -599,6 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">Cíl pojmenovaného rámce je duplikován ve stejném oboru.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">Byl zjištěn příkazový cyklus pojmenovaného rámce.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">Cíl pojmenovaného rámce nebyl nalezen.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">Starší skalární nebo Eulerova hodnota Rotation časové osy bude při uložení dokumentu převedena na kvaternion Dying Light.</system:String>
     <system:String x:Key="Ui.Common.Mixed">— smíšené —</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">Zabalit prvek</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">Zabalte {0} do nového vizuálního rodiče. Výchozí skupina má transformaci identity a velikost starého rodiče, takže dítě neskáče.</system:String>

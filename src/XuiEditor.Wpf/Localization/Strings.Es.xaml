@@ -579,6 +579,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">Se desconoce la alineación vertical del texto; Se utiliza alineación superior.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">El ancho automático del botón no era válido; Se conserva la geometría creada.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">El perfil de controlador activo cambia el estado de vista previa efectivo.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">Una Rotation escalar o de Euler heredada se convertirá en un cuaternión de Dying Light al guardar el documento.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">No se pudo leer un catálogo de localización.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">Una clave de localización se declara más de una vez.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">Un catálogo de localización tiene bytes finales.</system:String>
@@ -599,6 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">Un destino de marco con nombre se duplica en el mismo ámbito.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">Se detectó un ciclo de comando de marco con nombre.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">No se encontró un destino de marco con nombre.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">Una Rotation de línea de tiempo escalar o de Euler heredada se convertirá en un cuaternión de Dying Light al guardar el documento.</system:String>
     <system:String x:Key="Ui.Common.Mixed">- mixto -</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">Elemento envolvente</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">Envuelva {0} en un nuevo padre visual. El grupo predeterminado tiene una transformación de identidad y el tamaño principal anterior, por lo que el niño no salta.</system:String>

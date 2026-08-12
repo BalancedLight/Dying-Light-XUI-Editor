@@ -29,7 +29,8 @@ public enum XuiSaveDisposition
 public sealed record XuiSaveResult(
     XuiSaveDisposition Disposition,
     string Path,
-    string? BackupPath);
+    string? BackupPath,
+    int RepairedRotationCount = 0);
 
 public sealed record XuiDocumentSource(
     string DisplayName,
@@ -178,11 +179,18 @@ public sealed class XuiDocument
         string resolvedPath = ResolveTargetPath(targetPath);
         EnsureWritablePath(resolvedPath);
 
+        int repairedRotationCount =
+            XuiRotationMigration.NormalizeForGame(this);
+
         bool samePath = Path is not null &&
                         string.Equals(Path, resolvedPath, StringComparison.OrdinalIgnoreCase);
         if (!IsDirty && samePath)
         {
-            return new XuiSaveResult(XuiSaveDisposition.Unchanged, resolvedPath, null);
+            return new XuiSaveResult(
+                XuiSaveDisposition.Unchanged,
+                resolvedPath,
+                null,
+                repairedRotationCount);
         }
 
         string directory = System.IO.Path.GetDirectoryName(resolvedPath)
@@ -236,7 +244,8 @@ public sealed class XuiDocument
             return new XuiSaveResult(
                 XuiSaveDisposition.Saved,
                 resolvedPath,
-                createdBackup);
+                createdBackup,
+                repairedRotationCount);
         }
         finally
         {

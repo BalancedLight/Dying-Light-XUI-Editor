@@ -214,6 +214,22 @@ public sealed class XuiTimelineParser
                     out XuiAnimatedValue? value))
             {
                 values.Add(value!);
+                if (properties[index].KnownProperty ==
+                        XuiTimelineProperty.Rotation &&
+                    XuiRotationCodec.TryDecode(
+                        raw,
+                        out _,
+                        out XuiRotationSourceKind sourceKind) &&
+                    sourceKind != XuiRotationSourceKind.Quaternion)
+                {
+                    diagnostics.Add(new XuiDiagnostic(
+                        "XUI-TL012",
+                        XuiDiagnosticSeverity.Warning,
+                        "A legacy scalar or Euler Rotation will be converted " +
+                        "to a Dying Light quaternion when the document is saved.",
+                        propNodes[sourceIndex].Span,
+                        propNodes[sourceIndex].Key));
+                }
             }
             else
             {
@@ -444,27 +460,14 @@ public sealed class XuiTimelineParser
                 break;
 
             case XuiTimelineProperty.Rotation:
-                if (XuiValueParser.TryQuaternion(raw, out XuiQuaternion quaternion))
+                if (XuiRotationCodec.TryDecode(
+                        raw,
+                        out XuiQuaternion quaternion,
+                        out _))
                 {
                     value = new XuiAnimatedValue(
                         XuiTimelineValueKind.Quaternion,
                         Quaternion: quaternion);
-                    return true;
-                }
-
-                if (XuiValueParser.TryVector3(raw, out XuiVector3 rotation3))
-                {
-                    value = new XuiAnimatedValue(
-                        XuiTimelineValueKind.Vector3,
-                        Vector3: rotation3);
-                    return true;
-                }
-
-                if (XuiValueParser.TryNumber(raw, out double rotation))
-                {
-                    value = new XuiAnimatedValue(
-                        XuiTimelineValueKind.Number,
-                        Number: rotation);
                     return true;
                 }
 

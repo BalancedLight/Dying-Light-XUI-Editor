@@ -579,6 +579,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">Die vertikale Textausrichtung ist unbekannt. Es wird eine obere Ausrichtung verwendet.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">Die automatische Breite der Schaltfläche war ungültig. Die erstellte Geometrie bleibt erhalten.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">Das aktive Controller-Profil ändert den effektiven Vorschaustatus.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">Eine veraltete skalare oder Euler-Rotation wird beim Speichern des Dokuments in ein Dying Light-Quaternion konvertiert.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">Ein Lokalisierungskatalog konnte nicht gelesen werden.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">Ein Lokalisierungsschlüssel wird mehr als einmal deklariert.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">Ein Lokalisierungskatalog verfügt über nachgestellte Bytes.</system:String>
@@ -599,6 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">Ein benanntes Frame-Ziel wird im selben Bereich dupliziert.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">Ein benannter Frame-Befehlszyklus wurde erkannt.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">Es wurde kein benanntes Frame-Ziel gefunden.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">Eine veraltete skalare oder Euler-Zeitleistenrotation wird beim Speichern des Dokuments in ein Dying Light-Quaternion konvertiert.</system:String>
     <system:String x:Key="Ui.Common.Mixed">— gemischt —</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">Wrap-Element</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">Wickeln Sie {0} in ein neues visuelles übergeordnetes Element ein. Die Standardgruppe verfügt über eine Identitätstransformation und die alte übergeordnete Größe, sodass das untergeordnete Element nicht springt.</system:String>

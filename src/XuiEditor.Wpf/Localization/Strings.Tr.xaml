@@ -579,6 +579,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">Dikey metin hizalaması bilinmiyor; üst hizalama kullanılır.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">Düğmenin otomatik genişliği geçersizdi; yazılan geometri korunur.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">Etkin denetleyici profili etkin önizleme durumunu değiştirir.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">Eski bir skaler veya Euler Rotation değeri, belge kaydedilirken Dying Light kuaterniyonuna dönüştürülecektir.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">Yerelleştirme kataloğu okunamadı.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">Bir yerelleştirme anahtarı birden fazla kez bildirildi.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">Bir yerelleştirme kataloğunun sonunda baytlar bulunur.</system:String>
@@ -599,6 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">Adlandırılmış çerçeve hedefi aynı kapsamda çoğaltılır.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">Adlandırılmış çerçeve komut döngüsü algılandı.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">Adlandırılmış çerçeve hedefi bulunamadı.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">Eski bir skaler veya Euler zaman çizelgesi Rotation değeri, belge kaydedilirken Dying Light kuaterniyonuna dönüştürülecektir.</system:String>
     <system:String x:Key="Ui.Common.Mixed">- karışık -</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">Sarma öğesi</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">{0} öğesini yeni bir görsel üst öğeye sarın. Varsayılan grup bir kimlik dönüşümüne ve eski ebeveyn boyutuna sahiptir, böylece çocuk atlamaz.</system:String>

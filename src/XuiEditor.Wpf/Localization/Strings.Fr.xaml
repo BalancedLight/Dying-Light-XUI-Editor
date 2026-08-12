@@ -579,6 +579,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">L'alignement vertical du texte est inconnu ; l'alignement supérieur est utilisé.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">La largeur automatique du bouton n'était pas valide ; la géométrie créée est conservée.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">Le profil de contrôleur actif modifie l'état d'aperçu effectif.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">Une Rotation scalaire ou d’Euler héritée sera convertie en quaternion Dying Light lors de l’enregistrement du document.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">Un catalogue de localisation n'a pas pu être lu.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">Une clé de localisation est déclarée plusieurs fois.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">Un catalogue de localisation comporte des octets de fin.</system:String>
@@ -599,6 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">Une cible de trame nommée est dupliquée dans la même étendue.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">Un cycle de commande de trame nommée a été détecté.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">Aucune cible d’image nommée n’a été trouvée.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">Une Rotation de chronologie scalaire ou d’Euler héritée sera convertie en quaternion Dying Light lors de l’enregistrement du document.</system:String>
     <system:String x:Key="Ui.Common.Mixed">- mixte -</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">Élément d'enveloppement</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">Enveloppez {0} dans un nouveau parent visuel. Le groupe par défaut a une transformation d'identité et l'ancienne taille du parent, donc l'enfant ne saute pas.</system:String>

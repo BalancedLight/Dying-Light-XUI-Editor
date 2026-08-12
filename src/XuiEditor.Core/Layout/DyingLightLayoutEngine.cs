@@ -3289,19 +3289,23 @@ public sealed class DyingLightLayoutEngine
             string value,
             ICollection<XuiDiagnostic> diagnostics)
         {
-            if (XuiValueParser.TryQuaternion(value, out XuiQuaternion quaternion))
+            if (XuiRotationCodec.TryDecode(
+                    value,
+                    out XuiQuaternion quaternion,
+                    out XuiRotationSourceKind sourceKind))
             {
+                if (sourceKind != XuiRotationSourceKind.Quaternion)
+                {
+                    diagnostics.Add(new XuiDiagnostic(
+                        "XUI-LAYOUT015",
+                        XuiDiagnosticSeverity.Warning,
+                        "A legacy scalar or Euler Rotation will be converted " +
+                        "to a Dying Light quaternion when the document is saved.",
+                        _syntax.Span,
+                        _syntax.Key));
+                }
+
                 return quaternion.ZRotationDegrees;
-            }
-
-            if (XuiValueParser.TryVector3(value, out XuiVector3 rotation))
-            {
-                return rotation.Z;
-            }
-
-            if (XuiValueParser.TryNumber(value, out double degrees))
-            {
-                return degrees;
             }
 
             Invalid("Rotation", value, "quaternion or angle", diagnostics);

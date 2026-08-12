@@ -579,6 +579,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">Wyrównanie tekstu w pionie jest nieznane; stosowane jest wyrównanie do góry.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">Automatyczna szerokość przycisku była nieprawidłowa; Autorska geometria zostaje zachowana.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">Aktywny profil kontrolera zmienia efektywny stan podglądu.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">Starsza skalarna lub eulerowska wartość Rotation zostanie podczas zapisywania dokumentu przekonwertowana na kwaternion Dying Light.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">Nie można odczytać katalogu lokalizacji.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">Klucz lokalizacji jest deklarowany więcej niż raz.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">Katalog lokalizacji ma końcowe bajty.</system:String>
@@ -599,6 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">Nazwany obiekt docelowy ramki jest zduplikowany w tym samym zakresie.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">Wykryto cykl poleceń nazwanej ramki.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">Nie znaleziono nazwanego celu ramki.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">Starsza skalarna lub eulerowska wartość Rotation osi czasu zostanie podczas zapisywania dokumentu przekonwertowana na kwaternion Dying Light.</system:String>
     <system:String x:Key="Ui.Common.Mixed">— mieszane —</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">Owiń element</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">Zawiń {0} w nowym wizualnym rodzicu. Grupa domyślna ma transformację tożsamości i stary rozmiar elementu nadrzędnego, więc element podrzędny nie przeskakuje.</system:String>

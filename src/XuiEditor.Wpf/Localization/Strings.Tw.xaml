@@ -579,6 +579,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">垂直文字對齊方式未知；使用頂部對齊。</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">按鈕自動寬度無效；保留創作的幾何圖形。</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">活動控制器設定檔會變更有效預覽狀態。</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">儲存文件時，舊版純量或歐拉 Rotation 將轉換為 Dying Light 四元數。</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">無法讀取本地化目錄。</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">本地化密鑰已聲明多次。</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">本地化目錄具有尾隨位元組。</system:String>
@@ -599,6 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">命名框架目標在相同範圍內重複。</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">偵測到命名幀命令週期。</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">未找到命名框架目標。</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">儲存文件時，舊版純量或歐拉時間軸 Rotation 將轉換為 Dying Light 四元數。</system:String>
     <system:String x:Key="Ui.Common.Mixed">— 混合 —</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">包裹元素</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">將 {0} 包裝在新的視覺父級。預設群組具有恆等變換和舊的父級大小，因此子級不會跳躍。</system:String>

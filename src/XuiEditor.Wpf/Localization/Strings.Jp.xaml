@@ -579,6 +579,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">テキストの縦方向の配置は不明です。上揃えが使用されます。</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">ボタンの自動幅が無効でした。オーサリングされたジオメトリは保持されます。</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">アクティブなコントローラー プロファイルにより、有効なプレビュー状態が変更されます。</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">従来のスカラーまたはオイラー Rotation は、ドキュメントの保存時に Dying Light のクォータニオンへ変換されます。</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">ローカリゼーション カタログを読み取れませんでした。</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">ローカライゼーション キーが複数回宣言されています。</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">ローカリゼーション カタログには末尾バイトがあります。</system:String>
@@ -599,6 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">名前付きフレーム ターゲットが同じスコープ内で複製されます。</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">名前付きフレーム コマンド サイクルが検出されました。</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">名前付きフレーム ターゲットが見つかりませんでした。</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">従来のスカラーまたはオイラーのタイムライン Rotation は、ドキュメントの保存時に Dying Light のクォータニオンへ変換されます。</system:String>
     <system:String x:Key="Ui.Common.Mixed">— 混合 —</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">ラップ要素</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">{0} を新しい視覚的な親でラップします。デフォルトのグループには恒等変換と古い親サイズがあるため、子はジャンプしません。</system:String>

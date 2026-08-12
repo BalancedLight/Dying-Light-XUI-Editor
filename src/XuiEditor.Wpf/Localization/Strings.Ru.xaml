@@ -579,6 +579,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">Вертикальное выравнивание текста неизвестно; используется выравнивание по верху.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">Недопустимая автоматическая ширина кнопки; авторская геометрия сохраняется.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">Профиль активного контроллера изменяет эффективное состояние предварительного просмотра.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">Устаревшее скалярное значение Rotation или углы Эйлера будут преобразованы в кватернион Dying Light при сохранении документа.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">Не удалось прочитать каталог локализации.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">Ключ локализации объявляется более одного раза.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">Каталог локализации имеет конечные байты.</system:String>
@@ -599,6 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">Целевой именованный кадр дублируется в той же области.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">Обнаружен командный цикл именованного кадра.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">Целевой именованный кадр не найден.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">Устаревшее скалярное значение Rotation временной шкалы или углы Эйлера будут преобразованы в кватернион Dying Light при сохранении документа.</system:String>
     <system:String x:Key="Ui.Common.Mixed">— смешанный —</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">Обернуть элемент</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">Оберните {0} новым визуальным родителем. Группа по умолчанию имеет преобразование идентификаторов и старый родительский размер, поэтому дочерний элемент не переходит.</system:String>

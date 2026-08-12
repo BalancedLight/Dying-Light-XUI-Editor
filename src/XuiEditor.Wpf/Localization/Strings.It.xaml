@@ -579,6 +579,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">L'allineamento verticale del testo è sconosciuto; viene utilizzato l'allineamento superiore.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">La larghezza automatica del pulsante non è valida; la geometria creata viene mantenuta.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">Il profilo del controller attivo modifica lo stato di anteprima effettivo.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">Una Rotation scalare o di Eulero legacy verrà convertita in un quaternione Dying Light al salvataggio del documento.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">Non è stato possibile leggere un catalogo di localizzazione.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">Una chiave di localizzazione viene dichiarata più di una volta.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">Un catalogo di localizzazione ha byte finali.</system:String>
@@ -599,6 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">Una destinazione con frame con nome viene duplicata nello stesso ambito.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">È stato rilevato un ciclo di comando frame con nome.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">Impossibile trovare una destinazione frame con nome.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">Una Rotation della sequenza temporale scalare o di Eulero legacy verrà convertita in un quaternione Dying Light al salvataggio del documento.</system:String>
     <system:String x:Key="Ui.Common.Mixed">— misto —</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">Elemento avvolgente</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">Avvolgi {0} in un nuovo genitore visivo. Il gruppo predefinito ha una trasformazione dell'identità e la vecchia dimensione del genitore, quindi il bambino non salta.</system:String>

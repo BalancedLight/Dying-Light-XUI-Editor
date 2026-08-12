@@ -579,6 +579,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">ไม่ทราบการจัดแนวข้อความในแนวตั้ง ใช้การจัดตำแหน่งด้านบน</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">ความกว้างอัตโนมัติของปุ่มไม่ถูกต้อง เรขาคณิตที่เขียนไว้จะยังคงอยู่</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">โปรไฟล์ตัวควบคุมที่ใช้งานอยู่จะเปลี่ยนสถานะการแสดงตัวอย่างที่มีผล</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">ค่า Rotation แบบสเกลาร์หรือออยเลอร์รุ่นเก่าจะถูกแปลงเป็นควอเทอร์เนียน Dying Light เมื่อบันทึกเอกสาร</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">ไม่สามารถอ่านแค็ตตาล็อกการแปลได้</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">มีการประกาศคีย์การแปลมากกว่าหนึ่งครั้ง</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">แค็ตตาล็อกการแปลมีไบต์ต่อท้าย</system:String>
@@ -599,6 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">เป้าหมายเฟรมที่มีชื่อซ้ำกันในขอบเขตเดียวกัน</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">ตรวจพบวงจรคำสั่งที่มีชื่อเฟรม</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">ไม่พบเป้าหมายที่มีชื่อเฟรม</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">ค่า Rotation ของไทม์ไลน์แบบสเกลาร์หรือออยเลอร์รุ่นเก่าจะถูกแปลงเป็นควอเทอร์เนียน Dying Light เมื่อบันทึกเอกสาร</system:String>
     <system:String x:Key="Ui.Common.Mixed">— ผสม —</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">ห่อองค์ประกอบ</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">ตัด {0} ในพาเรนต์แบบวิชวลใหม่ กลุ่มเริ่มต้นมีการแปลงข้อมูลเฉพาะตัวและขนาดพาเรนต์เก่า ดังนั้นรายการย่อยจะไม่ข้าม</system:String>

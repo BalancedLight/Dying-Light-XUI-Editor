@@ -1300,7 +1300,7 @@ public sealed class WpfSmokeTests
             XuiModelReader.VisualDescendants(document.Root).Single(node =>
                 XuiModelReader.GetId(node, document.Text) == "Other");
         Assert.AreEqual(
-            "30.000000",
+            "0.000000,0.000000,0.258819,0.965926",
             XuiModelReader.GetPropertyValue(
                 currentParent,
                 document.Text,
@@ -1310,7 +1310,7 @@ public sealed class WpfSmokeTests
             document.Text,
             "Rotation"));
         Assert.AreEqual(
-            "30.000000",
+            "0.000000,0.000000,0.258819,0.965926",
             XuiModelReader.GetPropertyValue(
                 currentOther,
                 document.Text,
@@ -1370,6 +1370,32 @@ public sealed class WpfSmokeTests
 
         document.Undo();
         Assert.AreEqual(source, document.Text);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void InspectorRotationCommitImmediatelyStoresAQuaternion()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height>" +
+            "</Properties><MyImage><Properties><Id>I</Id><Rotation>0</Rotation>" +
+            "</Properties></MyImage></XuiCanvas>");
+        XuiSyntaxNode image = XuiModelReader.VisualDescendants(document.Root)
+            .Single();
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        window.SelectNodeKeysForTesting([image.Key]);
+
+        window.SetInspectorValueForTesting("Rotation", "-90");
+
+        Assert.AreEqual(
+            "0.000000,0.000000,-0.707107,0.707107",
+            XuiModelReader.GetPropertyValue(
+                document.SyntaxTree.FindByKey(image.Key)!,
+                document.Text,
+                "Rotation"));
     }
 
     [STATestMethod]
@@ -2985,15 +3011,16 @@ public sealed class WpfSmokeTests
         XuiDocument document = XuiDocument.FromText(
             "<XuiCanvas><Properties><Width>300</Width><Height>160</Height></Properties>" +
             "<MyText><Properties><Id>Source</Id><Width>100</Width><Height>30</Height>" +
-            "<Position>10,20,3</Position><Text>Hello</Text>" +
+            "<Position>10,20,3</Position><Rotation>90</Rotation><Text>Hello</Text>" +
             "<TextColor>0xff123456</TextColor><Font>boxed_r_10</Font>" +
             "</Properties></MyText>" +
             "<MyText><Properties><Id>TextDest</Id><Width>100</Width><Height>30</Height>" +
-            "<Position>0,0,0</Position><Text>Old</Text>" +
+            "<Position>0,0,0</Position><Rotation>0</Rotation><Text>Old</Text>" +
             "<TextColor>0xffffffff</TextColor><Font>boxed_r_20</Font>" +
             "</Properties></MyText>" +
             "<MyImage><Properties><Id>ImageDest</Id><Width>40</Width><Height>40</Height>" +
-            "<Position>1,2,0</Position></Properties></MyImage></XuiCanvas>");
+            "<Position>1,2,0</Position><Rotation>0</Rotation>" +
+            "</Properties></MyImage></XuiCanvas>");
         XuiSyntaxNode[] nodes =
             XuiModelReader.VisualDescendants(document.Root).ToArray();
         XuiSyntaxNode source = nodes.Single(node =>
@@ -3010,22 +3037,23 @@ public sealed class WpfSmokeTests
         [
             "Id",
             "Position",
+            "Rotation",
             "Text",
             "TextColor",
             "Font",
         ]);
-        Assert.AreEqual(4, window.CopiedInspectorPropertyCountForTesting);
+        Assert.AreEqual(5, window.CopiedInspectorPropertyCountForTesting);
 
         window.SelectNodeKeysForTesting(
             [textDestination.Key, imageDestination.Key]);
         XuiInspectorPropertyPasteResult result =
             window.PasteInspectorPropertiesForTesting();
         Assert.AreEqual(2, result.DestinationCount);
-        Assert.AreEqual(5, result.PropertyAssignments);
+        Assert.AreEqual(7, result.PropertyAssignments);
         Assert.AreEqual(3, result.IncompatibleAssignments);
         Assert.AreEqual(0, result.UnchangedAssignments);
         Assert.AreEqual(
-            "Paste 4 inspector properties",
+            "Paste 5 inspector properties",
             document.History.UndoDescription);
 
         XuiSyntaxNode currentText = document.SyntaxTree.FindByKey(
@@ -3045,6 +3073,12 @@ public sealed class WpfSmokeTests
                 document.Text,
                 "Text"));
         Assert.AreEqual(
+            "0.000000,0.000000,0.707107,0.707107",
+            XuiModelReader.GetPropertyValue(
+                currentText,
+                document.Text,
+                "Rotation"));
+        Assert.AreEqual(
             "0xff123456",
             XuiModelReader.GetPropertyValue(
                 currentText,
@@ -3062,6 +3096,12 @@ public sealed class WpfSmokeTests
                 currentImage,
                 document.Text,
                 "Position"));
+        Assert.AreEqual(
+            "0.000000,0.000000,0.707107,0.707107",
+            XuiModelReader.GetPropertyValue(
+                currentImage,
+                document.Text,
+                "Rotation"));
         Assert.IsNull(XuiModelReader.GetPropertyValue(
             currentImage,
             document.Text,

@@ -74,6 +74,237 @@ public readonly record struct XuiQuaternion(double X, double Y, double Z, double
     }
 }
 
+public enum XuiRotationSourceKind
+{
+    Quaternion,
+    EulerDegrees,
+    ScalarDegrees,
+}
+
+/// <summary>
+/// Converts editor-friendly rotation values to the four-component quaternion
+/// representation consumed by Dying Light XUI files.
+/// </summary>
+public static class XuiRotationCodec
+{
+    private const double MinimumLengthSquared = 1e-12;
+    private const double UnitTolerance = 1e-3;
+    private const double ZeroFormattingThreshold = 0.0000005;
+
+    public static bool TryDecode(
+        string? text,
+        out XuiQuaternion quaternion,
+        out XuiRotationSourceKind sourceKind)
+    {
+        if (XuiValueParser.TryQuaternion(text, out XuiQuaternion authored))
+        {
+            sourceKind = XuiRotationSourceKind.Quaternion;
+            return TryNormalize(authored, out quaternion);
+        }
+
+        if (XuiValueParser.TryVector3(text, out XuiVector3 eulerDegrees))
+        {
+            sourceKind = XuiRotationSourceKind.EulerDegrees;
+            quaternion = FromEulerDegrees(eulerDegrees);
+            return true;
+        }
+
+        if (XuiValueParser.TryNumber(text, out double scalarDegrees))
+        {
+            sourceKind = XuiRotationSourceKind.ScalarDegrees;
+            quaternion = FromZDegrees(scalarDegrees);
+            return true;
+        }
+
+        quaternion = XuiQuaternion.Identity;
+        sourceKind = default;
+        return false;
+    }
+
+    public static bool TryCanonicalize(
+        string? text,
+        out string canonical,
+        out XuiRotationSourceKind sourceKind)
+    {
+        if (!TryDecode(text, out XuiQuaternion quaternion, out sourceKind))
+        {
+            canonical = string.Empty;
+            return false;
+        }
+
+        canonical = Format(quaternion);
+        return true;
+    }
+
+    public static bool TryNormalizeForSave(
+        string? text,
+        out string canonical,
+        out XuiRotationSourceKind sourceKind)
+    {
+        if (XuiValueParser.TryQuaternion(text, out XuiQuaternion authored))
+        {
+            sourceKind = XuiRotationSourceKind.Quaternion;
+            if (!TryNormalize(authored, out XuiQuaternion normalized))
+            {
+                canonical = string.Empty;
+                return false;
+            }
+
+            canonical = IsUnitQuaternion(authored)
+                ? text!.Trim()
+                : Format(normalized);
+            return true;
+        }
+
+        return TryCanonicalize(text, out canonical, out sourceKind);
+    }
+
+    public static XuiQuaternion FromZDegrees(double degrees)
+    {
+        double radians = degrees * Math.PI / 180;
+        double half = radians / 2;
+        return CanonicalSign(new XuiQuaternion(
+            0,
+            0,
+            Math.Sin(half),
+            Math.Cos(half)));
+    }
+
+    /// <summary>
+    /// Matches Unity Quaternion.Euler: authored Z, X, then Y rotations.
+    /// </summary>
+    public static XuiQuaternion FromEulerDegrees(XuiVector3 degrees)
+    {
+        XuiQuaternion x = AxisAngle(1, 0, 0, degrees.X);
+        XuiQuaternion y = AxisAngle(0, 1, 0, degrees.Y);
+        XuiQuaternion z = AxisAngle(0, 0, 1, degrees.Z);
+        return CanonicalSign(Multiply(y, Multiply(x, z)));
+    }
+
+    public static bool TryAddZDegrees(
+        string? text,
+        double deltaDegrees,
+        out string canonical)
+    {
+        XuiQuaternion current;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            current = XuiQuaternion.Identity;
+        }
+        else if (!TryDecode(text, out current, out _))
+        {
+            canonical = string.Empty;
+            return false;
+        }
+
+        XuiQuaternion delta = FromZDegrees(deltaDegrees);
+        canonical = Format(Multiply(delta, current));
+        return true;
+    }
+
+    public static string Format(XuiQuaternion quaternion)
+    {
+        if (!TryNormalize(quaternion, out XuiQuaternion normalized))
+        {
+            throw new ArgumentException(
+                "A Dying Light XUI quaternion must be finite and non-zero.",
+                nameof(quaternion));
+        }
+
+        normalized = CanonicalSign(normalized);
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "{0:0.000000},{1:0.000000},{2:0.000000},{3:0.000000}",
+            Component(normalized.X),
+            Component(normalized.Y),
+            Component(normalized.Z),
+            Component(normalized.W));
+    }
+
+    private static XuiQuaternion AxisAngle(
+        double x,
+        double y,
+        double z,
+        double degrees)
+    {
+        double half = degrees * Math.PI / 360;
+        double sine = Math.Sin(half);
+        return new XuiQuaternion(
+            x * sine,
+            y * sine,
+            z * sine,
+            Math.Cos(half));
+    }
+
+    private static XuiQuaternion Multiply(
+        XuiQuaternion left,
+        XuiQuaternion right) =>
+        new(
+            (left.W * right.X) + (left.X * right.W) +
+            (left.Y * right.Z) - (left.Z * right.Y),
+            (left.W * right.Y) - (left.X * right.Z) +
+            (left.Y * right.W) + (left.Z * right.X),
+            (left.W * right.Z) + (left.X * right.Y) -
+            (left.Y * right.X) + (left.Z * right.W),
+            (left.W * right.W) - (left.X * right.X) -
+            (left.Y * right.Y) - (left.Z * right.Z));
+
+    private static bool TryNormalize(
+        XuiQuaternion value,
+        out XuiQuaternion normalized)
+    {
+        double lengthSquared =
+            (value.X * value.X) +
+            (value.Y * value.Y) +
+            (value.Z * value.Z) +
+            (value.W * value.W);
+        if (!double.IsFinite(lengthSquared) ||
+            lengthSquared < MinimumLengthSquared)
+        {
+            normalized = XuiQuaternion.Identity;
+            return false;
+        }
+
+        double inverseLength = 1 / Math.Sqrt(lengthSquared);
+        normalized = new XuiQuaternion(
+            value.X * inverseLength,
+            value.Y * inverseLength,
+            value.Z * inverseLength,
+            value.W * inverseLength);
+        return true;
+    }
+
+    private static bool IsUnitQuaternion(XuiQuaternion value)
+    {
+        double lengthSquared =
+            (value.X * value.X) +
+            (value.Y * value.Y) +
+            (value.Z * value.Z) +
+            (value.W * value.W);
+        return double.IsFinite(lengthSquared) &&
+               Math.Abs(lengthSquared - 1) <= UnitTolerance;
+    }
+
+    private static XuiQuaternion CanonicalSign(XuiQuaternion value)
+    {
+        if (!TryNormalize(value, out XuiQuaternion normalized))
+        {
+            return XuiQuaternion.Identity;
+        }
+
+        return normalized.W < 0
+            ? new XuiQuaternion(
+                -normalized.X,
+                -normalized.Y,
+                -normalized.Z,
+                -normalized.W)
+            : normalized;
+    }
+
+    private static double Component(double value) =>
+        Math.Abs(value) < ZeroFormattingThreshold ? 0 : value;
+}
+
 public readonly record struct XuiColor(byte A, byte R, byte G, byte B)
 {
     public static readonly XuiColor White = new(255, 255, 255, 255);

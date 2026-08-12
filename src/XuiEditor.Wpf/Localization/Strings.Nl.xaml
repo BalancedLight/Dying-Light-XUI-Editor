@@ -579,6 +579,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">Verticale tekstuitlijning is onbekend; Er wordt gebruik gemaakt van bovenuitlijning.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">Automatische knopbreedte was ongeldig; geschreven geometrie blijft behouden.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">Het actieve controllerprofiel verandert de effectieve preview-status.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">Een verouderde scalaire of Euler-Rotation wordt bij het opslaan van het document omgezet in een Dying Light-quaternion.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">Een lokalisatiecatalogus kon niet worden gelezen.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">Een lokalisatiesleutel wordt meer dan één keer gedeclareerd.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">Een lokalisatiecatalogus heeft volgbytes.</system:String>
@@ -599,6 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">Een benoemd framedoel wordt in hetzelfde bereik gedupliceerd.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">Er is een opdrachtcyclus met een benoemd frame gedetecteerd.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">Er is geen benoemd framedoel gevonden.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">Een verouderde scalaire of Euler-tijdlijn-Rotation wordt bij het opslaan van het document omgezet in een Dying Light-quaternion.</system:String>
     <system:String x:Key="Ui.Common.Mixed">— gemengd —</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">Wikkelelement</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">Verpak {0} in een nieuwe visuele ouder. De standaardgroep heeft een identiteitstransformatie en de oude oudergrootte, zodat het kind niet springt.</system:String>

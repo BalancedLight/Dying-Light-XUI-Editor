@@ -579,6 +579,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">O alinhamento vertical do texto é desconhecido; alinhamento superior é usado.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">A largura automática do botão era inválida; a geometria de autoria é mantida.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">O perfil do controlador ativo altera o estado de visualização efetivo.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">Uma Rotation escalar ou de Euler legada será convertida em um quatérnio do Dying Light ao salvar o documento.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">Não foi possível ler um catálogo de localização.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">Uma chave de localização é declarada mais de uma vez.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">Um catálogo de localização possui bytes finais.</system:String>
@@ -599,6 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">Um destino de quadro nomeado é duplicado no mesmo escopo.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">Um ciclo de comando de quadro nomeado foi detectado.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">Um destino de quadro nomeado não foi encontrado.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">Uma Rotation da linha do tempo escalar ou de Euler legada será convertida em um quatérnio do Dying Light ao salvar o documento.</system:String>
     <system:String x:Key="Ui.Common.Mixed">- misto -</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">Elemento envolvente</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">Envolva {0} em um novo pai visual. O grupo padrão possui uma transformação de identidade e o tamanho do pai antigo, para que o filho não pule.</system:String>

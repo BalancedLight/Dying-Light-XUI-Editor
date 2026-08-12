@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using XuiEditor.Core.Documents;
 using XuiEditor.Core.Schema;
+using XuiEditor.Core.Values;
 
 namespace XuiEditor.Core.Animation;
 
@@ -516,6 +517,15 @@ public sealed class XuiAnimationAuthoringService
         int tick,
         XuiTimelineSet? parsedTimelines = null)
     {
+        if (propertyName.Equals("Rotation", StringComparison.Ordinal) &&
+            XuiRotationCodec.TryCanonicalize(
+                value,
+                out string canonicalRotation,
+                out _))
+        {
+            value = canonicalRotation;
+        }
+
         XuiSyntaxNode? target = document.SyntaxTree.FindByKey(targetKey);
         string? targetId = target is null
             ? null
@@ -621,11 +631,26 @@ public sealed class XuiAnimationAuthoringService
                            XuiModelReader.GetPropertyValue(target, source, "TextColor") ??
                            XuiModelReader.GetPropertyValue(target, source, "Color") ??
                            "0xffffffff";
-        return template with
+        XuiAnimationTrackTemplate resolved = template with
         {
             Keys = template.Keys.Select(key => key.Value.Equals(XuiAnimationPresets.BaseColorToken, StringComparison.Ordinal)
                 ? key with { Value = baseColor }
                 : key).ToArray(),
+        };
+        if (!resolved.PropertyName.Equals("Rotation", StringComparison.Ordinal))
+        {
+            return resolved;
+        }
+
+        return resolved with
+        {
+            Keys = resolved.Keys.Select(key =>
+                XuiRotationCodec.TryCanonicalize(
+                    key.Value,
+                    out string canonical,
+                    out _)
+                    ? key with { Value = canonical }
+                    : key).ToArray(),
         };
     }
 

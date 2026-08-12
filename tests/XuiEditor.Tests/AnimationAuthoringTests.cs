@@ -123,6 +123,30 @@ public sealed class AnimationAuthoringTests
     }
 
     [TestMethod]
+    public void RotationTrackAuthoringImmediatelyStoresAQuaternion()
+    {
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><MyImage><Properties><Id>I</Id>" +
+            "</Properties></MyImage></XuiCanvas>");
+        XuiSyntaxNode target = document.Root.Elements("MyImage").Single();
+
+        XuiAnimationAuthoringResult plan =
+            XuiAnimationAuthoringService.PlanTrackKey(
+                document,
+                document.Root.Key,
+                target.Key,
+                "Rotation",
+                "90",
+                0);
+
+        Assert.IsFalse(plan.ConflictReport.HasErrors);
+        document.Execute(plan.Command!);
+        StringAssert.Contains(
+            document.Text,
+            "<Prop>0.000000,0.000000,0.707107,0.707107</Prop>");
+    }
+
+    [TestMethod]
     public void MarkersOnlyCreatesNoMotionAndParentScopeCanTargetSeveralChildren()
     {
         const string source = "<XuiCanvas><AdvGroup><Properties><Id>G</Id></Properties><MyImage><Properties><Id>A</Id></Properties></MyImage><MyImage><Properties><Id>B</Id></Properties></MyImage></AdvGroup></XuiCanvas>";

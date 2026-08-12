@@ -1244,6 +1244,8 @@ public partial class MainWindow : Window, IDisposable
                     name));
         }
 
+        value = CanonicalizeRotationProperty(name, value);
+
         _document.Execute(XuiCommandFactory.AddProperty(
             _document,
             element,
@@ -2262,6 +2264,15 @@ public partial class MainWindow : Window, IDisposable
 
         int currentTick = CurrentTimelineTick;
         string raw = ReplaceKeyFrameTime(_copiedKeyFrameXml, currentTick);
+        int[] rotationIndexes = timeline.Tracks
+            .Where(static track =>
+                track.KnownProperty == XuiTimelineProperty.Rotation)
+            .Select(static track => track.SourcePropertyIndex)
+            .ToArray();
+        raw = XuiRotationMigration.NormalizeKeyFrameXml(
+            raw,
+            rotationIndexes,
+            _document.Format);
         _document.Execute(XuiCommandFactory.InsertChildXml(
             _document,
             timeline.Syntax,
@@ -3542,40 +3553,10 @@ public partial class MainWindow : Window, IDisposable
             node,
             _document.Text,
             "Rotation") ?? string.Empty;
-        string value;
-        double degrees = 0;
-        if (raw.Length == 0 ||
-            XuiValueParser.TryNumber(raw, out degrees))
-        {
-            value = (degrees + deltaDegrees).ToString(
-                "0.000000",
-                CultureInfo.InvariantCulture);
-        }
-        else if (XuiValueParser.TryVector3(raw, out XuiVector3 vector))
-        {
-            value = FormattableString.Invariant(
-                $"{vector.X:0.000000},{vector.Y:0.000000},{vector.Z + deltaDegrees:0.000000}");
-        }
-        else if (XuiValueParser.TryQuaternion(raw, out XuiQuaternion quaternion))
-        {
-            System.Numerics.Quaternion current = new(
-                (float)quaternion.X,
-                (float)quaternion.Y,
-                (float)quaternion.Z,
-                (float)quaternion.W);
-            System.Numerics.Quaternion delta =
-                System.Numerics.Quaternion.CreateFromAxisAngle(
-                    System.Numerics.Vector3.UnitZ,
-                    (float)(deltaDegrees * Math.PI / 180));
-            System.Numerics.Quaternion rotated =
-                System.Numerics.Quaternion.Normalize(
-                    System.Numerics.Quaternion.Concatenate(
-                        current,
-                        delta));
-            value = FormattableString.Invariant(
-                $"{rotated.X:0.000000},{rotated.Y:0.000000},{rotated.Z:0.000000},{rotated.W:0.000000}");
-        }
-        else
+        if (!XuiRotationCodec.TryAddZDegrees(
+                raw,
+                deltaDegrees,
+                out string value))
         {
             SetStatus("Ui.Main.Status.UnsupportedRotation");
             return;
@@ -3594,6 +3575,8 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
+        value = CanonicalizeRotationProperty(name, value);
+
         XuiPropertyEntry? property = XuiModelReader.GetProperty(
             node,
             _document.Text,
@@ -3610,6 +3593,17 @@ public partial class MainWindow : Window, IDisposable
                 value);
         _document.Execute(command);
     }
+
+    private static string CanonicalizeRotationProperty(
+        string name,
+        string value) =>
+        name.Equals("Rotation", StringComparison.Ordinal) &&
+        XuiRotationCodec.TryCanonicalize(
+            value,
+            out string canonical,
+            out _)
+                ? canonical
+                : value;
 
     private void InspectorList_SelectionChanged(
         object sender,
@@ -7120,23 +7114,12 @@ public partial class MainWindow : Window, IDisposable
                 node,
                 _document.Text,
                 "Rotation");
-        if (XuiValueParser.TryNumber(raw ?? string.Empty, out double number))
-        {
-            return number;
-        }
-
-        if (XuiValueParser.TryVector3(
-                raw ?? string.Empty,
-                out XuiVector3 vector))
-        {
-            return vector.Z;
-        }
-
-        return XuiValueParser.TryQuaternion(
+        return XuiRotationCodec.TryDecode(
             raw ?? string.Empty,
-            out XuiQuaternion quaternion)
-            ? quaternion.ZRotationDegrees
-            : 0;
+            out XuiQuaternion quaternion,
+            out _)
+                ? quaternion.ZRotationDegrees
+                : 0;
     }
 
     private static string FormatVector2(XuiVector2 value) =>
@@ -7236,12 +7219,27 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
-        string committedValue = row.Name == "TextStyle" &&
-                                XuiTextStyleCodec.TryParse(
-                                    row.Value,
-                                    out XuiDecodedTextStyle textStyle)
-            ? XuiTextStyleCodec.ToDecimalString(textStyle.RawValue)
-            : row.Value;
+        string committedValue;
+        if (row.Name == "TextStyle" &&
+            XuiTextStyleCodec.TryParse(
+                row.Value,
+                out XuiDecodedTextStyle textStyle))
+        {
+            committedValue = XuiTextStyleCodec.ToDecimalString(
+                textStyle.RawValue);
+        }
+        else if (row.Name == "Rotation" &&
+                 XuiRotationCodec.TryCanonicalize(
+                     row.Value,
+                     out string canonicalRotation,
+                     out _))
+        {
+            committedValue = canonicalRotation;
+        }
+        else
+        {
+            committedValue = row.Value;
+        }
         row.Value = committedValue;
         IReadOnlyList<string> keys = _selectedKeys.ToArray();
         bool needsChange = keys.Any(key =>
@@ -7607,6 +7605,16 @@ public partial class MainWindow : Window, IDisposable
                 "Ui.Main.Keyframe.MissingProp");
             SetStatus("Ui.Main.Keyframe.MissingProp");
             return;
+        }
+
+        if (track.KnownProperty == XuiTimelineProperty.Rotation &&
+            XuiRotationCodec.TryCanonicalize(
+                value,
+                out string canonicalRotation,
+                out _))
+        {
+            value = canonicalRotation;
+            KeyValueTextBox.Text = value;
         }
 
         if (string.Equals(
@@ -8825,9 +8833,7 @@ public partial class MainWindow : Window, IDisposable
         }
 
         if (name == "Rotation" &&
-            !XuiValueParser.TryQuaternion(value, out _) &&
-            !XuiValueParser.TryVector3(value, out _) &&
-            !XuiValueParser.TryNumber(value, out _))
+            !XuiRotationCodec.TryDecode(value, out _, out _))
         {
             return UiLocalization.Text(
                 "Ui.Validation.Rotation");
@@ -8885,10 +8891,7 @@ public partial class MainWindow : Window, IDisposable
             XuiPropertyType.Vector4 =>
                 XuiValueParser.TryVector4(value, out _),
             XuiPropertyType.Quaternion =>
-                XuiValueParser.TryQuaternion(value, out _) ||
-                XuiValueParser.TryVector3(value, out _) ||
-                XuiValueParser.TryVector2(value, out _) ||
-                XuiValueParser.TryNumber(value, out _),
+                XuiRotationCodec.TryDecode(value, out _, out _),
             XuiPropertyType.Color =>
                 XuiValueParser.TryColor(value, out _),
             _ => true,

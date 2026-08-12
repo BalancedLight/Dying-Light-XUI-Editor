@@ -579,6 +579,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">Η κάθετη στοίχιση κειμένου είναι άγνωστη. χρησιμοποιείται η άνω ευθυγράμμιση.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">Το αυτόματο πλάτος του κουμπιού δεν ήταν έγκυρο. η συγγραφική γεωμετρία διατηρείται.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">Το προφίλ ενεργού ελεγκτή αλλάζει την πραγματική κατάσταση προεπισκόπησης.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">Μια παλιά βαθμωτή ή Euler τιμή Rotation θα μετατραπεί σε τετραδόνιο Dying Light κατά την αποθήκευση του εγγράφου.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">Δεν ήταν δυνατή η ανάγνωση ενός καταλόγου τοπικής προσαρμογής.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">Ένα κλειδί τοπικής προσαρμογής δηλώνεται περισσότερες από μία φορές.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">Ένας κατάλογος τοπικής προσαρμογής έχει δευτερεύοντα byte.</system:String>
@@ -599,6 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">Ένας στόχος με όνομα πλαίσιο διπλασιάζεται στο ίδιο εύρος.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">Εντοπίστηκε ένας κύκλος εντολών με όνομα πλαίσιο.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">Δεν βρέθηκε στόχος με όνομα καρέ.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">Μια παλιά βαθμωτή ή Euler τιμή Rotation της λωρίδας χρόνου θα μετατραπεί σε τετραδόνιο Dying Light κατά την αποθήκευση του εγγράφου.</system:String>
     <system:String x:Key="Ui.Common.Mixed">— μικτό —</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">Στοιχείο περιτύλιξης</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">Τυλίξτε {0} σε έναν νέο οπτικό γονέα. Η προεπιλεγμένη ομάδα έχει μετασχηματισμό ταυτότητας και το παλιό μέγεθος γονέα, ώστε το παιδί να μην μεταπηδά.</system:String>

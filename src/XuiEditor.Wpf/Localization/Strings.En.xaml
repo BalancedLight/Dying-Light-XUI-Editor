@@ -579,6 +579,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">Vertical text alignment is unknown; top alignment is used.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">Button auto-width was invalid; authored geometry is retained.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">The active controller profile changes the effective preview state.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">A legacy scalar or Euler Rotation will be converted to a Dying Light quaternion when the document is saved.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">A localization catalog could not be read.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">A localization key is declared more than once.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">A localization catalog has trailing bytes.</system:String>
@@ -599,6 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">A named-frame target is duplicated in the same scope.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">A named-frame command cycle was detected.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">A named-frame target was not found.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">A legacy scalar or Euler timeline Rotation will be converted to a Dying Light quaternion when the document is saved.</system:String>
     <system:String x:Key="Ui.Common.Mixed">— mixed —</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">Wrap element</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">Wrap {0} in a new visual parent. The default group has an identity transform and the old parent size, so the child does not jump.</system:String>

@@ -263,7 +263,7 @@ public partial class AddXuiPropertyWindow : Window
             XuiPropertyType.Vector4 =>
                 XuiValueParser.TryVector4(value, out _),
             XuiPropertyType.Quaternion =>
-                XuiValueParser.TryQuaternion(value, out _),
+                XuiRotationCodec.TryDecode(value, out _, out _),
             XuiPropertyType.Color =>
                 XuiValueParser.TryColor(value, out _),
             _ => true,
