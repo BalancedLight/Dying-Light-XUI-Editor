@@ -1549,6 +1549,56 @@ public sealed class WpfSmokeTests
 
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
+    public void SelectedRotatedBoundsOwnDragWhileClickTargetsUnderlyingElement()
+    {
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>200</Width><Height>200</Height>" +
+            "</Properties><AdvGroup><Properties><Id>Parent</Id><Width>160</Width>" +
+            "<Height>160</Height><Position>20,20,0</Position></Properties>" +
+            "<MyImage><Properties><Id>Rotated</Id><Width>100</Width><Height>4</Height>" +
+            "<Position>30,70,0</Position><Pivot>50,2,0</Pivot>" +
+            "<Rotation>0,0,0.3826834324,0.9238795325</Rotation>" +
+            "</Properties></MyImage></AdvGroup></XuiCanvas>");
+        XuiRenderFrame frame = DyingLightLayoutEngine.Evaluate(
+            document,
+            new XuiViewport(200, 200),
+            0);
+        XuiRenderNode parent = frame.Nodes.Single(static node =>
+            node.Id == "Parent");
+        XuiRenderNode rotated = frame.Nodes.Single(static node =>
+            node.Id == "Rotated");
+        XuiViewportControl viewport = new();
+        viewport.SetFrame(frame);
+        viewport.SetSelectedKeys([rotated.Key]);
+        XuiVector2 probe = new(
+            rotated.WorldBounds.X + 2,
+            rotated.WorldBounds.Bottom - 2);
+
+        Assert.IsTrue(rotated.WorldBounds.Contains(probe));
+        Assert.AreEqual(
+            parent.Key,
+            viewport.HitSelectionKeyForTesting(probe));
+        Assert.AreEqual(
+            rotated.Key,
+            viewport.DragSelectionKeyForTesting(probe));
+        Assert.AreEqual(
+            parent.Key,
+            viewport.DragSelectionKeyForTesting(
+                probe,
+                ModifierKeys.Shift));
+        Assert.AreEqual(
+            parent.Key,
+            viewport.DragSelectionKeyForTesting(
+                probe,
+                ModifierKeys.Control));
+
+        XuiVector2 outside = new(190, 190);
+        Assert.IsFalse(rotated.WorldBounds.Contains(outside));
+        Assert.IsNull(viewport.DragSelectionKeyForTesting(outside));
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
     public void CanvasRootTransformCommitIsRejectedWithoutChangingSource()
     {
         App application = Application.Current as App ?? new App();

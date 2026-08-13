@@ -719,6 +719,12 @@ public sealed class XuiViewportControl : FrameworkElement
                HitTest(logicalPoint, cycle)?.SelectionKey;
     }
 
+    internal string? DragSelectionKeyForTesting(
+        XuiVector2 logicalPoint,
+        ModifierKeys modifiers = ModifierKeys.None) =>
+        CreatePointerGesture(logicalPoint, modifiers)
+            .DragCandidate?.SelectionKey;
+
     protected override int VisualChildrenCount => _visuals.Count;
 
     protected override Visual GetVisualChild(int index) => _visuals[index];
@@ -1080,19 +1086,9 @@ public sealed class XuiViewportControl : FrameworkElement
             return;
         }
 
-        ModifierKeys modifiers = Keyboard.Modifiers;
-        bool cycle = modifiers.HasFlag(ModifierKeys.Alt);
-        XuiRenderNode? ordinaryHit = HitTest(logical, cycle);
-        XuiRenderNode? selectedHit =
-            !cycle &&
-            !modifiers.HasFlag(ModifierKeys.Shift) &&
-            !modifiers.HasFlag(ModifierKeys.Control)
-                ? HitTestSelectedBody(logical)
-                : null;
-        _pendingPointerGesture = new PointerGesture(
-            selectedHit ?? ordinaryHit,
-            ordinaryHit ?? selectedHit,
-            modifiers);
+        _pendingPointerGesture = CreatePointerGesture(
+            logical,
+            Keyboard.Modifiers);
         CaptureMouse();
 
         e.Handled = true;
@@ -3971,6 +3967,43 @@ public sealed class XuiViewportControl : FrameworkElement
             .Reverse()
             .FirstOrDefault(node =>
                 HitTestNode(node, logicalPoint));
+    }
+
+    private XuiRenderNode? HitTestSelectedBounds(
+        XuiVector2 logicalPoint)
+    {
+        XuiRenderFrame? frame = _frame;
+        if (frame is null)
+        {
+            return null;
+        }
+
+        return frame.Nodes
+            .Where(node =>
+                _selectedKeys.Contains(node.Key) &&
+                !_hiddenKeys.Contains(node.SelectionKey))
+            .Reverse()
+            .FirstOrDefault(node =>
+                PreviewBounds(node).Contains(logicalPoint));
+    }
+
+    private PointerGesture CreatePointerGesture(
+        XuiVector2 logicalPoint,
+        ModifierKeys modifiers)
+    {
+        bool cycle = modifiers.HasFlag(ModifierKeys.Alt);
+        XuiRenderNode? ordinaryHit = HitTest(logicalPoint, cycle);
+        bool selectionOnly =
+            modifiers.HasFlag(ModifierKeys.Shift) ||
+            modifiers.HasFlag(ModifierKeys.Control);
+        XuiRenderNode? selectedHit = !cycle && !selectionOnly
+            ? HitTestSelectedBounds(logicalPoint) ??
+              HitTestSelectedBody(logicalPoint)
+            : null;
+        return new PointerGesture(
+            selectedHit ?? ordinaryHit,
+            ordinaryHit ?? selectedHit,
+            modifiers);
     }
 
     private static bool HitTestNode(
