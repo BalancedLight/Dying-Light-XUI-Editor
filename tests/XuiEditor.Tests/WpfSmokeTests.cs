@@ -1446,7 +1446,7 @@ public sealed class WpfSmokeTests
 
     [STATestMethod]
     [OSCondition(OperatingSystems.Windows)]
-    public void ViewportContextMenuOffersAllAlignmentCommands()
+    public void ViewportContextMenuOffersDuplicateAndAllAlignmentCommands()
     {
         App application = Application.Current as App ?? new App();
         application.InitializeComponent();
@@ -1463,11 +1463,15 @@ public sealed class WpfSmokeTests
         window.SelectNodeKeysForTesting([child.Key]);
 
         ContextMenu menu = window.Viewport.ContextMenu!;
-        MenuItem alignment = menu.Items.OfType<MenuItem>().Single();
+        MenuItem duplicate = menu.Items.OfType<MenuItem>().Single(item =>
+            Equals(item.Tag, "Duplicate"));
+        MenuItem alignment = menu.Items.OfType<MenuItem>().Single(item =>
+            Equals(item.Tag, "Alignment"));
         MenuItem[] commands = alignment.Items
             .OfType<MenuItem>()
             .ToArray();
 
+        Assert.AreEqual("Ctrl+D", duplicate.InputGestureText);
         CollectionAssert.AreEqual(
             AlignmentTags,
             commands.Select(static item => (string)item.Tag).ToArray());
@@ -1482,6 +1486,60 @@ public sealed class WpfSmokeTests
                 centeredChild,
                 document.Text,
                 "Position"));
+
+        duplicate.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        Assert.HasCount(
+            2,
+            XuiModelReader.VisualDescendants(document.Root)
+                .Where(node => XuiModelReader.GetId(node, document.Text) == "Child"));
+        document.Undo();
+        Assert.HasCount(
+            1,
+            XuiModelReader.VisualDescendants(document.Root)
+                .Where(node => XuiModelReader.GetId(node, document.Text) == "Child"));
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void HierarchyContextDuplicateTargetsTheRightClickedRow()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>80</Height></Properties>" +
+            "<MyImage><Properties><Id>First</Id></Properties></MyImage>" +
+            "<MyImage><Properties><Id>Second</Id></Properties></MyImage>" +
+            "</XuiCanvas>";
+        XuiDocument document = XuiDocument.FromText(source);
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        XuiSyntaxNode first = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node => XuiModelReader.GetId(node, document.Text) == "First");
+        XuiSyntaxNode second = XuiModelReader.VisualDescendants(document.Root)
+            .Single(node => XuiModelReader.GetId(node, document.Text) == "Second");
+        window.SelectNodeKeysForTesting([first.Key]);
+        HierarchyRow secondRow = window.HierarchyRowForTesting(second.Key)!;
+        Grid rowContent = (Grid)window.HierarchyListForTesting
+            .ItemTemplate.LoadContent();
+        ContextMenu menu = rowContent.ContextMenu!;
+        MenuItem duplicate = menu.Items.OfType<MenuItem>().Single(item =>
+            Equals(item.Tag, "Duplicate"));
+        duplicate.DataContext = secondRow;
+
+        duplicate.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+
+        Assert.HasCount(
+            1,
+            XuiModelReader.VisualDescendants(document.Root)
+                .Where(node => XuiModelReader.GetId(node, document.Text) == "First"));
+        Assert.HasCount(
+            2,
+            XuiModelReader.VisualDescendants(document.Root)
+                .Where(node => XuiModelReader.GetId(node, document.Text) == "Second"));
+        Assert.IsFalse(window.SelectedKeysForTesting.Contains(first.Key));
+        Assert.IsTrue(window.SelectedKeysForTesting.Contains(second.Key));
+        document.Undo();
+        Assert.AreEqual(source, document.Text);
     }
 
     [STATestMethod]
@@ -1581,6 +1639,9 @@ public sealed class WpfSmokeTests
         Assert.AreEqual(
             rotated.Key,
             viewport.DragSelectionKeyForTesting(probe));
+        Assert.AreEqual(
+            rotated.Key,
+            viewport.ContextSelectionKeyForTesting(probe));
         Assert.AreEqual(
             parent.Key,
             viewport.DragSelectionKeyForTesting(

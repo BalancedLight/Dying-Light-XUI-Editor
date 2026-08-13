@@ -625,6 +625,10 @@
                                     <Grid.ContextMenu>
                                         <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
                                                      Opened="HierarchyContextMenu_Opened">
+                                            <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.014}"
+                                                      InputGestureText="Ctrl+D"
+                                                      Tag="Duplicate"
+                                                      Click="HierarchyDuplicate_Click" />
                                             <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.082}"
                                                       InputGestureText="Ctrl+Insert"
                                                       Click="HierarchyAddChild_Click" />
@@ -724,7 +728,13 @@
                                              Drop="Viewport_AssetDrop">
                     <controls:XuiViewportControl.ContextMenu>
                         <ContextMenu Opened="ViewportContextMenu_Opened">
-                            <MenuItem Header="{DynamicResource Ui.Command.AlignSelection}">
+                            <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.014}"
+                                      InputGestureText="Ctrl+D"
+                                      Tag="Duplicate"
+                                      Click="Duplicate_Click" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Ui.Command.AlignSelection}"
+                                      Tag="Alignment">
                                 <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.206}"
                                           Tag="Left"
                                           Click="AlignSelection_Click" />

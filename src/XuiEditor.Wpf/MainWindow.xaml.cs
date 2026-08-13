@@ -903,6 +903,11 @@ public partial class MainWindow : Window, IDisposable
 
     private void Duplicate_Click(object sender, RoutedEventArgs eventArgs)
     {
+        DuplicateSelection();
+    }
+
+    private void DuplicateSelection()
+    {
         if (_document is null)
         {
             return;
@@ -2412,11 +2417,42 @@ public partial class MainWindow : Window, IDisposable
 
         foreach (MenuItem item in menu.Items.OfType<MenuItem>())
         {
-            if (Equals(item.Tag, "RestoreIsolation"))
+            if (Equals(item.Tag, "Duplicate") &&
+                menu.DataContext is HierarchyRow row)
+            {
+                bool keepsSelection = _selectedKeys.Contains(row.NodeKey);
+                item.IsEnabled = keepsSelection
+                    ? CanDuplicateSelection()
+                    : _document is not null &&
+                      !row.NodeKey.Equals(
+                          _document.Root.Key,
+                          StringComparison.Ordinal);
+            }
+            else if (Equals(item.Tag, "RestoreIsolation"))
             {
                 item.IsEnabled = _hiddenKeysBeforeIsolation is not null;
             }
         }
+    }
+
+    private void HierarchyDuplicate_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        if (sender is not MenuItem { DataContext: HierarchyRow row })
+        {
+            return;
+        }
+
+        if (!_selectedKeys.Contains(row.NodeKey))
+        {
+            _selectedKeys.Clear();
+            _selectedKeys.Add(row.NodeKey);
+            SelectRowsFromKeys(scrollIntoView: false);
+            UpdateSelectionSurfaces();
+        }
+
+        DuplicateSelection();
     }
 
     private void HierarchyIsolate_Click(
@@ -2854,12 +2890,27 @@ public partial class MainWindow : Window, IDisposable
         object sender,
         RoutedEventArgs eventArgs)
     {
-        if (sender is ContextMenu menu &&
-            menu.Items.OfType<MenuItem>().FirstOrDefault() is MenuItem alignmentMenu)
+        if (sender is not ContextMenu menu)
         {
-            alignmentMenu.IsEnabled = CanAlignSelection();
+            return;
+        }
+
+        foreach (MenuItem item in menu.Items.OfType<MenuItem>())
+        {
+            if (Equals(item.Tag, "Duplicate"))
+            {
+                item.IsEnabled = CanDuplicateSelection();
+            }
+            else if (Equals(item.Tag, "Alignment"))
+            {
+                item.IsEnabled = CanAlignSelection();
+            }
         }
     }
+
+    private bool CanDuplicateSelection() =>
+        _document is not null &&
+        SelectedNodes().Any(node => node != _document.Root);
 
     private void UpdateNavigationConnections()
     {

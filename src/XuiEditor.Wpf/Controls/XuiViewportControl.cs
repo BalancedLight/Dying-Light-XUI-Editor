@@ -725,6 +725,10 @@ public sealed class XuiViewportControl : FrameworkElement
         CreatePointerGesture(logicalPoint, modifiers)
             .DragCandidate?.SelectionKey;
 
+    internal string? ContextSelectionKeyForTesting(
+        XuiVector2 logicalPoint) =>
+        HitTestContextTarget(logicalPoint)?.SelectionKey;
+
     protected override int VisualChildrenCount => _visuals.Count;
 
     protected override Visual GetVisualChild(int index) => _visuals[index];
@@ -1054,7 +1058,7 @@ public sealed class XuiViewportControl : FrameworkElement
         {
             if (e.ChangedButton == MouseButton.Right)
             {
-                XuiRenderNode? contextHit = HitTest(logical, cycle: false);
+                XuiRenderNode? contextHit = HitTestContextTarget(logical);
                 if (contextHit is not null &&
                     !_selectedKeys.Contains(contextHit.SelectionKey))
                 {
@@ -4005,6 +4009,12 @@ public sealed class XuiViewportControl : FrameworkElement
             ordinaryHit ?? selectedHit,
             modifiers);
     }
+
+    private XuiRenderNode? HitTestContextTarget(
+        XuiVector2 logicalPoint) =>
+        HitTestSelectedBounds(logicalPoint) ??
+        HitTestSelectedBody(logicalPoint) ??
+        HitTest(logicalPoint, cycle: false);
 
     private static bool HitTestNode(
         XuiRenderNode node,
