@@ -6,7 +6,9 @@ param(
     [string] $Chrome6ReferenceRoot,
 
     [Parameter(Mandatory = $true)]
-    [string] $OutputPath
+    [string] $OutputPath,
+
+    [string] $TextStyleReportPath
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,6 +27,7 @@ $stockProperties = [System.Collections.Generic.HashSet[string]]::new(
 $stockTags = [System.Collections.Generic.HashSet[string]]::new(
     [System.StringComparer]::Ordinal)
 $stockXuiCount = 0
+$textStyleCounts = @{}
 $propertyHelpPath = Join-Path $PSScriptRoot "xui-property-help.json"
 $propertyDescriptions = @{}
 if (Test-Path -LiteralPath $propertyHelpPath) {
@@ -117,7 +120,14 @@ try {
             }
 
             [void] $stockProperties.Add($name)
-            Add-ListValue $propertyValues $name $element.Value.Trim()
+            $authoredValue = $element.Value.Trim()
+            Add-ListValue $propertyValues $name $authoredValue
+            if ($name -eq "TextStyle") {
+                if (-not $textStyleCounts.ContainsKey($authoredValue)) {
+                    $textStyleCounts[$authoredValue] = 0
+                }
+                $textStyleCounts[$authoredValue]++
+            }
         }
 
         foreach ($element in $document.Descendants()) {
@@ -286,7 +296,8 @@ $commonProperties = [System.Collections.Generic.HashSet[string]]::new(
         "MultiLine", "Outline", "OutlineSize", "OutlineColor", "Shadow",
         "ShadowColor", "ShadowOffset", "ColorControlSequenceEnabled",
         "Visual", "NavUp", "NavDown",
-        "NavLeft", "NavRight", "NavTabForward", "NavTabBackward"),
+        "NavLeft", "NavRight", "NavTabForward", "NavTabBackward",
+        "PressKey"),
     [System.StringComparer]::Ordinal)
 $binaryEvidence = [System.Collections.Generic.HashSet[string]]::new(
     [string[]] @(
@@ -295,7 +306,7 @@ $binaryEvidence = [System.Collections.Generic.HashSet[string]]::new(
         "Font", "ImagePath", "Material", "Bold", "Italic", "Underline",
         "Strike", "HorizontalAlign", "VerticalAlign", "SpecialSignsScale",
         "FontYOffset", "NavUp", "NavDown", "NavLeft", "NavRight",
-        "NavTabForward", "NavTabBackward"),
+        "NavTabForward", "NavTabBackward", "PressKey"),
     [System.StringComparer]::Ordinal)
 $exactPreview = [System.Collections.Generic.HashSet[string]]::new(
     [string[]] @(
@@ -311,7 +322,7 @@ $exactPreview = [System.Collections.Generic.HashSet[string]]::new(
         "KeepWidthOnParentSizeChange", "KeepPosXOnParentSizeChange",
         "KeepPosYOnParentSizeChange", "KeepHeightOnResolutionChange",
         "KeepWidthOnResolutionChange", "KeepPosXOnResolutionChange",
-        "KeepPosYOnResolutionChange", "ScaleWidthByResolution"),
+        "KeepPosYOnResolutionChange", "ScaleWidthByResolution", "PressKey"),
     [System.StringComparer]::Ordinal)
 $approximatePreview = [System.Collections.Generic.HashSet[string]]::new(
     [string[]] @(
@@ -337,7 +348,8 @@ function Get-Category {
     param([string] $Name)
 
     if ($Name -in @("Id", "ClassOverride", "Visual")) { return "Identity" }
-    if ($Name.StartsWith("Nav", [System.StringComparison]::Ordinal)) {
+    if ($Name -eq "PressKey" -or
+        $Name.StartsWith("Nav", [System.StringComparison]::Ordinal)) {
         return "Navigation"
     }
     if ($Name -in @("TextProgress", "Const0", "Const1", "Const2", "Const3",
@@ -405,6 +417,7 @@ function Get-DefaultValue {
         ShadowColor = "0xa0000000"
         PointSize = "20"
         TextStyle = "0"
+        PressKey = "22594"
         Play = "false"
     }
     if ($known.ContainsKey($Name)) {
@@ -495,7 +508,7 @@ $catalogPropertyNames = @($stockProperties) + $supplementalProperties |
 $properties = foreach ($name in $catalogPropertyNames) {
     $type = Get-PropertyType $name
     $flags = Get-ReferenceFlags $name
-    [ordered]@{
+    $property = [ordered]@{
         name = $name
         type = $type
         category = Get-Category $name
@@ -522,6 +535,13 @@ $properties = foreach ($name in $catalogPropertyNames) {
         }
         flags = @($flags)
     }
+    if ($name -eq "PressKey") {
+        $property.editorKind = "PressKeyPalette"
+    }
+    elseif ($name -eq "TextStyle") {
+        $property.editorKind = "TextStylePalette"
+    }
+    $property
 }
 
 $classes = [System.Collections.Generic.List[object]]::new()
@@ -718,3 +738,41 @@ $fullOutput = [System.IO.Path]::GetFullPath($OutputPath)
     $fullOutput,
     $json + [Environment]::NewLine,
     [System.Text.UTF8Encoding]::new($false))
+
+if (-not [string]::IsNullOrWhiteSpace($TextStyleReportPath)) {
+    $profiles = @($textStyleCounts.GetEnumerator() |
+        ForEach-Object {
+            $rawValue = 0
+            if (-not [int]::TryParse(
+                [string] $_.Key,
+                [Globalization.NumberStyles]::Integer,
+                [Globalization.CultureInfo]::InvariantCulture,
+                [ref] $rawValue)) {
+                throw "Stock TextStyle '$($_.Key)' is not a whole number."
+            }
+
+            [ordered]@{
+                rawValue = $rawValue
+                hexValue = "0x{0:X8}" -f $rawValue
+                stockOccurrenceCount = [int] $_.Value
+            }
+        } |
+        Sort-Object rawValue)
+    $report = [ordered]@{
+        format = "dying-light-text-style-catalog-v1"
+        stockXuiCount = $stockXuiCount
+        stockOccurrenceCount = [int] (
+            $textStyleCounts.Values |
+            Measure-Object -Sum |
+            Select-Object -ExpandProperty Sum)
+        profiles = $profiles
+    } | ConvertTo-Json -Depth 6
+    $fullReportPath = [System.IO.Path]::GetFullPath(
+        $TextStyleReportPath)
+    [System.IO.Directory]::CreateDirectory(
+        [System.IO.Path]::GetDirectoryName($fullReportPath)) | Out-Null
+    [System.IO.File]::WriteAllText(
+        $fullReportPath,
+        $report + [Environment]::NewLine,
+        [System.Text.UTF8Encoding]::new($false))
+}

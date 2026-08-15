@@ -774,6 +774,7 @@ Otevřít jej jako neuložený dokument?</system:String>
     <system:String x:Key="Ui.Main.Status.UndidRebind">Zrušili jste poslední opětovné navázání pracovního prostoru napříč soubory {0:N0}.</system:String>
     <system:String x:Key="Ui.Main.Status.UnsupportedRotation">Rotace používá nepodporovanou autorskou hodnotu a nebyla změněna.</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Mixed">Raw TextStyle: smíšené hodnoty</system:String>
+    <system:String x:Key="Ui.Main.TextStyle.RawDetailed">Nezpracované {0} / {1} – kompatibilita {2} – neznámé {3}</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Raw">Raw {0} / {1} · nemapované {2}</system:String>
     <system:String x:Key="Ui.Main.Timeline.MixedScopes">Smíšené rozsahy časové osy</system:String>
     <system:String x:Key="Ui.Main.Timeline.NoScope">Žádný rozsah časové osy</system:String>
@@ -900,4 +901,84 @@ Otevřít jej jako neuložený dokument?</system:String>
     <system:String x:Key="Ui.Animation.Error.SiblingSample">Nelze otestovat všechny sourozenecké vlastnosti pro '{0}' na zaškrtnutí {1}.</system:String>
     <system:String x:Key="Ui.Animation.Error.InvalidValue">'{0}' je neplatné pro vlastnost časové osy '{1}'.</system:String>
     <system:String x:Key="Ui.Animation.Error.DuplicateTargetId">Cíl Id '{0}' je v dokumentu duplikován a nelze jej jednoznačně animovat.</system:String>
+    <system:String x:Key="Ui.PressKey.SearchLabel">Hledat</system:String>
+    <system:String x:Key="Ui.PressKey.SearchAutomation">Prohledat volby PressKey</system:String>
+    <system:String x:Key="Ui.PressKey.NoResults">Žádná odpovídající tlačítka.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomHeading">Vlastní číselná hodnota</system:String>
+    <system:String x:Key="Ui.PressKey.CustomDescription">Zadejte celé číslo se znaménkem pro hodnotu PressKey vytvořenou modem nebo aktuálně neznámou.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomAutomation">Vlastní číselná hodnota PressKey</system:String>
+    <system:String x:Key="Ui.PressKey.ApplyCustom">Použít</system:String>
+    <system:String x:Key="Ui.PressKey.Option.ToolTip">{0}
+PC: {1}
+Ovladač: {2}
+Serializovaná hodnota: {3}
+Výčet enginu: {4}</system:String>
+    <system:String x:Key="Ui.PressKey.Option.Automation">{0}; PC {1}; ovladač {2}</system:String>
+    <system:String x:Key="Ui.PressKey.OpenAutomation">Vybrat PressKey; aktuální hodnota {0}</system:String>
+    <system:String x:Key="Ui.PressKey.CustomSummary">Vlastní ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.UnrecognizedSummary">Nerozpoznáno ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.InvalidCustom">Zadejte platné celé číslo se znaménkem.</system:String>
+    <system:String x:Key="Ui.Inspector.Property.PressKey.Purpose">Vybere nápovědu klávesy nebo tlačítka ovladače a aktivační vazbu používanou ovládacím prvkem.</system:String>
+    <system:String x:Key="Ui.PressKey.Group.None">Bez vazby</system:String>
+    <system:String x:Key="Ui.PressKey.Group.FaceButtons">Čelní tlačítka</system:String>
+    <system:String x:Key="Ui.PressKey.Group.ShouldersAndTriggers">Ramenní tlačítka a spouště</system:String>
+    <system:String x:Key="Ui.PressKey.Group.DirectionalPad">Směrový ovladač</system:String>
+    <system:String x:Key="Ui.PressKey.Group.SystemAndSticks">Systémová tlačítka a páčky</system:String>
+    <system:String x:Key="Ui.PressKey.Option.None">Žádné</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadA">Tlačítko A</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadB">Tlačítko B</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadX">Tlačítko X</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadY">Tlačítko Y</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadAOrStart">A nebo Start</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBOrBack">B nebo Zpět</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRShoulder">Pravé ramenní tlačítko (RB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLShoulder">Levé ramenní tlačítko (LB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRTrigger">Pravá spoušť (RT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLTrigger">Levá spoušť (LT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadUp">Směr nahoru</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadDown">Směr dolů</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadLeft">Směr vlevo</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadRight">Směr vpravo</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadStart">Tlačítko Start</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBack">Tlačítko Zpět</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLThumbPress">Stisk levé páčky (L3)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRThumbPress">Stisk pravé páčky (R3)</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchLabel">Hledat</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchAutomation">Vyhledejte předvolby TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.NoResults">Žádné odpovídající styly textu.</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Top">Shora zarovnané styly akcií</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Middle">Vertikálně centrované styly akcií</system:String>
+    <system:String x:Key="Ui.TextStyle.SampleText">Ukázka textu</system:String>
+    <system:String x:Key="Ui.TextStyle.StockUseCount">{0} použití akcií</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.ToolTip">{0}
+Serializovaná hodnota: {1}
+Hexadecimální: {2}
+Důkaz: {3}</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.Automation">TextStyle {0}; hodnota {1}</system:String>
+    <system:String x:Key="Ui.TextStyle.OpenAutomation">Vyberte TextStyle; aktuální hodnota {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnrecognizedSummary">Neplatné TextStyle ({0})</system:String>
+    <system:String x:Key="Ui.TextStyle.ComposerHeading">Vytvořte styl</system:String>
+    <system:String x:Key="Ui.TextStyle.Bold">Tučné</system:String>
+    <system:String x:Key="Ui.TextStyle.Italic">kurzíva</system:String>
+    <system:String x:Key="Ui.TextStyle.Underline">Podtrhněte</system:String>
+    <system:String x:Key="Ui.TextStyle.Horizontal">Horizontální</system:String>
+    <system:String x:Key="Ui.TextStyle.Vertical">Vertikální</system:String>
+    <system:String x:Key="Ui.TextStyle.Unspecified">Nespecifikováno</system:String>
+    <system:String x:Key="Ui.TextStyle.Left">Vlevo</system:String>
+    <system:String x:Key="Ui.TextStyle.Center">Střed</system:String>
+    <system:String x:Key="Ui.TextStyle.Right">Správně</system:String>
+    <system:String x:Key="Ui.TextStyle.Top">Nahoru</system:String>
+    <system:String x:Key="Ui.TextStyle.Middle">Střední</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility0010">Kompatibilita akcií 0x0010</system:String>
+    <system:String x:Key="Ui.TextStyle.ScaleAware">Glyfy s ohledem na měřítko 0x0001</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility4000">Kompatibilita 0x4000</system:String>
+    <system:String x:Key="Ui.TextStyle.PreservedBits">Zachované neznámé bity: {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.MixedComposer">Smíšený výběr: skládání nahrazuje různé styly; neznámé základní bity {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnknownBits">Neznámé bity {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyComposed">Použít styl</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomHeading">Nezpracovaná hodnota TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomDescription">Zadejte desetinné číslo se znaménkem nebo bitovou masku celého čísla s předponou 0x.</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomAutomation">Nezpracovaná číselná hodnota TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyCustom">Použít</system:String>
+    <system:String x:Key="Ui.TextStyle.InvalidCustom">Zadejte platné desetinné číslo se znaménkem nebo celé číslo s předponou 0x.</system:String>
 </ResourceDictionary>

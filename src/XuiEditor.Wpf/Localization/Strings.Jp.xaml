@@ -774,6 +774,7 @@
     <system:String x:Key="Ui.Main.Status.UndidRebind">{0:N0} ファイル間での最後のワークスペースの再バインドを取り消しました。</system:String>
     <system:String x:Key="Ui.Main.Status.UnsupportedRotation">回転はサポートされていない作成された値を使用しており、変更されませんでした。</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Mixed">生の TextStyle: 混合値</system:String>
+    <system:String x:Key="Ui.Main.TextStyle.RawDetailed">未加工 {0} / {1} - 互換性 {2} - 不明 {3}</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Raw">生の {0} / {1} · マップされていない {2}</system:String>
     <system:String x:Key="Ui.Main.Timeline.MixedScopes">混合タイムラインスコープ</system:String>
     <system:String x:Key="Ui.Main.Timeline.NoScope">タイムライン範囲なし</system:String>
@@ -900,4 +901,84 @@
     <system:String x:Key="Ui.Animation.Error.SiblingSample">ティック {1} で '{0}' のすべての兄弟プロパティをサンプリングできませんでした。</system:String>
     <system:String x:Key="Ui.Animation.Error.InvalidValue">「{0}」はタイムライン プロパティ「{1}」に対して無効です。</system:String>
     <system:String x:Key="Ui.Animation.Error.DuplicateTargetId">ターゲット Id '{0}' はドキュメント内で重複しているため、明確にアニメーション化できません。</system:String>
+    <system:String x:Key="Ui.PressKey.SearchLabel">検索</system:String>
+    <system:String x:Key="Ui.PressKey.SearchAutomation">PressKey の選択肢を検索</system:String>
+    <system:String x:Key="Ui.PressKey.NoResults">一致するボタンはありません。</system:String>
+    <system:String x:Key="Ui.PressKey.CustomHeading">カスタム数値</system:String>
+    <system:String x:Key="Ui.PressKey.CustomDescription">MOD 作成または現在不明な PressKey 値として符号付き整数を入力します。</system:String>
+    <system:String x:Key="Ui.PressKey.CustomAutomation">カスタム PressKey 数値</system:String>
+    <system:String x:Key="Ui.PressKey.ApplyCustom">適用</system:String>
+    <system:String x:Key="Ui.PressKey.Option.ToolTip">{0}
+PC: {1}
+コントローラー: {2}
+シリアル化値: {3}
+エンジン列挙値: {4}</system:String>
+    <system:String x:Key="Ui.PressKey.Option.Automation">{0}; PC {1}; コントローラー {2}</system:String>
+    <system:String x:Key="Ui.PressKey.OpenAutomation">PressKey を選択; 現在の値 {0}</system:String>
+    <system:String x:Key="Ui.PressKey.CustomSummary">カスタム ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.UnrecognizedSummary">未認識 ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.InvalidCustom">有効な符号付き整数を入力してください。</system:String>
+    <system:String x:Key="Ui.Inspector.Property.PressKey.Purpose">コントロールで使用するキーボードまたはコントローラーボタンのヒントとアクティブ化割り当てを選択します。</system:String>
+    <system:String x:Key="Ui.PressKey.Group.None">割り当てなし</system:String>
+    <system:String x:Key="Ui.PressKey.Group.FaceButtons">フェイスボタン</system:String>
+    <system:String x:Key="Ui.PressKey.Group.ShouldersAndTriggers">ショルダーとトリガー</system:String>
+    <system:String x:Key="Ui.PressKey.Group.DirectionalPad">方向パッド</system:String>
+    <system:String x:Key="Ui.PressKey.Group.SystemAndSticks">システムボタンとスティック</system:String>
+    <system:String x:Key="Ui.PressKey.Option.None">なし</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadA">A ボタン</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadB">B ボタン</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadX">X ボタン</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadY">Y ボタン</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadAOrStart">A またはスタート</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBOrBack">B または戻る</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRShoulder">右ショルダー (RB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLShoulder">左ショルダー (LB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRTrigger">右トリガー (RT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLTrigger">左トリガー (LT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadUp">方向パッド上</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadDown">方向パッド下</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadLeft">方向パッド左</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadRight">方向パッド右</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadStart">スタートボタン</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBack">戻るボタン</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLThumbPress">左スティック押し込み (L3)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRThumbPress">右スティック押し込み (R3)</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchLabel">検索</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchAutomation">TextStyle プリセットを検索</system:String>
+    <system:String x:Key="Ui.TextStyle.NoResults">一致するテキスト スタイルがありません。</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Top">上揃えのストック スタイル</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Middle">垂直中央揃えのストック スタイル</system:String>
+    <system:String x:Key="Ui.TextStyle.SampleText">サンプルテキスト</system:String>
+    <system:String x:Key="Ui.TextStyle.StockUseCount">{0} 株式の使用</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.ToolTip">{0}
+シリアル化された値: {1}
+16 進数: {2}
+証拠: {3}</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.Automation">TextStyle {0};値 {1}</system:String>
+    <system:String x:Key="Ui.TextStyle.OpenAutomation">TextStyle を選択します。現在値 {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnrecognizedSummary">無効な TextStyle ({0})</system:String>
+    <system:String x:Key="Ui.TextStyle.ComposerHeading">スタイルを構成する</system:String>
+    <system:String x:Key="Ui.TextStyle.Bold">太字</system:String>
+    <system:String x:Key="Ui.TextStyle.Italic">イタリック体</system:String>
+    <system:String x:Key="Ui.TextStyle.Underline">下線</system:String>
+    <system:String x:Key="Ui.TextStyle.Horizontal">水平</system:String>
+    <system:String x:Key="Ui.TextStyle.Vertical">垂直</system:String>
+    <system:String x:Key="Ui.TextStyle.Unspecified">不特定</system:String>
+    <system:String x:Key="Ui.TextStyle.Left">左</system:String>
+    <system:String x:Key="Ui.TextStyle.Center">センター</system:String>
+    <system:String x:Key="Ui.TextStyle.Right">右</system:String>
+    <system:String x:Key="Ui.TextStyle.Top">トップへ</system:String>
+    <system:String x:Key="Ui.TextStyle.Middle">ミドル</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility0010">在庫互換性 0x0010</system:String>
+    <system:String x:Key="Ui.TextStyle.ScaleAware">スケール対応グリフ 0x0001</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility4000">互換性0x4000</system:String>
+    <system:String x:Key="Ui.TextStyle.PreservedBits">保存された不明ビット: {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.MixedComposer">混合選択: 異なるスタイルを合成すると置き換えられます。ベースの未知のビット {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnknownBits">不明なビット {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyComposed">スタイルを適用する</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomHeading">生の TextStyle 値</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomDescription">符号付き 10 進数または 0x の接頭辞が付いた整数ビットマスクを入力します。</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomAutomation">生の TextStyle 数値</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyCustom">適用</system:String>
+    <system:String x:Key="Ui.TextStyle.InvalidCustom">有効な符号付き 10 進数または 0x の接頭辞が付いた整数を入力します。</system:String>
 </ResourceDictionary>

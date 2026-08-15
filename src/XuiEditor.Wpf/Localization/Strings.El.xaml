@@ -774,6 +774,7 @@
     <system:String x:Key="Ui.Main.Status.UndidRebind">Αναίρεση της τελευταίας επανασύνδεσης χώρου εργασίας σε αρχεία {0:N0}.</system:String>
     <system:String x:Key="Ui.Main.Status.UnsupportedRotation">Το Rotation χρησιμοποιεί μια μη υποστηριζόμενη συγγραφική τιμή και δεν άλλαξε.</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Mixed">Ακατέργαστο TextStyle: μικτές τιμές</system:String>
+    <system:String x:Key="Ui.Main.TextStyle.RawDetailed">Ακατέργαστο {0} / {1} - συμβατότητα {2} - άγνωστο {3}</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Raw">Ακατέργαστο {0} / {1} · μη χαρτογραφημένο {2}</system:String>
     <system:String x:Key="Ui.Main.Timeline.MixedScopes">Μικτά πεδία χρονοδιαγράμματος</system:String>
     <system:String x:Key="Ui.Main.Timeline.NoScope">Χωρίς εύρος γραμμής χρόνου</system:String>
@@ -900,4 +901,84 @@
     <system:String x:Key="Ui.Animation.Error.SiblingSample">Δεν ήταν δυνατή η δειγματοληψία όλων των αδερφικών ιδιοκτησιών για "{0}" στο τικ {1}.</system:String>
     <system:String x:Key="Ui.Animation.Error.InvalidValue">Το "{0}" δεν είναι έγκυρο για την ιδιότητα γραμμής χρόνου "{1}".</system:String>
     <system:String x:Key="Ui.Animation.Error.DuplicateTargetId">Ο στόχος Id '{0}' είναι διπλότυπος στο έγγραφο και δεν μπορεί να κινηθεί με σαφήνεια.</system:String>
+    <system:String x:Key="Ui.PressKey.SearchLabel">Αναζήτηση</system:String>
+    <system:String x:Key="Ui.PressKey.SearchAutomation">Αναζήτηση επιλογών PressKey</system:String>
+    <system:String x:Key="Ui.PressKey.NoResults">Δεν βρέθηκαν αντίστοιχα κουμπιά.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomHeading">Προσαρμοσμένη αριθμητική τιμή</system:String>
+    <system:String x:Key="Ui.PressKey.CustomDescription">Εισαγάγετε έναν προσημασμένο ακέραιο για μια τιμή PressKey που δημιουργήθηκε από mod ή είναι προς το παρόν άγνωστη.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomAutomation">Προσαρμοσμένη αριθμητική τιμή PressKey</system:String>
+    <system:String x:Key="Ui.PressKey.ApplyCustom">Εφαρμογή</system:String>
+    <system:String x:Key="Ui.PressKey.Option.ToolTip">{0}
+Υπολογιστής: {1}
+Χειριστήριο: {2}
+Σειριοποιημένη τιμή: {3}
+Απαρίθμηση μηχανής: {4}</system:String>
+    <system:String x:Key="Ui.PressKey.Option.Automation">{0}; υπολογιστής {1}; χειριστήριο {2}</system:String>
+    <system:String x:Key="Ui.PressKey.OpenAutomation">Επιλογή PressKey· τρέχουσα τιμή {0}</system:String>
+    <system:String x:Key="Ui.PressKey.CustomSummary">Προσαρμοσμένο ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.UnrecognizedSummary">Μη αναγνωρισμένο ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.InvalidCustom">Εισαγάγετε έναν έγκυρο προσημασμένο ακέραιο.</system:String>
+    <system:String x:Key="Ui.Inspector.Property.PressKey.Purpose">Επιλέγει την υπόδειξη πλήκτρου ή κουμπιού χειριστηρίου και τη σύνδεση ενεργοποίησης που χρησιμοποιεί το στοιχείο ελέγχου.</system:String>
+    <system:String x:Key="Ui.PressKey.Group.None">Χωρίς σύνδεση</system:String>
+    <system:String x:Key="Ui.PressKey.Group.FaceButtons">Κύρια κουμπιά</system:String>
+    <system:String x:Key="Ui.PressKey.Group.ShouldersAndTriggers">Κουμπιά ώμου και σκανδάλες</system:String>
+    <system:String x:Key="Ui.PressKey.Group.DirectionalPad">Κατευθυντικό χειριστήριο</system:String>
+    <system:String x:Key="Ui.PressKey.Group.SystemAndSticks">Κουμπιά συστήματος και μοχλοί</system:String>
+    <system:String x:Key="Ui.PressKey.Option.None">Κανένα</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadA">Κουμπί A</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadB">Κουμπί B</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadX">Κουμπί X</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadY">Κουμπί Y</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadAOrStart">A ή Έναρξη</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBOrBack">B ή Πίσω</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRShoulder">Δεξί κουμπί ώμου (RB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLShoulder">Αριστερό κουμπί ώμου (LB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRTrigger">Δεξιά σκανδάλη (RT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLTrigger">Αριστερή σκανδάλη (LT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadUp">Κατεύθυνση επάνω</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadDown">Κατεύθυνση κάτω</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadLeft">Κατεύθυνση αριστερά</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadRight">Κατεύθυνση δεξιά</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadStart">Κουμπί Έναρξη</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBack">Κουμπί Πίσω</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLThumbPress">Πάτημα αριστερού μοχλού (L3)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRThumbPress">Πάτημα δεξιού μοχλού (R3)</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchLabel">Αναζήτηση</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchAutomation">Αναζήτηση προεπιλογών TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.NoResults">Δεν υπάρχουν αντίστοιχα στυλ κειμένου.</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Top">Στυλ μετοχών με ευθυγράμμιση επάνω</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Middle">Κατακόρυφα στο κέντρο στυλ μετοχών</system:String>
+    <system:String x:Key="Ui.TextStyle.SampleText">Δείγμα κειμένου</system:String>
+    <system:String x:Key="Ui.TextStyle.StockUseCount">{0} χρήσεις μετοχών</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.ToolTip">{0}
+Σειριακή τιμή: {1}
+Δεκαεξαδικό: {2}
+Αποδεικτικά στοιχεία: {3}</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.Automation">TextStyle {0}; τιμή {1}</system:String>
+    <system:String x:Key="Ui.TextStyle.OpenAutomation">Επιλέξτε TextStyle; τρέχουσα τιμή {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnrecognizedSummary">Μη έγκυρο TextStyle ({0})</system:String>
+    <system:String x:Key="Ui.TextStyle.ComposerHeading">Συνθέστε ένα στυλ</system:String>
+    <system:String x:Key="Ui.TextStyle.Bold">Τολμηρή</system:String>
+    <system:String x:Key="Ui.TextStyle.Italic">Πλάγια</system:String>
+    <system:String x:Key="Ui.TextStyle.Underline">Υπογράμμιση</system:String>
+    <system:String x:Key="Ui.TextStyle.Horizontal">Οριζόντια</system:String>
+    <system:String x:Key="Ui.TextStyle.Vertical">Κάθετη</system:String>
+    <system:String x:Key="Ui.TextStyle.Unspecified">Απροσδιόριστο</system:String>
+    <system:String x:Key="Ui.TextStyle.Left">Αριστερά</system:String>
+    <system:String x:Key="Ui.TextStyle.Center">Κέντρο</system:String>
+    <system:String x:Key="Ui.TextStyle.Right">Σωστά</system:String>
+    <system:String x:Key="Ui.TextStyle.Top">Κορυφή</system:String>
+    <system:String x:Key="Ui.TextStyle.Middle">Μέση</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility0010">Συμβατότητα αποθέματος 0x0010</system:String>
+    <system:String x:Key="Ui.TextStyle.ScaleAware">Γλυφικά με επίγνωση της κλίμακας 0x0001</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility4000">Συμβατότητα 0x4000</system:String>
+    <system:String x:Key="Ui.TextStyle.PreservedBits">Διατηρημένα άγνωστα bit: {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.MixedComposer">Μικτή επιλογή: η σύνθεση αντικαθιστά διαφορετικά στυλ. άγνωστα bit βάσης {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnknownBits">Άγνωστα bit {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyComposed">Εφαρμόστε στυλ</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomHeading">Ακατέργαστη τιμή TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomDescription">Εισαγάγετε μια υπογεγραμμένη δεκαδική μάσκα ακέραιου αριθμού με πρόθεμα 0x.</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomAutomation">Ακατέργαστη αριθμητική τιμή TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyCustom">Εφαρμογή</system:String>
+    <system:String x:Key="Ui.TextStyle.InvalidCustom">Εισαγάγετε έναν έγκυρο υπογεγραμμένο δεκαδικό ή ακέραιο αριθμό με πρόθεμα 0x.</system:String>
 </ResourceDictionary>

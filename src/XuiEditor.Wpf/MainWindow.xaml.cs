@@ -541,6 +541,22 @@ public partial class MainWindow : Window, IDisposable
         CommitInspectorValue(row);
     }
 
+    internal void SelectPressKeyForTesting(string optionId)
+    {
+        XuiPressKeyOption option = XuiPressKeyCatalog.Options.Single(
+            candidate => candidate.Id.Equals(
+                optionId,
+                StringComparison.Ordinal));
+        SetInspectorValueForTesting("PressKey", option.CanonicalText);
+    }
+
+    internal void SelectTextStyleForTesting(int rawValue)
+    {
+        XuiTextStyleProfile profile = XuiTextStyleCatalog.Profiles.Single(
+            candidate => candidate.RawValue == rawValue);
+        SetInspectorValueForTesting("TextStyle", profile.CanonicalText);
+    }
+
     internal void SetSemanticTextFlagForTesting(
         XuiKnownTextStyle style,
         bool enabled)
@@ -4133,6 +4149,28 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
+    private void InspectorPressKey_ValueCommitted(
+        object? sender,
+        PressKeyValueCommittedEventArgs eventArgs)
+    {
+        if (sender is PressKeyPicker { Tag: InspectorPropertyRow row })
+        {
+            row.Value = eventArgs.Value;
+            CommitInspectorValue(row);
+        }
+    }
+
+    private void InspectorTextStyle_ValueCommitted(
+        object? sender,
+        TextStyleValueCommittedEventArgs eventArgs)
+    {
+        if (sender is TextStylePicker { Tag: InspectorPropertyRow row })
+        {
+            row.Value = eventArgs.Value;
+            CommitInspectorValue(row);
+        }
+    }
+
     private void AdvancedInspector_Click(
         object sender,
         RoutedEventArgs eventArgs)
@@ -6418,16 +6456,24 @@ public partial class MainWindow : Window, IDisposable
                     .Select(ReadTextStyle)
                     .Distinct()
                     .ToArray();
-                TextStyleRawText.Text = styles.Length == 1
-                    ? UiLocalization.Format(
-                        "Ui.Main.TextStyle.Raw",
+                if (styles.Length == 1)
+                {
+                    XuiDecodedTextStyle decoded =
+                        XuiTextStyleCodec.Decode(styles[0]);
+                    TextStyleRawText.Text = UiLocalization.Format(
+                        "Ui.Main.TextStyle.RawDetailed",
                         styles[0],
                         XuiTextStyleCodec.ToHexString(styles[0]),
                         XuiTextStyleCodec.ToHexString(
-                            XuiTextStyleCodec.Decode(
-                                styles[0]).UnmappedBits))
-                    : UiLocalization.Text(
+                            decoded.CompatibilityBits),
+                        XuiTextStyleCodec.ToHexString(
+                            decoded.UnknownBits));
+                }
+                else
+                {
+                    TextStyleRawText.Text = UiLocalization.Text(
                         "Ui.Main.TextStyle.Mixed");
+                }
             }
 
             bool pivotSelection = nodes.Length == 1;

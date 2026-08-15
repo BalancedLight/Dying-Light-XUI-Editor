@@ -49,6 +49,7 @@ public static class InspectorHelpText
             "Pivot",
             "PointSize",
             "Position",
+            "PressKey",
             "Rotation",
             "Scale",
             "ScaleWidthByResolution",

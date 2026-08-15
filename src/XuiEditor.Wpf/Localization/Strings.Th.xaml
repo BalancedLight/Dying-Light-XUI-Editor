@@ -774,6 +774,7 @@
     <system:String x:Key="Ui.Main.Status.UndidRebind">เลิกเชื่อมโยงพื้นที่ทำงานล่าสุดระหว่างไฟล์ {0:N0} ไฟล์</system:String>
     <system:String x:Key="Ui.Main.Status.UnsupportedRotation">การหมุนเวียนใช้ค่าที่เขียนซึ่งไม่รองรับและไม่มีการเปลี่ยนแปลง</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Mixed">Raw TextStyle: ค่าผสม</system:String>
+    <system:String x:Key="Ui.Main.TextStyle.RawDetailed">Raw {0} / {1} - ความเข้ากันได้ {2} - ไม่ทราบ {3}</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Raw">Raw {0} / {1} · ไม่ได้แมป {2}</system:String>
     <system:String x:Key="Ui.Main.Timeline.MixedScopes">ขอบเขตไทม์ไลน์แบบผสม</system:String>
     <system:String x:Key="Ui.Main.Timeline.NoScope">ไม่มีขอบเขตไทม์ไลน์</system:String>
@@ -900,4 +901,84 @@
     <system:String x:Key="Ui.Animation.Error.SiblingSample">ไม่สามารถสุ่มตัวอย่างคุณสมบัติพี่น้องทั้งหมดสำหรับ '{0}' ที่เครื่องหมาย {1}</system:String>
     <system:String x:Key="Ui.Animation.Error.InvalidValue">'{0}' ไม่ถูกต้องสำหรับคุณสมบัติไทม์ไลน์ '{1}'</system:String>
     <system:String x:Key="Ui.Animation.Error.DuplicateTargetId">เป้าหมาย Id '{0}' ซ้ำกันในเอกสารและไม่สามารถเคลื่อนไหวได้อย่างชัดเจน</system:String>
+    <system:String x:Key="Ui.PressKey.SearchLabel">ค้นหา</system:String>
+    <system:String x:Key="Ui.PressKey.SearchAutomation">ค้นหาตัวเลือก PressKey</system:String>
+    <system:String x:Key="Ui.PressKey.NoResults">ไม่มีปุ่มที่ตรงกัน</system:String>
+    <system:String x:Key="Ui.PressKey.CustomHeading">ค่าตัวเลขกำหนดเอง</system:String>
+    <system:String x:Key="Ui.PressKey.CustomDescription">ป้อนจำนวนเต็มแบบมีเครื่องหมายสำหรับค่า PressKey ที่ม็อดสร้างหรือยังไม่ทราบในขณะนี้</system:String>
+    <system:String x:Key="Ui.PressKey.CustomAutomation">ค่าตัวเลข PressKey กำหนดเอง</system:String>
+    <system:String x:Key="Ui.PressKey.ApplyCustom">นำไปใช้</system:String>
+    <system:String x:Key="Ui.PressKey.Option.ToolTip">{0}
+พีซี: {1}
+คอนโทรลเลอร์: {2}
+ค่าที่จัดลำดับ: {3}
+ค่า enum ของเอนจิน: {4}</system:String>
+    <system:String x:Key="Ui.PressKey.Option.Automation">{0}; พีซี {1}; คอนโทรลเลอร์ {2}</system:String>
+    <system:String x:Key="Ui.PressKey.OpenAutomation">เลือก PressKey; ค่าปัจจุบัน {0}</system:String>
+    <system:String x:Key="Ui.PressKey.CustomSummary">กำหนดเอง ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.UnrecognizedSummary">ไม่รู้จัก ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.InvalidCustom">ป้อนจำนวนเต็มแบบมีเครื่องหมายที่ถูกต้อง</system:String>
+    <system:String x:Key="Ui.Inspector.Property.PressKey.Purpose">เลือกคำใบ้ปุ่มแป้นพิมพ์หรือคอนโทรลเลอร์และการผูกการเปิดใช้งานที่ตัวควบคุมใช้</system:String>
+    <system:String x:Key="Ui.PressKey.Group.None">ไม่มีการผูก</system:String>
+    <system:String x:Key="Ui.PressKey.Group.FaceButtons">ปุ่มด้านหน้า</system:String>
+    <system:String x:Key="Ui.PressKey.Group.ShouldersAndTriggers">ปุ่มไหล่และทริกเกอร์</system:String>
+    <system:String x:Key="Ui.PressKey.Group.DirectionalPad">แป้นทิศทาง</system:String>
+    <system:String x:Key="Ui.PressKey.Group.SystemAndSticks">ปุ่มระบบและก้านควบคุม</system:String>
+    <system:String x:Key="Ui.PressKey.Option.None">ไม่มี</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadA">ปุ่ม A</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadB">ปุ่ม B</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadX">ปุ่ม X</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadY">ปุ่ม Y</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadAOrStart">A หรือเริ่ม</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBOrBack">B หรือย้อนกลับ</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRShoulder">ปุ่มไหล่ขวา (RB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLShoulder">ปุ่มไหล่ซ้าย (LB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRTrigger">ทริกเกอร์ขวา (RT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLTrigger">ทริกเกอร์ซ้าย (LT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadUp">แป้นทิศทางขึ้น</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadDown">แป้นทิศทางลง</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadLeft">แป้นทิศทางซ้าย</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadRight">แป้นทิศทางขวา</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadStart">ปุ่มเริ่ม</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBack">ปุ่มย้อนกลับ</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLThumbPress">กดก้านซ้าย (L3)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRThumbPress">กดก้านขวา (R3)</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchLabel">ค้นหา</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchAutomation">ค้นหาค่าที่ตั้งล่วงหน้า TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.NoResults">ไม่มีรูปแบบข้อความที่ตรงกัน</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Top">รูปแบบหุ้นที่จัดชิดด้านบน</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Middle">รูปแบบหุ้นกึ่งกลางแนวตั้ง</system:String>
+    <system:String x:Key="Ui.TextStyle.SampleText">ข้อความตัวอย่าง</system:String>
+    <system:String x:Key="Ui.TextStyle.StockUseCount">ใช้สต็อก {0} รายการ</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.ToolTip">{0}
+ค่าอนุกรม: {1}
+เลขฐานสิบหก: {2}
+หลักฐาน: {3}</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.Automation">TextStyle {0}; ค่า {1}</system:String>
+    <system:String x:Key="Ui.TextStyle.OpenAutomation">เลือก TextStyle; ค่าปัจจุบัน {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnrecognizedSummary">TextStyle ไม่ถูกต้อง ({0})</system:String>
+    <system:String x:Key="Ui.TextStyle.ComposerHeading">เขียนสไตล์</system:String>
+    <system:String x:Key="Ui.TextStyle.Bold">ตัวหนา</system:String>
+    <system:String x:Key="Ui.TextStyle.Italic">ตัวเอียง</system:String>
+    <system:String x:Key="Ui.TextStyle.Underline">ขีดเส้นใต้</system:String>
+    <system:String x:Key="Ui.TextStyle.Horizontal">แนวนอน</system:String>
+    <system:String x:Key="Ui.TextStyle.Vertical">แนวตั้ง</system:String>
+    <system:String x:Key="Ui.TextStyle.Unspecified">ไม่ระบุ</system:String>
+    <system:String x:Key="Ui.TextStyle.Left">ซ้าย</system:String>
+    <system:String x:Key="Ui.TextStyle.Center">ศูนย์</system:String>
+    <system:String x:Key="Ui.TextStyle.Right">ถูกต้อง</system:String>
+    <system:String x:Key="Ui.TextStyle.Top">ด้านบน</system:String>
+    <system:String x:Key="Ui.TextStyle.Middle">กลาง</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility0010">ความเข้ากันได้ของหุ้น 0x0010</system:String>
+    <system:String x:Key="Ui.TextStyle.ScaleAware">สัญลักษณ์การรับรู้มาตราส่วน 0x0001</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility4000">ความเข้ากันได้ 0x4000</system:String>
+    <system:String x:Key="Ui.TextStyle.PreservedBits">บิตที่ไม่รู้จักเก็บรักษาไว้: {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.MixedComposer">การเลือกแบบผสม: การแต่งเพลงจะแทนที่สไตล์ที่ต่างกัน บิตที่ไม่รู้จักฐาน {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnknownBits">บิตที่ไม่รู้จัก {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyComposed">ใช้สไตล์</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomHeading">ค่าดิบ TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomDescription">ป้อนบิตมาสก์เลขทศนิยมที่มีเครื่องหมายหรือนำหน้า 0x</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomAutomation">ค่าตัวเลขดิบ TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyCustom">นำไปใช้</system:String>
+    <system:String x:Key="Ui.TextStyle.InvalidCustom">ป้อนทศนิยมที่มีเครื่องหมายกำกับที่ถูกต้องหรือจำนวนเต็มนำหน้า 0x</system:String>
 </ResourceDictionary>

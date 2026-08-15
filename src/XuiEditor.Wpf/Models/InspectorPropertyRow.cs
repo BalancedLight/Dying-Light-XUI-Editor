@@ -102,6 +102,12 @@ public sealed class InspectorPropertyRow : INotifyPropertyChanged
 
     public bool IsBooleanToggle { get; }
 
+    public bool IsPressKeyEditor =>
+        Definition?.EditorKind == XuiPropertyEditorKind.PressKeyPalette;
+
+    public bool IsTextStyleEditor =>
+        Definition?.EditorKind == XuiPropertyEditorKind.TextStylePalette;
+
     public bool? BooleanValue
     {
         get => Value.Equals("true", StringComparison.OrdinalIgnoreCase)

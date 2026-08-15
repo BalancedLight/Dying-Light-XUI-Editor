@@ -774,6 +774,7 @@ Kaydedilmemiş bir belge olarak açılsın mı?</system:String>
     <system:String x:Key="Ui.Main.Status.UndidRebind">{0:N0} dosyalarındaki son çalışma alanı yeniden bağlaması geri alındı.</system:String>
     <system:String x:Key="Ui.Main.Status.UnsupportedRotation">Döndürme, desteklenmeyen bir yazılan değer kullanıyor ve değiştirilmedi.</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Mixed">Ham TextStyle: karışık değerler</system:String>
+    <system:String x:Key="Ui.Main.TextStyle.RawDetailed">Ham {0} / {1} - uyumluluk {2} - bilinmiyor {3}</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Raw">Ham {0} / {1} · eşlenmemiş {2}</system:String>
     <system:String x:Key="Ui.Main.Timeline.MixedScopes">Karma zaman çizelgesi kapsamları</system:String>
     <system:String x:Key="Ui.Main.Timeline.NoScope">Zaman çizelgesi kapsamı yok</system:String>
@@ -900,4 +901,84 @@ Kaydedilmemiş bir belge olarak açılsın mı?</system:String>
     <system:String x:Key="Ui.Animation.Error.SiblingSample">{1} işaretinde '{0}' için tüm kardeş özellikler örneklenemedi.</system:String>
     <system:String x:Key="Ui.Animation.Error.InvalidValue">'{0}', '{1}' zaman çizelgesi özelliği için geçersiz.</system:String>
     <system:String x:Key="Ui.Animation.Error.DuplicateTargetId">Hedef Id '{0}' belgede kopyalanıyor ve net bir şekilde canlandırılamıyor.</system:String>
+    <system:String x:Key="Ui.PressKey.SearchLabel">Ara</system:String>
+    <system:String x:Key="Ui.PressKey.SearchAutomation">PressKey seçeneklerini ara</system:String>
+    <system:String x:Key="Ui.PressKey.NoResults">Eşleşen düğme yok.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomHeading">Özel sayısal değer</system:String>
+    <system:String x:Key="Ui.PressKey.CustomDescription">Mod tarafından oluşturulan veya şu anda bilinmeyen bir PressKey değeri için işaretli tam sayı girin.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomAutomation">Özel PressKey sayısal değeri</system:String>
+    <system:String x:Key="Ui.PressKey.ApplyCustom">Uygula</system:String>
+    <system:String x:Key="Ui.PressKey.Option.ToolTip">{0}
+PC: {1}
+Kumanda: {2}
+Serileştirilmiş değer: {3}
+Motor numaralandırması: {4}</system:String>
+    <system:String x:Key="Ui.PressKey.Option.Automation">{0}; PC {1}; kumanda {2}</system:String>
+    <system:String x:Key="Ui.PressKey.OpenAutomation">PressKey seç; geçerli değer {0}</system:String>
+    <system:String x:Key="Ui.PressKey.CustomSummary">Özel ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.UnrecognizedSummary">Tanınmadı ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.InvalidCustom">Geçerli bir işaretli tam sayı girin.</system:String>
+    <system:String x:Key="Ui.Inspector.Property.PressKey.Purpose">Denetimin kullandığı klavye veya kumanda düğmesi ipucunu ve etkinleştirme bağını seçer.</system:String>
+    <system:String x:Key="Ui.PressKey.Group.None">Bağlama yok</system:String>
+    <system:String x:Key="Ui.PressKey.Group.FaceButtons">Ön yüz düğmeleri</system:String>
+    <system:String x:Key="Ui.PressKey.Group.ShouldersAndTriggers">Omuz düğmeleri ve tetikler</system:String>
+    <system:String x:Key="Ui.PressKey.Group.DirectionalPad">Yön pedi</system:String>
+    <system:String x:Key="Ui.PressKey.Group.SystemAndSticks">Sistem düğmeleri ve çubuklar</system:String>
+    <system:String x:Key="Ui.PressKey.Option.None">Yok</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadA">A düğmesi</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadB">B düğmesi</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadX">X düğmesi</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadY">Y düğmesi</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadAOrStart">A veya Başlat</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBOrBack">B veya Geri</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRShoulder">Sağ omuz düğmesi (RB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLShoulder">Sol omuz düğmesi (LB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRTrigger">Sağ tetik (RT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLTrigger">Sol tetik (LT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadUp">Yön pedi yukarı</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadDown">Yön pedi aşağı</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadLeft">Yön pedi sol</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadRight">Yön pedi sağ</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadStart">Başlat düğmesi</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBack">Geri düğmesi</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLThumbPress">Sol çubuğa basma (L3)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRThumbPress">Sağ çubuğa basma (R3)</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchLabel">Ara</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchAutomation">TextStyle ön ayarda ara</system:String>
+    <system:String x:Key="Ui.TextStyle.NoResults">Eşleşen metin stili yok.</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Top">Üste hizalanmış stok stilleri</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Middle">Dikey olarak ortalanmış stok stilleri</system:String>
+    <system:String x:Key="Ui.TextStyle.SampleText">Örnek metin</system:String>
+    <system:String x:Key="Ui.TextStyle.StockUseCount">{0} hisse senedi kullanımları</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.ToolTip">{0}
+Serileştirilmiş değer: {1}
+Onaltılı: {2}
+Kanıt: {3}</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.Automation">TextStyle {0}; değer {1}</system:String>
+    <system:String x:Key="Ui.TextStyle.OpenAutomation">TextStyle'i seçin; mevcut değer {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnrecognizedSummary">Geçersiz TextStyle ({0})</system:String>
+    <system:String x:Key="Ui.TextStyle.ComposerHeading">Bir stil oluştur</system:String>
+    <system:String x:Key="Ui.TextStyle.Bold">Kalın</system:String>
+    <system:String x:Key="Ui.TextStyle.Italic">italik</system:String>
+    <system:String x:Key="Ui.TextStyle.Underline">Altı çizili</system:String>
+    <system:String x:Key="Ui.TextStyle.Horizontal">Yatay</system:String>
+    <system:String x:Key="Ui.TextStyle.Vertical">Dikey</system:String>
+    <system:String x:Key="Ui.TextStyle.Unspecified">belirtilmemiş</system:String>
+    <system:String x:Key="Ui.TextStyle.Left">Sol</system:String>
+    <system:String x:Key="Ui.TextStyle.Center">Merkez</system:String>
+    <system:String x:Key="Ui.TextStyle.Right">Sağ</system:String>
+    <system:String x:Key="Ui.TextStyle.Top">Üst</system:String>
+    <system:String x:Key="Ui.TextStyle.Middle">Orta</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility0010">Stok uyumluluğu 0x0010</system:String>
+    <system:String x:Key="Ui.TextStyle.ScaleAware">Ölçeğe duyarlı glifler 0x0001</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility4000">Uyumluluk 0x4000</system:String>
+    <system:String x:Key="Ui.TextStyle.PreservedBits">Korunmuş bilinmeyen bitler: {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.MixedComposer">Karışık seçim: beste yapmak farklı stillerin yerini alır; temel bilinmeyen bitler {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnknownBits">Bilinmeyen bitler {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyComposed">Stili uygula</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomHeading">Ham TextStyle değeri</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomDescription">İmzalı bir ondalık sayı veya 0x önekli tam sayı bit maskesi girin.</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomAutomation">Ham TextStyle sayısal değer</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyCustom">Uygula</system:String>
+    <system:String x:Key="Ui.TextStyle.InvalidCustom">Geçerli, imzalı bir ondalık sayı veya 0x önekli tam sayı girin.</system:String>
 </ResourceDictionary>

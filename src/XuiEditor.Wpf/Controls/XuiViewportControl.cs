@@ -685,6 +685,17 @@ public sealed class XuiViewportControl : FrameworkElement
                 (float)transform.Matrix.OffsetY)
             : Matrix3x2.Identity;
 
+    internal Matrix3x2 RetainedContentTransformForTesting(string nodeKey) =>
+        _nodeVisuals[nodeKey].Content.Transform is MatrixTransform transform
+            ? new Matrix3x2(
+                (float)transform.Matrix.M11,
+                (float)transform.Matrix.M12,
+                (float)transform.Matrix.M21,
+                (float)transform.Matrix.M22,
+                (float)transform.Matrix.OffsetX,
+                (float)transform.Matrix.OffsetY)
+            : Matrix3x2.Identity;
+
     internal void PreviewTransformForTesting(
         string nodeKey,
         XuiTransformKind kind,
@@ -1619,6 +1630,7 @@ public sealed class XuiViewportControl : FrameworkElement
         bool wasVisible = visual.Content.Opacity > 0;
         visual.Container.Transform =
             new MatrixTransform(ToMatrix(node.LocalTransform));
+        visual.Content.Transform = CreateScaleAwareTextTransform(node);
         visual.Content.Opacity = EffectiveNodeOpacity(node);
         visual.Container.Clip = CreateLocalClip(node);
         if (visual.Content.Opacity <= 0)
@@ -1703,6 +1715,8 @@ public sealed class XuiViewportControl : FrameworkElement
         left.Bold == right.Bold &&
         left.Italic == right.Italic &&
         left.Underline == right.Underline &&
+        left.TextStyleValue == right.TextStyleValue &&
+        left.ScaleAwareText == right.ScaleAwareText &&
         left.DesignTime == right.DesignTime &&
         left.HorizontalTextAlignment == right.HorizontalTextAlignment &&
         left.VerticalTextAlignment == right.VerticalTextAlignment &&
@@ -1722,13 +1736,54 @@ public sealed class XuiViewportControl : FrameworkElement
         XuiRenderNode left,
         XuiRenderNode right) =>
         left.LocalTransform == right.LocalTransform &&
+        left.ScaleAwareText == right.ScaleAwareText &&
+        left.Scale == right.Scale &&
+        left.Pivot == right.Pivot &&
         left.IsShown == right.IsShown &&
         left.DesignTime == right.DesignTime &&
         left.Opacity.Equals(right.Opacity) &&
         left.SelectionKey == right.SelectionKey &&
         left.ClipBounds == right.ClipBounds &&
         (left.ClipBounds is null ||
-         left.WorldTransform == right.WorldTransform);
+        left.WorldTransform == right.WorldTransform);
+
+    private static MatrixTransform? CreateScaleAwareTextTransform(
+        XuiRenderNode node)
+    {
+        if (node.Kind != XuiRenderKind.Text ||
+            !node.ScaleAwareText)
+        {
+            return null;
+        }
+
+        double scaleX = Math.Abs(node.Scale.X);
+        double scaleY = Math.Abs(node.Scale.Y);
+        if (scaleX <= 0.000001 || scaleY <= 0.000001)
+        {
+            return null;
+        }
+
+        double uniformScale = Math.Min(scaleX, scaleY);
+        double correctionX = uniformScale / scaleX;
+        double correctionY = uniformScale / scaleY;
+        if (Math.Abs(correctionX - 1) <= 0.000001 &&
+            Math.Abs(correctionY - 1) <= 0.000001)
+        {
+            return null;
+        }
+
+        Matrix3x2 correction =
+            Matrix3x2.CreateTranslation(
+                (float)-node.Pivot.X,
+                (float)-node.Pivot.Y) *
+            Matrix3x2.CreateScale(
+                (float)correctionX,
+                (float)correctionY) *
+            Matrix3x2.CreateTranslation(
+                (float)node.Pivot.X,
+                (float)node.Pivot.Y);
+        return new MatrixTransform(ToMatrix(correction));
+    }
 
     private static bool ResourceEquivalent(
         XuiRenderNode left,

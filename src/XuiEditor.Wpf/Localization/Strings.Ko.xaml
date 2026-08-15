@@ -774,6 +774,7 @@
     <system:String x:Key="Ui.Main.Status.UndidRebind">{0:N0} 파일 전체에서 마지막 작업공간 리바인드를 취소했습니다.</system:String>
     <system:String x:Key="Ui.Main.Status.UnsupportedRotation">회전은 지원되지 않는 작성된 값을 사용하며 변경되지 않았습니다.</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Mixed">원시 TextStyle: 혼합 값</system:String>
+    <system:String x:Key="Ui.Main.TextStyle.RawDetailed">원시 {0} / {1} - 호환성 {2} - 알 수 없음 {3}</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Raw">원시 {0} / {1} · 매핑되지 않은 {2}</system:String>
     <system:String x:Key="Ui.Main.Timeline.MixedScopes">혼합된 타임라인 범위</system:String>
     <system:String x:Key="Ui.Main.Timeline.NoScope">타임라인 범위 없음</system:String>
@@ -900,4 +901,84 @@
     <system:String x:Key="Ui.Animation.Error.SiblingSample">{1} 틱에서 '{0}'에 대한 모든 형제 속성을 샘플링할 수 없습니다.</system:String>
     <system:String x:Key="Ui.Animation.Error.InvalidValue">'{0}'은(는) 타임라인 속성 '{1}'에 유효하지 않습니다.</system:String>
     <system:String x:Key="Ui.Animation.Error.DuplicateTargetId">대상 Id '{0}'이(가) 문서에 중복되어 명확하게 애니메이션을 적용할 수 없습니다.</system:String>
+    <system:String x:Key="Ui.PressKey.SearchLabel">검색</system:String>
+    <system:String x:Key="Ui.PressKey.SearchAutomation">PressKey 선택 검색</system:String>
+    <system:String x:Key="Ui.PressKey.NoResults">일치하는 버튼이 없습니다.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomHeading">사용자 지정 숫자 값</system:String>
+    <system:String x:Key="Ui.PressKey.CustomDescription">모드에서 만든 값이나 현재 알 수 없는 PressKey 값에 부호 있는 정수를 입력합니다.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomAutomation">사용자 지정 PressKey 숫자 값</system:String>
+    <system:String x:Key="Ui.PressKey.ApplyCustom">적용</system:String>
+    <system:String x:Key="Ui.PressKey.Option.ToolTip">{0}
+PC: {1}
+컨트롤러: {2}
+직렬화 값: {3}
+엔진 열거형: {4}</system:String>
+    <system:String x:Key="Ui.PressKey.Option.Automation">{0}; PC {1}; 컨트롤러 {2}</system:String>
+    <system:String x:Key="Ui.PressKey.OpenAutomation">PressKey 선택; 현재 값 {0}</system:String>
+    <system:String x:Key="Ui.PressKey.CustomSummary">사용자 지정 ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.UnrecognizedSummary">인식되지 않음 ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.InvalidCustom">올바른 부호 있는 정수를 입력하세요.</system:String>
+    <system:String x:Key="Ui.Inspector.Property.PressKey.Purpose">컨트롤에서 사용하는 키보드 또는 컨트롤러 버튼 힌트와 활성화 바인딩을 선택합니다.</system:String>
+    <system:String x:Key="Ui.PressKey.Group.None">바인딩 없음</system:String>
+    <system:String x:Key="Ui.PressKey.Group.FaceButtons">전면 버튼</system:String>
+    <system:String x:Key="Ui.PressKey.Group.ShouldersAndTriggers">숄더 및 트리거</system:String>
+    <system:String x:Key="Ui.PressKey.Group.DirectionalPad">방향 패드</system:String>
+    <system:String x:Key="Ui.PressKey.Group.SystemAndSticks">시스템 버튼 및 스틱</system:String>
+    <system:String x:Key="Ui.PressKey.Option.None">없음</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadA">A 버튼</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadB">B 버튼</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadX">X 버튼</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadY">Y 버튼</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadAOrStart">A 또는 시작</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBOrBack">B 또는 뒤로</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRShoulder">오른쪽 숄더 (RB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLShoulder">왼쪽 숄더 (LB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRTrigger">오른쪽 트리거 (RT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLTrigger">왼쪽 트리거 (LT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadUp">방향 패드 위</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadDown">방향 패드 아래</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadLeft">방향 패드 왼쪽</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadRight">방향 패드 오른쪽</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadStart">시작 버튼</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBack">뒤로 버튼</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLThumbPress">왼쪽 스틱 누르기 (L3)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRThumbPress">오른쪽 스틱 누르기 (R3)</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchLabel">검색</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchAutomation">TextStyle 사전 설정 검색</system:String>
+    <system:String x:Key="Ui.TextStyle.NoResults">일치하는 텍스트 스타일이 없습니다.</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Top">위쪽 정렬된 주식 스타일</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Middle">세로 중앙 스톡 스타일</system:String>
+    <system:String x:Key="Ui.TextStyle.SampleText">샘플 텍스트</system:String>
+    <system:String x:Key="Ui.TextStyle.StockUseCount">{0} 재고 사용</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.ToolTip">{0}
+직렬화된 값: {1}
+16진수: {2}
+증거: {3}</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.Automation">TextStyle {0}; 값 {1}</system:String>
+    <system:String x:Key="Ui.TextStyle.OpenAutomation">TextStyle을 선택하세요. 현재 값 {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnrecognizedSummary">잘못된 TextStyle({0})</system:String>
+    <system:String x:Key="Ui.TextStyle.ComposerHeading">스타일을 구성하다</system:String>
+    <system:String x:Key="Ui.TextStyle.Bold">굵게</system:String>
+    <system:String x:Key="Ui.TextStyle.Italic">이탤릭체</system:String>
+    <system:String x:Key="Ui.TextStyle.Underline">밑줄</system:String>
+    <system:String x:Key="Ui.TextStyle.Horizontal">수평</system:String>
+    <system:String x:Key="Ui.TextStyle.Vertical">수직</system:String>
+    <system:String x:Key="Ui.TextStyle.Unspecified">지정되지 않음</system:String>
+    <system:String x:Key="Ui.TextStyle.Left">왼쪽</system:String>
+    <system:String x:Key="Ui.TextStyle.Center">센터</system:String>
+    <system:String x:Key="Ui.TextStyle.Right">오른쪽</system:String>
+    <system:String x:Key="Ui.TextStyle.Top">탑</system:String>
+    <system:String x:Key="Ui.TextStyle.Middle">중간</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility0010">재고 호환성 0x0010</system:String>
+    <system:String x:Key="Ui.TextStyle.ScaleAware">축척 인식 글리프 0x0001</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility4000">호환성 0x4000</system:String>
+    <system:String x:Key="Ui.TextStyle.PreservedBits">보존된 알 수 없는 비트: {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.MixedComposer">혼합 선택: 작곡은 다양한 스타일을 대체합니다. 기본 알 수 없는 비트 {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnknownBits">알 수 없는 비트 {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyComposed">스타일 적용</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomHeading">원시 TextStyle 값</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomDescription">부호 있는 10진수 또는 0x 접두사가 붙은 정수 비트마스크를 입력하세요.</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomAutomation">원시 TextStyle 숫자 값</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyCustom">적용</system:String>
+    <system:String x:Key="Ui.TextStyle.InvalidCustom">유효한 부호 있는 10진수 또는 접두사가 0x인 정수를 입력하세요.</system:String>
 </ResourceDictionary>

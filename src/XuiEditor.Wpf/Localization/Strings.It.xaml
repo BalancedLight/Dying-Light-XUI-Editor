@@ -95,7 +95,7 @@
     <system:String x:Key="Ui.Xaml.GridSettingsWindow.014">Applica</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.001">Redattore Dying Light XUI</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.002">_File</system:String>
-    <system:String x:Key="Ui.Xaml.MainWindow.003">_Apri...</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.003">_Apri…</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.004">_Aperto stock XUI…</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.005">_Apri Recenti</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.006">_Salva</system:String>
@@ -109,7 +109,7 @@
     <system:String x:Key="Ui.Xaml.MainWindow.014">_Duplicato</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.015">_Elimina</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.016">_Copia proprietà create</system:String>
-    <system:String x:Key="Ui.Xaml.MainWindow.017">Copia avanzata Properties...</system:String>
+    <system:String x:Key="Ui.Xaml.MainWindow.017">Copia avanzata Properties…</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.018">Incolla Applicabile Properties</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.019">_Sposta su</system:String>
     <system:String x:Key="Ui.Xaml.MainWindow.020">_Sposta giù</system:String>
@@ -395,7 +395,7 @@
     <system:String x:Key="Ui.Inspector.Property.Width.Purpose">Imposta la larghezza del disegno locale dell'elemento.</system:String>
     <system:String x:Key="Ui.Inspector.Property.Height.Purpose">Imposta l'altezza del progetto locale dell'elemento.</system:String>
     <system:String x:Key="Ui.Inspector.Property.Position.Purpose">Imposta la posizione XYZ locale dell'elemento rispetto al suo genitore.</system:String>
-    <system:String x:Key="Ui.Inspector.Property.Scale.Purpose">Imposta la scala XYZ locale attorno a Pivot.</system:String>
+    <system:String x:Key="Ui.Inspector.Property.Scale.Purpose">Imposta la scala XYZ locale intorno a Pivot.</system:String>
     <system:String x:Key="Ui.Inspector.Property.Rotation.Purpose">Imposta la rotazione del quaternione attorno a Pivot.</system:String>
     <system:String x:Key="Ui.Inspector.Property.Pivot.Purpose">Imposta l'origine XYZ dello spazio locale senza restrizioni utilizzata per la scala e la rotazione.</system:String>
     <system:String x:Key="Ui.Inspector.Property.HoldAspectRatio.Purpose">Utilizza un rapporto di scala uniforme per entrambi gli assi quando cambia la dimensione principale o quella della risoluzione.</system:String>
@@ -479,7 +479,7 @@
     <system:String x:Key="Ui.AddElement.Help.Group">Un contenitore AdvGroup leggero.</system:String>
     <system:String x:Key="Ui.AddElement.Help.Image">Un nodo MyImage. 'bianco' disegna il colore selezionato senza richiedere una texture.</system:String>
     <system:String x:Key="Ui.AddElement.Help.Text">Un nodo MyText che utilizza il carattere del motore selezionato e il colore del testo.</system:String>
-    <system:String x:Key="Ui.AddElement.Help.Rectangle">Un rettangolo di colore con antialias che utilizza menu_antialias.mat e il contratto dell'immagine bianca.</system:String>
+    <system:String x:Key="Ui.AddElement.Help.Rectangle">Un rettangolo di colore con antialiasing che utilizza menu_antialias.mat e il contratto dell'immagine bianca.</system:String>
     <system:String x:Key="Ui.AddElement.Help.Button">Un AdvButton che utilizza il comportamento visivo e di larghezza automatica ButtonV standard.</system:String>
     <system:String x:Key="Ui.AddElement.Help.CatalogClass">Scegli una classe osservata in Dying Light azioni XUI. La tavolozza utilizza le dimensioni del catalogo ed emette solo la geometria di autore comune.</system:String>
     <system:String x:Key="Ui.AddElement.Help.CustomXml">Modifica il XML non elaborato di seguito. I campi preimpostati vengono ignorati in modalità personalizzata.</system:String>
@@ -579,11 +579,11 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">L'allineamento verticale del testo è sconosciuto; viene utilizzato l'allineamento superiore.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">La larghezza automatica del pulsante non è valida; la geometria creata viene mantenuta.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">Il profilo del controller attivo modifica lo stato di anteprima effettivo.</system:String>
-    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">Una Rotation scalare o di Eulero legacy verrà convertita in un quaternione Dying Light al salvataggio del documento.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">Uno scalare o una rotazione di Eulero legacy verrà convertito in un quaternione Dying Light quando il documento viene salvato.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">Non è stato possibile leggere un catalogo di localizzazione.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">Una chiave di localizzazione viene dichiarata più di una volta.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">Un catalogo di localizzazione ha byte finali.</system:String>
-    <system:String x:Key="Ui.Diagnostic.XUI-LOC004">Una riga di origine della localizzazione non ha un formato valido.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LOC004">Una riga di origine della localizzazione non ha un formato corretto.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-SOURCE001">Un'origine risorsa configurata non esiste.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-SOURCE002">Non è stato possibile indicizzare un'origine risorsa configurata.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TEXT001">Il markup del colore è presente ma non è abilitato.</system:String>
@@ -600,7 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">Una destinazione con frame con nome viene duplicata nello stesso ambito.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">È stato rilevato un ciclo di comando frame con nome.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">Impossibile trovare una destinazione frame con nome.</system:String>
-    <system:String x:Key="Ui.Diagnostic.XUI-TL012">Una Rotation della sequenza temporale scalare o di Eulero legacy verrà convertita in un quaternione Dying Light al salvataggio del documento.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">Una rotazione scalare o della sequenza temporale di Eulero legacy verrà convertita in un quaternione Dying Light quando il documento viene salvato.</system:String>
     <system:String x:Key="Ui.Common.Mixed">— misto —</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">Elemento avvolgente</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">Avvolgi {0} in un nuovo genitore visivo. Il gruppo predefinito ha una trasformazione dell'identità e la vecchia dimensione del genitore, quindi il bambino non salta.</system:String>
@@ -610,7 +610,7 @@
     <system:String x:Key="Ui.Main.Asset.IndexingCancelled">Indicizzazione delle risorse annullata</system:String>
     <system:String x:Key="Ui.Main.Asset.IndexingExternal">Indicizzazione delle risorse esterne…</system:String>
     <system:String x:Key="Ui.Main.Asset.IndexingFailed">Dying Light indicizzazione non riuscita</system:String>
-    <system:String x:Key="Ui.Main.Asset.IndexingGame">Indicizzazione Dying Light PAKs e RPACKs…</system:String>
+    <system:String x:Key="Ui.Main.Asset.IndexingGame">Indicizzazione Dying Light PAKs e RPACKs...</system:String>
     <system:String x:Key="Ui.Main.Asset.InstallNotConfigured">Dying Light installazione non configurata</system:String>
     <system:String x:Key="Ui.Main.Asset.InstallSummary">{0:N0} XUI stock · {1:N0} risorse di installazione · {2}</system:String>
     <system:String x:Key="Ui.Main.Asset.Summary">{0:N0} risorse · {1:N0} stringhe · {2} · {3:N0} diagnostica</system:String>
@@ -736,7 +736,7 @@ Aprirlo come documento non salvato?</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPasted">Niente incollato · {0:N0} incompatibile o bloccato · {1:N0} già corrispondente</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">Niente incollato · ogni valore applicabile già corrispondente</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">Apertura non riuscita</system:String>
-    <system:String x:Key="Ui.Main.Status.OpeningStock">Stock di apertura {0}…</system:String>
+    <system:String x:Key="Ui.Main.Status.OpeningStock">Stock di apertura {0}...</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">Apertura XUI…</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">Valori delle proprietà {0:N0} incollati negli elementi {1:N0} · {2:N0} incompatibile o bloccato · {3:N0} già corrispondente</system:String>
     <system:String x:Key="Ui.Main.Status.PivotPreserved">Il perno è cambiato con la compensazione della posizione visiva.</system:String>
@@ -774,6 +774,7 @@ Aprirlo come documento non salvato?</system:String>
     <system:String x:Key="Ui.Main.Status.UndidRebind">Annullata la riassociazione dell'ultima area di lavoro tra {0:N0} file.</system:String>
     <system:String x:Key="Ui.Main.Status.UnsupportedRotation">La rotazione utilizza un valore creato non supportato e non è stata modificata.</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Mixed">TextStyle non elaborato: valori misti</system:String>
+    <system:String x:Key="Ui.Main.TextStyle.RawDetailed">Raw {0} / {1} - compatibilità {2} - sconosciuto {3}</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Raw">{0} non elaborato / {1} · {2} non mappato</system:String>
     <system:String x:Key="Ui.Main.Timeline.MixedScopes">Ambiti temporali misti</system:String>
     <system:String x:Key="Ui.Main.Timeline.NoScope">Nessun ambito della timeline</system:String>
@@ -865,7 +866,7 @@ Aprirlo come documento non salvato?</system:String>
     <system:String x:Key="Ui.Animation.Status.NoChanges">L'animazione richiesta esiste già; nessun XUI byte modificato.</system:String>
     <system:String x:Key="Ui.Animation.Status.Created">Animazione creata come una modifica XUI annullabile.</system:String>
     <system:String x:Key="Ui.Animation.Scope.Local">{0} - nuovo ambito locale (segno 0)</system:String>
-    <system:String x:Key="Ui.Animation.Scope.Existing">{0} - ambito principale esistente</system:String>
+    <system:String x:Key="Ui.Animation.Scope.Existing">{0}: ambito principale esistente</system:String>
     <system:String x:Key="Ui.Animation.Preset.QuickShowHide.Name">Mostra/nascondi rapidamente</system:String>
     <system:String x:Key="Ui.Animation.Preset.QuickShowHide.Description">Tempi di visibilità stock 0/5/6/11 utilizzati dalle immagini dei menu specifici del gioco.</system:String>
     <system:String x:Key="Ui.Animation.Preset.MenuTransition.Name">Transizione del menu</system:String>
@@ -900,4 +901,84 @@ Aprirlo come documento non salvato?</system:String>
     <system:String x:Key="Ui.Animation.Error.SiblingSample">Impossibile campionare tutte le proprietà sorelle per '{0}' al tick {1}.</system:String>
     <system:String x:Key="Ui.Animation.Error.InvalidValue">'{0}' non è valido per la proprietà della sequenza temporale '{1}'.</system:String>
     <system:String x:Key="Ui.Animation.Error.DuplicateTargetId">La destinazione Id '{0}' è duplicata nel documento e non può essere animata in modo univoco.</system:String>
+    <system:String x:Key="Ui.PressKey.SearchLabel">Cerca</system:String>
+    <system:String x:Key="Ui.PressKey.SearchAutomation">Cerca le scelte PressKey</system:String>
+    <system:String x:Key="Ui.PressKey.NoResults">Nessun pulsante corrispondente.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomHeading">Valore numerico personalizzato</system:String>
+    <system:String x:Key="Ui.PressKey.CustomDescription">Inserisci un numero intero con segno per un valore PressKey creato da mod o attualmente sconosciuto.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomAutomation">Valore numerico PressKey personalizzato</system:String>
+    <system:String x:Key="Ui.PressKey.ApplyCustom">Applica</system:String>
+    <system:String x:Key="Ui.PressKey.Option.ToolTip">{0}
+PC: {1}
+Controllore: {2}
+Valore serializzato: {3}
+Enumerazione motore: {4}</system:String>
+    <system:String x:Key="Ui.PressKey.Option.Automation">{0}; computer {1}; controllore {2}</system:String>
+    <system:String x:Key="Ui.PressKey.OpenAutomation">Scegli Premi Tasto; valore corrente {0}</system:String>
+    <system:String x:Key="Ui.PressKey.CustomSummary">Personalizzato ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.UnrecognizedSummary">Non riconosciuto ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.InvalidCustom">Immettere un numero intero firmato valido.</system:String>
+    <system:String x:Key="Ui.Inspector.Property.PressKey.Purpose">Seleziona il suggerimento del pulsante della tastiera o del controller e l'associazione di attivazione utilizzata dal controllo.</system:String>
+    <system:String x:Key="Ui.PressKey.Group.None">Nessun vincolo</system:String>
+    <system:String x:Key="Ui.PressKey.Group.FaceButtons">Pulsanti frontali</system:String>
+    <system:String x:Key="Ui.PressKey.Group.ShouldersAndTriggers">Spalle e grilletti</system:String>
+    <system:String x:Key="Ui.PressKey.Group.DirectionalPad">Pad direzionale</system:String>
+    <system:String x:Key="Ui.PressKey.Group.SystemAndSticks">Pulsanti e levette di sistema</system:String>
+    <system:String x:Key="Ui.PressKey.Option.None">Nessuno</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadA">Un pulsante</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadB">pulsante B</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadX">pulsante X</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadY">Tasto Y</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadAOrStart">A o Inizio</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBOrBack">B o Indietro</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRShoulder">Spalla destra (RB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLShoulder">Spalla sinistra (LB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRTrigger">Grilletto destro (RT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLTrigger">Grilletto sinistro (LT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadUp">D-pad in alto</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadDown">D-pad abbassato</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadLeft">D-pad sinistro</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadRight">D-pad destro</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadStart">Pulsante di avvio</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBack">Pulsante Indietro</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLThumbPress">Premi levetta sinistra (L3)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRThumbPress">Premi levetta destra (R3)</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchLabel">Cerca</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchAutomation">Cerca TextStyle preimpostazioni</system:String>
+    <system:String x:Key="Ui.TextStyle.NoResults">Nessuno stile di testo corrispondente.</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Top">Stili di stock allineati in alto</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Middle">Stili di stock centrati verticalmente</system:String>
+    <system:String x:Key="Ui.TextStyle.SampleText">Testo di esempio</system:String>
+    <system:String x:Key="Ui.TextStyle.StockUseCount">{0} utilizzi delle scorte</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.ToolTip">{0}
+Valore serializzato: {1}
+Esadecimale: {2}
+Prova: {3}</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.Automation">TextStyle {0}; valore {1}</system:String>
+    <system:String x:Key="Ui.TextStyle.OpenAutomation">Scegli TextStyle; valore corrente {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnrecognizedSummary">TextStyle ({0}) non valido</system:String>
+    <system:String x:Key="Ui.TextStyle.ComposerHeading">Componi uno stile</system:String>
+    <system:String x:Key="Ui.TextStyle.Bold">Grassetto</system:String>
+    <system:String x:Key="Ui.TextStyle.Italic">Corsivo</system:String>
+    <system:String x:Key="Ui.TextStyle.Underline">Sottolineare</system:String>
+    <system:String x:Key="Ui.TextStyle.Horizontal">Orizzontale</system:String>
+    <system:String x:Key="Ui.TextStyle.Vertical">Verticale</system:String>
+    <system:String x:Key="Ui.TextStyle.Unspecified">Non specificato</system:String>
+    <system:String x:Key="Ui.TextStyle.Left">A sinistra</system:String>
+    <system:String x:Key="Ui.TextStyle.Center">Centro</system:String>
+    <system:String x:Key="Ui.TextStyle.Right">Giusto</system:String>
+    <system:String x:Key="Ui.TextStyle.Top">In alto</system:String>
+    <system:String x:Key="Ui.TextStyle.Middle">Medio</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility0010">Compatibilità stock 0x0010</system:String>
+    <system:String x:Key="Ui.TextStyle.ScaleAware">Glifi con riconoscimento della scala 0x0001</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility4000">Compatibilità 0x4000</system:String>
+    <system:String x:Key="Ui.TextStyle.PreservedBits">Bit sconosciuti conservati: {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.MixedComposer">Selezione mista: comporre sostituisce stili diversi; bit di base sconosciuti {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnknownBits">Bit sconosciuti {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyComposed">Applica lo stile</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomHeading">Valore TextStyle non elaborato</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomDescription">Immettere una maschera di bit con numero intero decimale con segno o con prefisso 0x.</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomAutomation">Valore numerico TextStyle non elaborato</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyCustom">Applica</system:String>
+    <system:String x:Key="Ui.TextStyle.InvalidCustom">Immettere un numero intero decimale con segno valido o un numero intero con prefisso 0x.</system:String>
 </ResourceDictionary>

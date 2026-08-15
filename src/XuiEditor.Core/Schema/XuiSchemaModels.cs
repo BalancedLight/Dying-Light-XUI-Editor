@@ -33,6 +33,13 @@ public enum XuiPreviewSupport
     PreserveOnly,
 }
 
+public enum XuiPropertyEditorKind
+{
+    Default,
+    PressKeyPalette,
+    TextStylePalette,
+}
+
 public sealed record XuiPropertyDefinition(
     string Name,
     XuiPropertyType Type,
@@ -44,7 +51,8 @@ public sealed record XuiPropertyDefinition(
     bool IsAnimatable,
     XuiEvidenceLevel Evidence,
     XuiPreviewSupport PreviewSupport,
-    IReadOnlyList<string> Flags)
+    IReadOnlyList<string> Flags,
+    XuiPropertyEditorKind EditorKind = XuiPropertyEditorKind.Default)
 {
     public bool IsBoolean => Type == XuiPropertyType.Boolean;
 

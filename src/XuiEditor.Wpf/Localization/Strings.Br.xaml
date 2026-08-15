@@ -774,6 +774,7 @@ Abri-lo como um documento não salvo?</system:String>
     <system:String x:Key="Ui.Main.Status.UndidRebind">Desfez a última religação do espaço de trabalho nos arquivos {0:N0}.</system:String>
     <system:String x:Key="Ui.Main.Status.UnsupportedRotation">A rotação usa um valor de autoria não suportado e não foi alterado.</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Mixed">Bruto TextStyle: valores mistos</system:String>
+    <system:String x:Key="Ui.Main.TextStyle.RawDetailed">Bruto {0} / {1} - compatibilidade {2} - desconhecido {3}</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Raw">Bruto {0} / {1} · não mapeado {2}</system:String>
     <system:String x:Key="Ui.Main.Timeline.MixedScopes">Escopos de linha do tempo mistos</system:String>
     <system:String x:Key="Ui.Main.Timeline.NoScope">Nenhum escopo de linha do tempo</system:String>
@@ -900,4 +901,84 @@ Abri-lo como um documento não salvo?</system:String>
     <system:String x:Key="Ui.Animation.Error.SiblingSample">Não foi possível amostrar todas as propriedades irmãs para '{0}' no tick {1}.</system:String>
     <system:String x:Key="Ui.Animation.Error.InvalidValue">'{0}' é inválido para a propriedade da linha do tempo '{1}'.</system:String>
     <system:String x:Key="Ui.Animation.Error.DuplicateTargetId">O destino Id '{0}' está duplicado no documento e não pode ser animado de forma inequívoca.</system:String>
+    <system:String x:Key="Ui.PressKey.SearchLabel">Pesquisar</system:String>
+    <system:String x:Key="Ui.PressKey.SearchAutomation">Pesquisar opções de PressKey</system:String>
+    <system:String x:Key="Ui.PressKey.NoResults">Nenhum botão correspondente.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomHeading">Valor numérico personalizado</system:String>
+    <system:String x:Key="Ui.PressKey.CustomDescription">Digite um número inteiro com sinal para um valor PressKey criado por mod ou atualmente desconhecido.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomAutomation">Valor numérico personalizado de PressKey</system:String>
+    <system:String x:Key="Ui.PressKey.ApplyCustom">Aplicar</system:String>
+    <system:String x:Key="Ui.PressKey.Option.ToolTip">{0}
+PC: {1}
+Controle: {2}
+Valor serializado: {3}
+Enumeração do motor: {4}</system:String>
+    <system:String x:Key="Ui.PressKey.Option.Automation">{0}; PC {1}; controle {2}</system:String>
+    <system:String x:Key="Ui.PressKey.OpenAutomation">Escolher PressKey; valor atual {0}</system:String>
+    <system:String x:Key="Ui.PressKey.CustomSummary">Personalizado ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.UnrecognizedSummary">Não reconhecido ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.InvalidCustom">Digite um número inteiro com sinal válido.</system:String>
+    <system:String x:Key="Ui.Inspector.Property.PressKey.Purpose">Seleciona a dica de tecla ou botão do controle e a vinculação de ativação usada pelo componente.</system:String>
+    <system:String x:Key="Ui.PressKey.Group.None">Sem vinculação</system:String>
+    <system:String x:Key="Ui.PressKey.Group.FaceButtons">Botões frontais</system:String>
+    <system:String x:Key="Ui.PressKey.Group.ShouldersAndTriggers">Botões superiores e gatilhos</system:String>
+    <system:String x:Key="Ui.PressKey.Group.DirectionalPad">Direcional</system:String>
+    <system:String x:Key="Ui.PressKey.Group.SystemAndSticks">Botões do sistema e analógicos</system:String>
+    <system:String x:Key="Ui.PressKey.Option.None">Nenhum</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadA">Botão A</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadB">Botão B</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadX">Botão X</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadY">Botão Y</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadAOrStart">A ou Iniciar</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBOrBack">B ou Voltar</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRShoulder">Botão superior direito (RB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLShoulder">Botão superior esquerdo (LB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRTrigger">Gatilho direito (RT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLTrigger">Gatilho esquerdo (LT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadUp">Direcional para cima</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadDown">Direcional para baixo</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadLeft">Direcional para a esquerda</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadRight">Direcional para a direita</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadStart">Botão Iniciar</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBack">Botão Voltar</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLThumbPress">Pressionar analógico esquerdo (L3)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRThumbPress">Pressionar analógico direito (R3)</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchLabel">Pesquisar</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchAutomation">Pesquisar predefinições TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.NoResults">Nenhum estilo de texto correspondente.</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Top">Estilos de estoque alinhados ao topo</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Middle">Estilos de estoque centralizados verticalmente</system:String>
+    <system:String x:Key="Ui.TextStyle.SampleText">Texto de exemplo</system:String>
+    <system:String x:Key="Ui.TextStyle.StockUseCount">{0} usos de estoque</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.ToolTip">{0}
+Valor serializado: {1}
+Hexadecimal: {2}
+Evidência: {3}</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.Automation">TextStyle {0}; valor {1}</system:String>
+    <system:String x:Key="Ui.TextStyle.OpenAutomation">Escolha TextStyle; valor atual {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnrecognizedSummary">TextStyle inválido ({0})</system:String>
+    <system:String x:Key="Ui.TextStyle.ComposerHeading">Componha um estilo</system:String>
+    <system:String x:Key="Ui.TextStyle.Bold">Ousado</system:String>
+    <system:String x:Key="Ui.TextStyle.Italic">Itálico</system:String>
+    <system:String x:Key="Ui.TextStyle.Underline">Sublinhado</system:String>
+    <system:String x:Key="Ui.TextStyle.Horizontal">Horizontais</system:String>
+    <system:String x:Key="Ui.TextStyle.Vertical">Verticais</system:String>
+    <system:String x:Key="Ui.TextStyle.Unspecified">Não especificado</system:String>
+    <system:String x:Key="Ui.TextStyle.Left">Esquerda</system:String>
+    <system:String x:Key="Ui.TextStyle.Center">Centro</system:String>
+    <system:String x:Key="Ui.TextStyle.Right">Certo</system:String>
+    <system:String x:Key="Ui.TextStyle.Top">Superior</system:String>
+    <system:String x:Key="Ui.TextStyle.Middle">Meio</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility0010">Compatibilidade de estoque 0x0010</system:String>
+    <system:String x:Key="Ui.TextStyle.ScaleAware">Glifos com reconhecimento de escala 0x0001</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility4000">Compatibilidade 0x4000</system:String>
+    <system:String x:Key="Ui.TextStyle.PreservedBits">Bits desconhecidos preservados: {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.MixedComposer">Seleção mista: a composição substitui estilos diferentes; bits desconhecidos básicos {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnknownBits">Bits desconhecidos {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyComposed">Aplicar estilo</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomHeading">Valor bruto TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomDescription">Insira um decimal assinado ou uma máscara de bits de número inteiro com prefixo 0x.</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomAutomation">Valor numérico bruto TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyCustom">Aplicar</system:String>
+    <system:String x:Key="Ui.TextStyle.InvalidCustom">Insira um decimal assinado válido ou um número inteiro com prefixo 0x.</system:String>
 </ResourceDictionary>

@@ -4,6 +4,7 @@ using XuiEditor.Core.Assets;
 using XuiEditor.Core.Diagnostics;
 using XuiEditor.Core.Documents;
 using XuiEditor.Core.Layout;
+using XuiEditor.Core.Schema;
 using XuiEditor.Core.Values;
 
 namespace XuiEditor.Tests;
@@ -1398,6 +1399,57 @@ public sealed class LayoutTests
             xboxLabel.Size.X + xboxHint.Size.X,
             0.001);
 
+        foreach (XuiPressKeyOption option in XuiPressKeyCatalog.Options)
+        {
+            XuiDocument mappedDocument = Document(
+                $"""
+                <AdvButton><Properties><Id>Mapped</Id><Width>200</Width><Height>34</Height>
+                <ClassOverride>UIDialogButton</ClassOverride><Visual>ButtonDialogV</Visual>
+                <Text>MAPPED</Text><PressKey>{option.CanonicalText}</PressKey>
+                </Properties></AdvButton>
+                """);
+            XuiRenderFrame mappedKeyboardFrame =
+                DyingLightLayoutEngine.Evaluate(
+                    mappedDocument,
+                    XuiViewport.Default,
+                    0,
+                    keyboardResolver);
+            XuiRenderNode mappedKeyboardHint =
+                mappedKeyboardFrame.Nodes.Single(static node =>
+                    node.Id == "T_HintPC");
+            XuiRenderNode mappedKeyboardBackground =
+                mappedKeyboardFrame.Nodes.Single(static node =>
+                    node.Id == "I_IconBg");
+            Assert.AreEqual(
+                option.KeyboardHint,
+                mappedKeyboardHint.Text,
+                option.Id);
+            Assert.AreEqual(
+                option.KeyboardHint.Length > 0,
+                mappedKeyboardHint.IsShown,
+                option.Id);
+            Assert.AreEqual(
+                option.KeyboardHintUsesSeparateBackground,
+                mappedKeyboardBackground.IsShown,
+                option.Id);
+
+            XuiRenderFrame mappedXboxFrame = DyingLightLayoutEngine.Evaluate(
+                mappedDocument,
+                XuiViewport.Default,
+                0,
+                xboxResolver);
+            XuiRenderNode mappedXboxHint = mappedXboxFrame.Nodes.Single(
+                static node => node.Id == "T_HintConsoles");
+            Assert.AreEqual(
+                option.GamepadHint,
+                mappedXboxHint.Text,
+                option.Id);
+            Assert.AreEqual(
+                option.GamepadHint.Length > 0,
+                mappedXboxHint.IsShown,
+                option.Id);
+        }
+
         XuiDocument genericDocument = Document(
             """
             <AdvButton><Properties><Id>GenericAuthored</Id><Width>40</Width><Height>34</Height>
@@ -1419,6 +1471,25 @@ public sealed class LayoutTests
             static node => node.Id == "GenericAuto");
         Assert.AreEqual(40, genericAuthored.Size.X, 0.001);
         Assert.IsGreaterThan(40, genericAuto.Size.X);
+        Assert.IsTrue(genericFrame.Nodes
+            .Where(static node => node.Id is "T_HintPC" or "T_HintConsoles")
+            .All(static node => !node.IsShown && node.Text.Length == 0));
+
+        XuiDocument unknownPressKeyDocument = Document(
+            """
+            <AdvButton><Properties><Id>Unknown</Id><Width>40</Width><Height>34</Height>
+            <ClassOverride>UIDialogButton</ClassOverride><Visual>ButtonDialogV</Visual>
+            <Text>UNKNOWN</Text><PressKey>123456</PressKey></Properties></AdvButton>
+            """);
+        XuiRenderFrame unknownPressKeyFrame = DyingLightLayoutEngine.Evaluate(
+            unknownPressKeyDocument,
+            XuiViewport.Default,
+            0,
+            keyboardResolver);
+        Assert.IsFalse(unknownPressKeyFrame.Nodes.Single(static node =>
+            node.Id == "T_HintPC").IsShown);
+        Assert.AreEqual(string.Empty, unknownPressKeyFrame.Nodes.Single(
+            static node => node.Id == "T_HintPC").Text);
 
         XuiDocument growthDocument = Document(
             """

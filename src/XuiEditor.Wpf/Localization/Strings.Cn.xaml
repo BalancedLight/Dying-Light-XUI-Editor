@@ -774,6 +774,7 @@
     <system:String x:Key="Ui.Main.Status.UndidRebind">取消了 {0:N0} 文件之间的最后一个工作区重新绑定。</system:String>
     <system:String x:Key="Ui.Main.Status.UnsupportedRotation">旋转使用不受支持的创作值并且未更改。</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Mixed">原始 TextStyle：混合值</system:String>
+    <system:String x:Key="Ui.Main.TextStyle.RawDetailed">原始 {0} / {1} - 兼容性 {2} - 未知 {3}</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Raw">原始 {0} / {1} · 未映射的 {2}</system:String>
     <system:String x:Key="Ui.Main.Timeline.MixedScopes">混合时间线范围</system:String>
     <system:String x:Key="Ui.Main.Timeline.NoScope">无时间线范围</system:String>
@@ -900,4 +901,84 @@
     <system:String x:Key="Ui.Animation.Error.SiblingSample">无法在 {1} 刻度处对“{0}”的所有同级属性进行采样。</system:String>
     <system:String x:Key="Ui.Animation.Error.InvalidValue">“{0}”对于时间线属性“{1}”无效。</system:String>
     <system:String x:Key="Ui.Animation.Error.DuplicateTargetId">目标 Id“{0}”在文档中重复，无法明确进行动画处理。</system:String>
+    <system:String x:Key="Ui.PressKey.SearchLabel">搜索</system:String>
+    <system:String x:Key="Ui.PressKey.SearchAutomation">搜索 PressKey 选项</system:String>
+    <system:String x:Key="Ui.PressKey.NoResults">没有匹配的按钮。</system:String>
+    <system:String x:Key="Ui.PressKey.CustomHeading">自定义数值</system:String>
+    <system:String x:Key="Ui.PressKey.CustomDescription">为模组创作或当前未知的 PressKey 值输入带符号整数。</system:String>
+    <system:String x:Key="Ui.PressKey.CustomAutomation">自定义 PressKey 数值</system:String>
+    <system:String x:Key="Ui.PressKey.ApplyCustom">应用</system:String>
+    <system:String x:Key="Ui.PressKey.Option.ToolTip">{0}
+电脑: {1}
+控制器: {2}
+序列化值: {3}
+引擎枚举: {4}</system:String>
+    <system:String x:Key="Ui.PressKey.Option.Automation">{0}; 电脑 {1}; 控制器 {2}</system:String>
+    <system:String x:Key="Ui.PressKey.OpenAutomation">选择 PressKey；当前值 {0}</system:String>
+    <system:String x:Key="Ui.PressKey.CustomSummary">自定义 ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.UnrecognizedSummary">无法识别 ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.InvalidCustom">请输入有效的带符号整数。</system:String>
+    <system:String x:Key="Ui.Inspector.Property.PressKey.Purpose">选择控件使用的键盘或控制器按钮提示以及激活绑定。</system:String>
+    <system:String x:Key="Ui.PressKey.Group.None">无绑定</system:String>
+    <system:String x:Key="Ui.PressKey.Group.FaceButtons">正面按钮</system:String>
+    <system:String x:Key="Ui.PressKey.Group.ShouldersAndTriggers">肩键和扳机键</system:String>
+    <system:String x:Key="Ui.PressKey.Group.DirectionalPad">方向键</system:String>
+    <system:String x:Key="Ui.PressKey.Group.SystemAndSticks">系统按钮和摇杆</system:String>
+    <system:String x:Key="Ui.PressKey.Option.None">无</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadA">A 按钮</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadB">B 按钮</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadX">X 按钮</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadY">Y 按钮</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadAOrStart">A 或开始</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBOrBack">B 或返回</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRShoulder">右肩键 (RB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLShoulder">左肩键 (LB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRTrigger">右扳机键 (RT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLTrigger">左扳机键 (LT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadUp">方向键上</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadDown">方向键下</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadLeft">方向键左</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadRight">方向键右</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadStart">开始按钮</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBack">返回按钮</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLThumbPress">按下左摇杆 (L3)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRThumbPress">按下右摇杆 (R3)</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchLabel">搜索</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchAutomation">搜索 TextStyle 预设</system:String>
+    <system:String x:Key="Ui.TextStyle.NoResults">没有匹配的文本样式。</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Top">顶部对齐的库存样式</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Middle">垂直居中的库存样式</system:String>
+    <system:String x:Key="Ui.TextStyle.SampleText">示例文本</system:String>
+    <system:String x:Key="Ui.TextStyle.StockUseCount">{0}库存用途</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.ToolTip">{0}
+序列化值：{1}
+十六进制：{2}
+证据：{3}</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.Automation">TextStyle {0};值{1}</system:String>
+    <system:String x:Key="Ui.TextStyle.OpenAutomation">选择TextStyle；当前值{0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnrecognizedSummary">无效 TextStyle ({0})</system:String>
+    <system:String x:Key="Ui.TextStyle.ComposerHeading">撰写风格</system:String>
+    <system:String x:Key="Ui.TextStyle.Bold">大胆</system:String>
+    <system:String x:Key="Ui.TextStyle.Italic">斜体</system:String>
+    <system:String x:Key="Ui.TextStyle.Underline">下划线</system:String>
+    <system:String x:Key="Ui.TextStyle.Horizontal">卧式</system:String>
+    <system:String x:Key="Ui.TextStyle.Vertical">垂直</system:String>
+    <system:String x:Key="Ui.TextStyle.Unspecified">未指定</system:String>
+    <system:String x:Key="Ui.TextStyle.Left">左</system:String>
+    <system:String x:Key="Ui.TextStyle.Center">中心</system:String>
+    <system:String x:Key="Ui.TextStyle.Right">右</system:String>
+    <system:String x:Key="Ui.TextStyle.Top">顶部</system:String>
+    <system:String x:Key="Ui.TextStyle.Middle">中</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility0010">库存兼容性 0x0010</system:String>
+    <system:String x:Key="Ui.TextStyle.ScaleAware">比例感知字形 0x0001</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility4000">兼容性0x4000</system:String>
+    <system:String x:Key="Ui.TextStyle.PreservedBits">保留的未知位：{0}</system:String>
+    <system:String x:Key="Ui.TextStyle.MixedComposer">混选：不同风格的作曲替代；基本未知位{0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnknownBits">未知位{0}</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyComposed">应用风格</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomHeading">原始 TextStyle 值</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomDescription">输入带符号的十进制或以 0x 为前缀的整数位掩码。</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomAutomation">原始 TextStyle 数值</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyCustom">应用</system:String>
+    <system:String x:Key="Ui.TextStyle.InvalidCustom">输入有效的带符号小数或以 0x 为前缀的整数。</system:String>
 </ResourceDictionary>

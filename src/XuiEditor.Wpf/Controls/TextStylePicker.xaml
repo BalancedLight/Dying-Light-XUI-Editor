@@ -1,0 +1,289 @@
+<UserControl x:Class="XuiEditor.Wpf.Controls.TextStylePicker"
+             x:Name="Root"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             MinWidth="130"
+             Unloaded="Root_Unloaded">
+    <Grid>
+        <ToggleButton x:Name="OpenButton"
+                      HorizontalContentAlignment="Stretch"
+                      Checked="OpenButton_Checked"
+                      Unchecked="OpenButton_Unchecked">
+            <Grid Margin="1,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="SummaryNameText"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <Border Grid.Column="1"
+                        Margin="6,0,0,0"
+                        Padding="5,1"
+                        VerticalAlignment="Center"
+                        Background="{StaticResource PanelRaisedBrush}"
+                        BorderBrush="{StaticResource AccentBrush}"
+                        BorderThickness="1"
+                        CornerRadius="2">
+                    <TextBlock x:Name="SummaryValueText"
+                               FontFamily="Consolas"
+                               FontSize="10"
+                               Foreground="{StaticResource AccentBrush}" />
+                </Border>
+                <TextBlock Grid.Column="2"
+                           Margin="7,0,1,0"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource MutedTextBrush}"
+                           Text="▼" />
+            </Grid>
+        </ToggleButton>
+
+        <Popup x:Name="PickerPopup"
+               PlacementTarget="{Binding ElementName=OpenButton}"
+               Placement="Bottom"
+               AllowsTransparency="True"
+               StaysOpen="False"
+               Closed="PickerPopup_Closed">
+            <Border Width="620"
+                    MaxHeight="690"
+                    Margin="0,3,0,0"
+                    Padding="12"
+                    Background="{StaticResource WindowBrush}"
+                    BorderBrush="{StaticResource AccentBrush}"
+                    BorderThickness="1"
+                    CornerRadius="3"
+                    KeyboardNavigation.TabNavigation="Cycle"
+                    PreviewKeyDown="PickerPopup_PreviewKeyDown">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Margin="0,0,8,0"
+                                   VerticalAlignment="Center"
+                                   Text="{DynamicResource Ui.TextStyle.SearchLabel}" />
+                        <TextBox x:Name="SearchTextBox"
+                                 Grid.Column="1"
+                                 AutomationProperties.Name="{DynamicResource Ui.TextStyle.SearchAutomation}"
+                                 TextChanged="SearchTextBox_TextChanged"
+                                 KeyDown="SearchTextBox_KeyDown" />
+                    </Grid>
+
+                    <ScrollViewer Grid.Row="1"
+                                  Margin="0,8,0,0"
+                                  MaxHeight="255"
+                                  VerticalScrollBarVisibility="Auto">
+                        <Grid>
+                            <ItemsControl x:Name="GroupItems">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,0,0,8">
+                                            <TextBlock Margin="1,0,0,5"
+                                                       Text="{Binding Header}"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource AccentBrush}" />
+                                            <ItemsControl ItemsSource="{Binding Items}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Button Width="184"
+                                                                Height="78"
+                                                                Margin="0,0,6,6"
+                                                                Padding="7,5"
+                                                                HorizontalContentAlignment="Stretch"
+                                                                VerticalContentAlignment="Stretch"
+                                                                Tag="{Binding}"
+                                                                ToolTip="{Binding ToolTip}"
+                                                                AutomationProperties.Name="{Binding AutomationName}"
+                                                                Click="PickerTile_Click">
+                                                            <Grid>
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="*" />
+                                                                    <RowDefinition Height="Auto" />
+                                                                </Grid.RowDefinitions>
+                                                                <Border Background="{StaticResource PanelBrush}"
+                                                                        BorderBrush="{StaticResource BorderBrush}"
+                                                                        BorderThickness="1"
+                                                                        Padding="4">
+                                                                    <TextBlock Text="{Binding SampleText}"
+                                                                               FontWeight="{Binding SampleFontWeight}"
+                                                                               FontStyle="{Binding SampleFontStyle}"
+                                                                               TextDecorations="{Binding SampleTextDecorations}"
+                                                                               TextAlignment="{Binding SampleTextAlignment}"
+                                                                               VerticalAlignment="{Binding SampleVerticalAlignment}"
+                                                                               TextTrimming="CharacterEllipsis" />
+                                                                </Border>
+                                                                <Grid Grid.Row="1" Margin="0,4,0,0">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <TextBlock Text="{Binding DisplayName}"
+                                                                               TextTrimming="CharacterEllipsis" />
+                                                                    <TextBlock Grid.Column="1"
+                                                                               Margin="6,0,0,0"
+                                                                               Text="{Binding HexValue}"
+                                                                               FontFamily="Consolas"
+                                                                               FontSize="10"
+                                                                               Foreground="{StaticResource MutedTextBrush}" />
+                                                                </Grid>
+                                                            </Grid>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock x:Name="NoResultsText"
+                                       Margin="6,12"
+                                       Visibility="Collapsed"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Text="{DynamicResource Ui.TextStyle.NoResults}" />
+                        </Grid>
+                    </ScrollViewer>
+
+                    <Border Grid.Row="2"
+                            Margin="0,4,0,0"
+                            Padding="9"
+                            Background="{StaticResource PanelRaisedBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="{DynamicResource Ui.TextStyle.ComposerHeading}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource AccentBrush}" />
+                            <WrapPanel Grid.Row="1" Margin="0,7,0,0">
+                                <CheckBox x:Name="BoldCheckBox"
+                                          Margin="0,0,12,4"
+                                          Content="{DynamicResource Ui.TextStyle.Bold}" />
+                                <CheckBox x:Name="ItalicCheckBox"
+                                          Margin="0,0,12,4"
+                                          Content="{DynamicResource Ui.TextStyle.Italic}" />
+                                <CheckBox x:Name="UnderlineCheckBox"
+                                          Margin="0,0,12,4"
+                                          Content="{DynamicResource Ui.TextStyle.Underline}" />
+                            </WrapPanel>
+                            <Grid Grid.Row="2" Margin="0,4,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="150" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Margin="0,0,7,0"
+                                           VerticalAlignment="Center"
+                                           Text="{DynamicResource Ui.TextStyle.Horizontal}" />
+                                <ComboBox x:Name="HorizontalComboBox"
+                                          Grid.Column="1"
+                                          SelectedValuePath="Tag">
+                                    <ComboBoxItem Tag="Unspecified" Content="{DynamicResource Ui.TextStyle.Unspecified}" />
+                                    <ComboBoxItem Tag="Left" Content="{DynamicResource Ui.TextStyle.Left}" />
+                                    <ComboBoxItem Tag="Center" Content="{DynamicResource Ui.TextStyle.Center}" />
+                                    <ComboBoxItem Tag="Right" Content="{DynamicResource Ui.TextStyle.Right}" />
+                                </ComboBox>
+                                <TextBlock Grid.Column="2"
+                                           Margin="12,0,7,0"
+                                           VerticalAlignment="Center"
+                                           Text="{DynamicResource Ui.TextStyle.Vertical}" />
+                                <ComboBox x:Name="VerticalComboBox"
+                                          Grid.Column="3"
+                                          SelectedValuePath="Tag">
+                                    <ComboBoxItem Tag="Top" Content="{DynamicResource Ui.TextStyle.Top}" />
+                                    <ComboBoxItem Tag="Middle" Content="{DynamicResource Ui.TextStyle.Middle}" />
+                                </ComboBox>
+                            </Grid>
+                            <Grid Grid.Row="3" Margin="0,7,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <WrapPanel>
+                                        <CheckBox x:Name="Compatibility0010CheckBox"
+                                                  Margin="0,0,12,3"
+                                                  Content="{DynamicResource Ui.TextStyle.Compatibility0010}" />
+                                        <CheckBox x:Name="ScaleAwareCheckBox"
+                                                  Margin="0,0,12,3"
+                                                  Content="{DynamicResource Ui.TextStyle.ScaleAware}" />
+                                        <CheckBox x:Name="Compatibility4000CheckBox"
+                                                  Margin="0,0,12,3"
+                                                  Content="{DynamicResource Ui.TextStyle.Compatibility4000}" />
+                                    </WrapPanel>
+                                    <TextBlock x:Name="PreservedBitsText"
+                                               FontSize="10"
+                                               Foreground="{StaticResource MutedTextBrush}" />
+                                </StackPanel>
+                                <Button Grid.Column="1"
+                                        MinWidth="92"
+                                        Margin="8,0,0,0"
+                                        Content="{DynamicResource Ui.TextStyle.ApplyComposed}"
+                                        Click="ApplyComposed_Click" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="3"
+                            Margin="0,8,0,0"
+                            Padding="9"
+                            Background="{StaticResource PanelBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="190" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Ui.TextStyle.CustomHeading}"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Margin="0,3,10,0"
+                                           Text="{DynamicResource Ui.TextStyle.CustomDescription}"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           FontSize="10"
+                                           TextWrapping="Wrap" />
+                                <TextBlock x:Name="CustomErrorText"
+                                           Margin="0,3,10,0"
+                                           Foreground="{StaticResource DangerBrush}"
+                                           FontSize="10" />
+                            </StackPanel>
+                            <TextBox x:Name="CustomValueTextBox"
+                                     Grid.Column="1"
+                                     VerticalAlignment="Center"
+                                     AutomationProperties.Name="{DynamicResource Ui.TextStyle.CustomAutomation}"
+                                     TextChanged="CustomValueTextBox_TextChanged"
+                                     KeyDown="CustomValueTextBox_KeyDown" />
+                            <Button Grid.Column="2"
+                                    Margin="7,0,0,0"
+                                    MinWidth="72"
+                                    VerticalAlignment="Center"
+                                    Content="{DynamicResource Ui.TextStyle.ApplyCustom}"
+                                    Click="ApplyCustom_Click" />
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

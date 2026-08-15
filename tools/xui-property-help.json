@@ -13,6 +13,7 @@
   "NavDown": "Names the element that receives focus when navigation moves down.",
   "NavTabForward": "Names the element that receives focus when tab navigation moves forward.",
   "NavTabBackward": "Names the element that receives focus when tab navigation moves backward.",
+  "PressKey": "Selects the keyboard or controller button hint and activation binding used by the control.",
   "Width": "Sets the element's local design width.",
   "Height": "Sets the element's local design height.",
   "Position": "Sets the element's local XYZ position relative to its parent.",

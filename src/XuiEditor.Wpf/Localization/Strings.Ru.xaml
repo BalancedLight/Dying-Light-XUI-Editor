@@ -774,6 +774,7 @@
     <system:String x:Key="Ui.Main.Status.UndidRebind">Отменена последняя перепривязка рабочей области для файлов {0:N0}.</system:String>
     <system:String x:Key="Ui.Main.Status.UnsupportedRotation">При ротации используется неподдерживаемое авторское значение, которое не было изменено.</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Mixed">Необработанный TextStyle: смешанные значения.</system:String>
+    <system:String x:Key="Ui.Main.TextStyle.RawDetailed">Необработанный {0} / {1} – совместимость {2} – неизвестно {3}</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Raw">Необработанный {0} / {1} · несопоставленный {2}</system:String>
     <system:String x:Key="Ui.Main.Timeline.MixedScopes">Смешанные области временной шкалы</system:String>
     <system:String x:Key="Ui.Main.Timeline.NoScope">Область временной шкалы не выбрана</system:String>
@@ -900,4 +901,84 @@
     <system:String x:Key="Ui.Animation.Error.SiblingSample">Не удалось выполнить выборку всех одноуровневых свойств для '{0}' на тике {1}.</system:String>
     <system:String x:Key="Ui.Animation.Error.InvalidValue">'{0}' недействителен для свойства временной шкалы '{1}'.</system:String>
     <system:String x:Key="Ui.Animation.Error.DuplicateTargetId">Цель Id '{0}' дублируется в документе и не может быть однозначно анимирована.</system:String>
+    <system:String x:Key="Ui.PressKey.SearchLabel">Поиск</system:String>
+    <system:String x:Key="Ui.PressKey.SearchAutomation">Поиск вариантов PressKey</system:String>
+    <system:String x:Key="Ui.PressKey.NoResults">Подходящие кнопки не найдены.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomHeading">Пользовательское числовое значение</system:String>
+    <system:String x:Key="Ui.PressKey.CustomDescription">Введите целое число со знаком для созданного модом или пока неизвестного значения PressKey.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomAutomation">Пользовательское числовое значение PressKey</system:String>
+    <system:String x:Key="Ui.PressKey.ApplyCustom">Применить</system:String>
+    <system:String x:Key="Ui.PressKey.Option.ToolTip">{0}
+ПК: {1}
+Геймпад: {2}
+Сериализованное значение: {3}
+Перечисление движка: {4}</system:String>
+    <system:String x:Key="Ui.PressKey.Option.Automation">{0}; ПК {1}; геймпад {2}</system:String>
+    <system:String x:Key="Ui.PressKey.OpenAutomation">Выбрать PressKey; текущее значение {0}</system:String>
+    <system:String x:Key="Ui.PressKey.CustomSummary">Пользовательское ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.UnrecognizedSummary">Не распознано ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.InvalidCustom">Введите допустимое целое число со знаком.</system:String>
+    <system:String x:Key="Ui.Inspector.Property.PressKey.Purpose">Выбирает подсказку клавиши или кнопки геймпада и привязку активации, используемые элементом управления.</system:String>
+    <system:String x:Key="Ui.PressKey.Group.None">Без привязки</system:String>
+    <system:String x:Key="Ui.PressKey.Group.FaceButtons">Лицевые кнопки</system:String>
+    <system:String x:Key="Ui.PressKey.Group.ShouldersAndTriggers">Бамперы и триггеры</system:String>
+    <system:String x:Key="Ui.PressKey.Group.DirectionalPad">Крестовина</system:String>
+    <system:String x:Key="Ui.PressKey.Group.SystemAndSticks">Системные кнопки и стики</system:String>
+    <system:String x:Key="Ui.PressKey.Option.None">Нет</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadA">Кнопка A</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadB">Кнопка B</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadX">Кнопка X</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadY">Кнопка Y</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadAOrStart">A или Пуск</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBOrBack">B или Назад</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRShoulder">Правый бампер (RB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLShoulder">Левый бампер (LB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRTrigger">Правый триггер (RT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLTrigger">Левый триггер (LT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadUp">Крестовина вверх</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadDown">Крестовина вниз</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadLeft">Крестовина влево</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadRight">Крестовина вправо</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadStart">Кнопка Пуск</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBack">Кнопка Назад</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLThumbPress">Нажатие левого стика (L3)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRThumbPress">Нажатие правого стика (R3)</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchLabel">Поиск</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchAutomation">Поиск пресетов TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.NoResults">Нет подходящих стилей текста.</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Top">Стандартные стили с выравниванием по верху</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Middle">Вертикально центрированные стандартные стили</system:String>
+    <system:String x:Key="Ui.TextStyle.SampleText">Пример текста</system:String>
+    <system:String x:Key="Ui.TextStyle.StockUseCount">{0} использование запасов</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.ToolTip">{0}
+Сериализованное значение: {1}
+Шестнадцатеричный: {2}
+Доказательства: {3}</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.Automation">TextStyle {0}; значение {1}</system:String>
+    <system:String x:Key="Ui.TextStyle.OpenAutomation">Выберите TextStyle; текущее значение {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnrecognizedSummary">Неверный TextStyle ({0})</system:String>
+    <system:String x:Key="Ui.TextStyle.ComposerHeading">Создайте стиль</system:String>
+    <system:String x:Key="Ui.TextStyle.Bold">Жирный</system:String>
+    <system:String x:Key="Ui.TextStyle.Italic">Курсив</system:String>
+    <system:String x:Key="Ui.TextStyle.Underline">Подчеркнуть</system:String>
+    <system:String x:Key="Ui.TextStyle.Horizontal">Горизонтальный</system:String>
+    <system:String x:Key="Ui.TextStyle.Vertical">Вертикальный</system:String>
+    <system:String x:Key="Ui.TextStyle.Unspecified">Не указано</system:String>
+    <system:String x:Key="Ui.TextStyle.Left">Левый</system:String>
+    <system:String x:Key="Ui.TextStyle.Center">Центр</system:String>
+    <system:String x:Key="Ui.TextStyle.Right">Правильно</system:String>
+    <system:String x:Key="Ui.TextStyle.Top">Топ</system:String>
+    <system:String x:Key="Ui.TextStyle.Middle">Средний</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility0010">Стандартная совместимость 0x0010</system:String>
+    <system:String x:Key="Ui.TextStyle.ScaleAware">Масштабируемые глифы 0x0001</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility4000">Совместимость 0x4000</system:String>
+    <system:String x:Key="Ui.TextStyle.PreservedBits">Сохраненные неизвестные биты: {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.MixedComposer">Смешанный выбор: сочинение заменяет разные стили; базовые неизвестные биты {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnknownBits">Неизвестные биты {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyComposed">Применить стиль</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomHeading">Необработанное значение TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomDescription">Введите десятичную битовую маску со знаком или целое число с префиксом 0x.</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomAutomation">Необработанное числовое значение TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyCustom">Применить</system:String>
+    <system:String x:Key="Ui.TextStyle.InvalidCustom">Введите допустимое десятичное число со знаком или целое число с префиксом 0x.</system:String>
 </ResourceDictionary>

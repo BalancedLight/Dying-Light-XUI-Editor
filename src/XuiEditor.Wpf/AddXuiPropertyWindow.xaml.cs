@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using XuiEditor.Core.Schema;
 using XuiEditor.Core.Values;
+using XuiEditor.Wpf.Controls;
 using XuiEditor.Wpf.Services;
 
 namespace XuiEditor.Wpf;
@@ -53,6 +54,34 @@ public partial class AddXuiPropertyWindow : Window
     internal bool CatalogVisibleForTesting =>
         PropertyList.Visibility == Visibility.Visible &&
         SearchTextBox.Visibility == Visibility.Visible;
+
+    internal bool PressKeyEditorVisibleForTesting =>
+        PressKeyValuePicker.Visibility == Visibility.Visible;
+
+    internal PressKeyPicker PressKeyPickerForTesting => PressKeyValuePicker;
+
+    internal bool TextStyleEditorVisibleForTesting =>
+        TextStyleValuePicker.Visibility == Visibility.Visible;
+
+    internal TextStylePicker TextStylePickerForTesting =>
+        TextStyleValuePicker;
+
+    internal bool SelectDefinitionForTesting(string name)
+    {
+        XuiPropertyDefinition? definition = _definitions.FirstOrDefault(
+            candidate => candidate.Name.Equals(
+                name,
+                StringComparison.Ordinal));
+        if (definition is null)
+        {
+            return false;
+        }
+
+        SelectDefinition(definition);
+        return true;
+    }
+
+    internal bool AcceptForTesting() => TryAcceptSelection();
 
     internal void SetRawModeForTesting(bool enabled) =>
         RawModeCheckBox.IsChecked = enabled;
@@ -111,7 +140,20 @@ public partial class AddXuiPropertyWindow : Window
             AddXuiPropertyOption { Definition: var definition })
         {
             SelectDefinition(definition);
-            ValueTextBox.Focus();
+            if (definition.EditorKind ==
+                XuiPropertyEditorKind.PressKeyPalette)
+            {
+                PressKeyValuePicker.Focus();
+            }
+            else if (definition.EditorKind ==
+                     XuiPropertyEditorKind.TextStylePalette)
+            {
+                TextStyleValuePicker.Focus();
+            }
+            else
+            {
+                ValueTextBox.Focus();
+            }
         }
     }
 
@@ -142,11 +184,23 @@ public partial class AddXuiPropertyWindow : Window
             choices = ["false", "true"];
         }
 
-        bool useChoices = choices.Count > 0;
+        bool usePressKey = definition.EditorKind ==
+            XuiPropertyEditorKind.PressKeyPalette;
+        bool useTextStyle = definition.EditorKind ==
+            XuiPropertyEditorKind.TextStylePalette;
+        bool useChoices = !usePressKey && !useTextStyle && choices.Count > 0;
         ChoiceValueCombo.Visibility =
             useChoices ? Visibility.Visible : Visibility.Collapsed;
         ValueTextBox.Visibility =
-            useChoices ? Visibility.Collapsed : Visibility.Visible;
+            useChoices || usePressKey || useTextStyle
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+        PressKeyValuePicker.Visibility = usePressKey
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        TextStyleValuePicker.Visibility = useTextStyle
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         if (useChoices)
         {
             ChoiceValueCombo.ItemsSource = choices;
@@ -154,6 +208,14 @@ public partial class AddXuiPropertyWindow : Window
                 choices.Contains(definition.DefaultValue, StringComparer.Ordinal)
                     ? definition.DefaultValue
                     : choices[0];
+        }
+        else if (usePressKey)
+        {
+            PressKeyValuePicker.Value = definition.DefaultValue;
+        }
+        else if (useTextStyle)
+        {
+            TextStyleValuePicker.Value = definition.DefaultValue;
         }
         else
         {
@@ -181,6 +243,8 @@ public partial class AddXuiPropertyWindow : Window
             : Visibility.Collapsed;
         NameTextBox.IsEnabled = raw;
         ChoiceValueCombo.Visibility = Visibility.Collapsed;
+        PressKeyValuePicker.Visibility = Visibility.Collapsed;
+        TextStyleValuePicker.Visibility = Visibility.Collapsed;
         ValueTextBox.Visibility = Visibility.Visible;
         _selectedDefinition = raw ? null : _selectedDefinition;
         TypeText.Text = raw
@@ -205,12 +269,20 @@ public partial class AddXuiPropertyWindow : Window
 
     private void Add_Click(object sender, RoutedEventArgs eventArgs)
     {
+        if (TryAcceptSelection())
+        {
+            DialogResult = true;
+        }
+    }
+
+    private bool TryAcceptSelection()
+    {
         string name = NameTextBox.Text.Trim();
         if (!IsValidXmlName(name))
         {
             ErrorText.Text =
                 UiLocalization.Text("Ui.AddProperty.InvalidName");
-            return;
+            return false;
         }
 
         if (RawModeCheckBox.IsChecked != true &&
@@ -218,12 +290,16 @@ public partial class AddXuiPropertyWindow : Window
         {
             ErrorText.Text =
                 UiLocalization.Text("Ui.AddProperty.ChooseApplicable");
-            return;
+            return false;
         }
 
-        string value = ChoiceValueCombo.Visibility == Visibility.Visible
-            ? ChoiceValueCombo.SelectedItem as string ?? string.Empty
-            : ValueTextBox.Text;
+        string value = PressKeyValuePicker.Visibility == Visibility.Visible
+            ? PressKeyValuePicker.Value
+            : TextStyleValuePicker.Visibility == Visibility.Visible
+                ? TextStyleValuePicker.Value
+            : ChoiceValueCombo.Visibility == Visibility.Visible
+                ? ChoiceValueCombo.SelectedItem as string ?? string.Empty
+                : ValueTextBox.Text;
         if (_selectedDefinition is XuiPropertyDefinition definition &&
             !IsValidTypedValue(definition.Type, value))
         {
@@ -232,12 +308,30 @@ public partial class AddXuiPropertyWindow : Window
                 value,
                 UiLocalization.PropertyType(definition.Type),
                 name);
-            return;
+            return false;
         }
 
         PropertyName = name;
         PropertyValue = value;
-        DialogResult = true;
+        return true;
+    }
+
+    private void PressKeyValuePicker_ValueCommitted(
+        object? sender,
+        PressKeyValueCommittedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        ErrorText.Text = string.Empty;
+    }
+
+    private void TextStyleValuePicker_ValueCommitted(
+        object? sender,
+        TextStyleValueCommittedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        ErrorText.Text = string.Empty;
     }
 
     private static bool IsValidTypedValue(

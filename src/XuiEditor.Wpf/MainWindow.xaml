@@ -1085,8 +1085,25 @@
                         </ListBox.GroupStyle>
                         <ListBox.ItemTemplate>
                             <DataTemplate DataType="{x:Type models:InspectorPropertyRow}">
-                                <Grid Margin="8,3"
-                                      ToolTip="{Binding EditorToolTip}">
+                                <Grid Margin="8,3">
+                                    <Grid.Style>
+                                        <Style TargetType="Grid">
+                                            <Setter Property="ToolTip"
+                                                    Value="{Binding EditorToolTip}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsPressKeyEditor}"
+                                                             Value="True">
+                                                    <Setter Property="ToolTip"
+                                                            Value="{x:Null}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding IsTextStyleEditor}"
+                                                             Value="True">
+                                                    <Setter Property="ToolTip"
+                                                            Value="{x:Null}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Grid.Style>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="176" />
                                         <ColumnDefinition Width="*" />
@@ -1125,6 +1142,16 @@
                                                         <Setter Property="Visibility"
                                                                 Value="Collapsed" />
                                                     </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsPressKeyEditor}"
+                                                                 Value="True">
+                                                        <Setter Property="Visibility"
+                                                                Value="Collapsed" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsTextStyleEditor}"
+                                                                 Value="True">
+                                                        <Setter Property="Visibility"
+                                                                Value="Collapsed" />
+                                                    </DataTrigger>
                                                     <DataTrigger Binding="{Binding HasError}"
                                                                  Value="True">
                                                         <Setter Property="BorderBrush"
@@ -1142,6 +1169,40 @@
                                             </Style>
                                         </TextBox.Style>
                                     </TextBox>
+                                    <controls:PressKeyPicker Grid.Column="1"
+                                                             Value="{Binding Value, Mode=TwoWay}"
+                                                             IsMixed="{Binding IsMixed}"
+                                                             Tag="{Binding}"
+                                                             ValueCommitted="InspectorPressKey_ValueCommitted">
+                                        <controls:PressKeyPicker.Style>
+                                            <Style TargetType="controls:PressKeyPicker">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsPressKeyEditor}"
+                                                                 Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </controls:PressKeyPicker.Style>
+                                    </controls:PressKeyPicker>
+                                    <controls:TextStylePicker Grid.Column="1"
+                                                              Value="{Binding Value, Mode=TwoWay}"
+                                                              IsMixed="{Binding IsMixed}"
+                                                              Tag="{Binding}"
+                                                              ValueCommitted="InspectorTextStyle_ValueCommitted">
+                                        <controls:TextStylePicker.Style>
+                                            <Style TargetType="controls:TextStylePicker">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsTextStyleEditor}"
+                                                                 Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </controls:TextStylePicker.Style>
+                                    </controls:TextStylePicker>
                                     <ComboBox Grid.Column="1"
                                               ItemsSource="{Binding Choices}"
                                               Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"

@@ -27,6 +27,7 @@ using XuiEditor.Wpf.Services;
 namespace XuiEditor.Tests;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class WpfSmokeTests
 {
     private static readonly string[] AlignmentTags =
@@ -71,6 +72,262 @@ public sealed class WpfSmokeTests
         propertyWindow.SetRawModeForTesting(false);
         Assert.IsFalse(propertyWindow.RawEditorVisibleForTesting);
         Assert.IsTrue(propertyWindow.CatalogVisibleForTesting);
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void PressKeyPickerSearchesSelectsCustomValuesAndCancelsLosslessly()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        UiLocalization.Apply("En");
+        PressKeyPicker picker = new()
+        {
+            Value = "3840",
+        };
+        List<string> commits = [];
+        picker.ValueCommitted += (_, eventArgs) =>
+            commits.Add(eventArgs.Value);
+        Window host = new()
+        {
+            Content = picker,
+            Width = 320,
+            Height = 80,
+            Opacity = 0,
+            ShowActivated = false,
+            ShowInTaskbar = false,
+        };
+        host.Show();
+        try
+        {
+            Assert.AreEqual("A button", picker.SummaryForTesting);
+            Assert.AreEqual("3840", picker.Value);
+            picker.OpenForTesting();
+            Assert.IsTrue(picker.IsPopupOpenForTesting);
+            Assert.HasCount(5, picker.VisibleGroupsForTesting);
+
+            FrameworkElement popup = picker.PopupContentForTesting;
+            popup.UpdateLayout();
+            Button[] faceTiles = Descendants(popup)
+                .OfType<Button>()
+                .Where(static button =>
+                    button.Tag is PressKeyPickerItem
+                    {
+                        Option.Group: XuiPressKeyGroup.FaceButtons,
+                    })
+                .ToArray();
+            Assert.HasCount(6, faceTiles);
+            double[] faceRows = faceTiles
+                .Select(tile => tile.TranslatePoint(new Point(), popup))
+                .Select(static point => point.Y)
+                .Order()
+                .ToArray();
+            Assert.AreEqual(faceRows[0], faceRows[1], 0.5);
+            Assert.AreEqual(faceRows[0], faceRows[2], 0.5);
+            Assert.IsGreaterThan(faceRows[0], faceRows[3]);
+            Assert.AreEqual(faceRows[3], faceRows[4], 0.5);
+            Assert.AreEqual(faceRows[3], faceRows[5], 0.5);
+
+            TextBlock dpadRightBadge = Descendants(popup)
+                .OfType<TextBlock>()
+                .Single(static text => text.Text == "D-pad Right");
+            Button dpadRightTile = Ancestor<Button>(dpadRightBadge)!;
+            Point badgeRight = dpadRightBadge.TranslatePoint(
+                new Point(dpadRightBadge.ActualWidth, 0),
+                dpadRightTile);
+            Assert.IsTrue(
+                badgeRight.X <= dpadRightTile.ActualWidth + 0.5,
+                "The full controller badge must remain inside its tile.");
+
+            picker.SearchForTesting("F5");
+            Assert.AreEqual(
+                "PadBack",
+                picker.VisibleGroupsForTesting
+                    .SelectMany(static group => group.Items)
+                    .Single()
+                    .Option.Id);
+            picker.SearchForTesting("right arrow");
+            Assert.AreEqual(
+                "DPadRight",
+                picker.VisibleGroupsForTesting
+                    .SelectMany(static group => group.Items)
+                    .Single()
+                    .Option.Id);
+            picker.SearchForTesting("right bumper");
+            PressKeyPickerItem result = picker.VisibleGroupsForTesting
+                .SelectMany(static group => group.Items)
+                .Single();
+            Assert.AreEqual("PadRShoulder", result.Option.Id);
+            Assert.IsTrue(picker.SelectForTesting("PadRShoulder"));
+            Assert.AreEqual("22532", picker.Value);
+            Assert.AreEqual("22532", commits.Single());
+            Assert.IsFalse(picker.IsPopupOpenForTesting);
+
+            picker.ApplyCustomForTesting("123456");
+            Assert.AreEqual("123456", picker.Value);
+            Assert.AreEqual("123456", commits.Last());
+            picker.ApplyCustomForTesting("not-a-number");
+            Assert.AreEqual("123456", picker.Value);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(
+                picker.CustomErrorForTesting));
+
+            picker.Value = "malformed";
+            StringAssert.Contains(picker.SummaryForTesting, "Unrecognized");
+            picker.OpenForTesting();
+            picker.CloseForTesting();
+            Assert.AreEqual("malformed", picker.Value);
+        }
+        finally
+        {
+            host.Close();
+        }
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void PressKeyPickerAppliesMixedSelectionAsOneUndoableBatch()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>200</Width><Height>100</Height>" +
+            "</Properties><AdvButton><Properties><Id>First</Id>" +
+            "<PressKey>3840</PressKey></Properties></AdvButton>" +
+            "<AdvButton><Properties><Id>Second</Id>" +
+            "<PressKey>22529</PressKey></Properties></AdvButton>" +
+            "</XuiCanvas>");
+        XuiSyntaxNode[] buttons = XuiModelReader.VisualDescendants(
+                document.Root)
+            .Where(static node => node.Name == "AdvButton")
+            .ToArray();
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(document);
+        window.SelectNodeKeysForTesting(buttons.Select(static node => node.Key));
+
+        InspectorPropertyRow mixed = window.InspectorProperties.Single(
+            static row => row.Name == "PressKey");
+        Assert.IsTrue(mixed.IsMixed);
+        Assert.IsTrue(mixed.IsPressKeyEditor);
+        window.SelectPressKeyForTesting("PadRTrigger");
+
+        Assert.IsTrue(document.History.CanUndo);
+        Assert.IsTrue(buttons.All(button =>
+            XuiModelReader.GetPropertyValue(
+                document.SyntaxTree.FindByKey(button.Key)!,
+                document.Text,
+                "PressKey") == "22535"));
+        document.Undo();
+        Assert.AreEqual(
+            "3840",
+            XuiModelReader.GetPropertyValue(
+                document.SyntaxTree.FindByKey(buttons[0].Key)!,
+                document.Text,
+                "PressKey"));
+        Assert.IsFalse(document.History.CanUndo);
+        Assert.AreEqual(
+            "22529",
+            XuiModelReader.GetPropertyValue(
+                document.SyntaxTree.FindByKey(buttons[1].Key)!,
+                document.Text,
+                "PressKey"));
+
+        window.SelectNodeKeysForTesting([buttons[0].Key]);
+        Assert.AreEqual(
+            "3840",
+            window.InspectorProperties.Single(static row =>
+                row.Name == "PressKey").Value,
+            "Opening the picker must not normalize a runtime alias.");
+        window.ResetInspectorPropertyForTesting("PressKey");
+        Assert.IsNull(XuiModelReader.GetPropertyValue(
+            document.SyntaxTree.FindByKey(buttons[0].Key)!,
+            document.Text,
+            "PressKey"));
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void InspectorPressKeyHelpIsScopedAwayFromThePalette()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        UiLocalization.Apply("En");
+        XuiDocument document = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>200</Width><Height>100</Height>" +
+            "</Properties><AdvButton><Properties><Id>Button</Id>" +
+            "<PressKey>22547</PressKey></Properties></AdvButton>" +
+            "</XuiCanvas>");
+        XuiSyntaxNode button = XuiModelReader.VisualDescendants(document.Root)
+            .Single(static node => node.Name == "AdvButton");
+        using MainWindow window = new()
+        {
+            Width = 1500,
+            Height = 900,
+        };
+        window.AttachDocumentForTesting(document);
+        window.SelectNodeKeysForTesting([button.Key]);
+        ListBox inspector = (ListBox)window.FindName("InspectorList");
+        InspectorPropertyRow pressKey = window.InspectorProperties.Single(
+            static row => row.Name == "PressKey");
+        Grid row = (Grid)inspector.ItemTemplate.LoadContent();
+        row.DataContext = pressKey;
+        Window host = new()
+        {
+            Content = row,
+            Width = 700,
+            Height = 100,
+            Opacity = 0,
+            ShowActivated = false,
+            ShowInTaskbar = false,
+        };
+        host.Show();
+        try
+        {
+            row.UpdateLayout();
+            PressKeyPicker picker = Descendants(row)
+                .OfType<PressKeyPicker>()
+                .Single(candidate => ReferenceEquals(
+                    candidate.DataContext,
+                    pressKey));
+            TextBlock propertyName = row.Children
+                .OfType<TextBlock>()
+                .Single(text => Grid.GetColumn(text) == 0);
+
+            Assert.IsNull(ToolTipService.GetToolTip(row));
+            Assert.IsNull(ToolTipService.GetToolTip(picker));
+            Assert.IsFalse(string.IsNullOrWhiteSpace(
+                pressKey.EditorToolTip));
+            Assert.IsNotNull(propertyName.GetBindingExpression(
+                FrameworkElement.ToolTipProperty));
+            Assert.IsNull(ToolTipService.GetToolTip(row));
+        }
+        finally
+        {
+            host.Close();
+        }
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void AddPropertyUsesThePressKeyPickerBeforeInsertion()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        XuiPropertyDefinition pressKey =
+            XuiClassCatalog.Default.FindProperty("PressKey")!;
+        AddXuiPropertyWindow window = new(
+            "Button",
+            [pressKey],
+            authoredNames: []);
+
+        Assert.IsTrue(window.SelectDefinitionForTesting("PressKey"));
+        Assert.IsTrue(window.PressKeyEditorVisibleForTesting);
+        Assert.AreEqual("22594", window.PressKeyPickerForTesting.Value);
+        Assert.IsTrue(window.PressKeyPickerForTesting.SelectForTesting(
+            "PadLShoulder"));
+        Assert.AreEqual(string.Empty, window.PropertyValue);
+        Assert.IsTrue(window.AcceptForTesting());
+        Assert.AreEqual("PressKey", window.PropertyName);
+        Assert.AreEqual("22533", window.PropertyValue);
     }
 
     [STATestMethod]
@@ -3456,6 +3713,23 @@ public sealed class WpfSmokeTests
                 yield return descendant;
             }
         }
+    }
+
+    private static T? Ancestor<T>(DependencyObject child)
+        where T : DependencyObject
+    {
+        DependencyObject? current = VisualTreeHelper.GetParent(child);
+        while (current is not null)
+        {
+            if (current is T match)
+            {
+                return match;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return null;
     }
 
     private static bool IsDark(Brush brush) =>

@@ -774,6 +774,7 @@ Open het als een niet-opgeslagen document?</system:String>
     <system:String x:Key="Ui.Main.Status.UndidRebind">De laatste herbinding van de werkruimte voor {0:N0} bestanden ongedaan gemaakt.</system:String>
     <system:String x:Key="Ui.Main.Status.UnsupportedRotation">Rotatie gebruikt een niet-ondersteunde geschreven waarde en is niet gewijzigd.</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Mixed">Ruw TextStyle: gemengde waarden</system:String>
+    <system:String x:Key="Ui.Main.TextStyle.RawDetailed">Raw {0} / {1} - compatibiliteit {2} - onbekend {3}</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Raw">Ruw {0} / {1} · niet-toegewezen {2}</system:String>
     <system:String x:Key="Ui.Main.Timeline.MixedScopes">Gemengd tijdlijnbereik</system:String>
     <system:String x:Key="Ui.Main.Timeline.NoScope">Geen tijdlijnbereik</system:String>
@@ -900,4 +901,84 @@ Open het als een niet-opgeslagen document?</system:String>
     <system:String x:Key="Ui.Animation.Error.SiblingSample">Kon niet alle broers en zussen-eigenschappen voor '{0}' bij tick {1} bemonsteren.</system:String>
     <system:String x:Key="Ui.Animation.Error.InvalidValue">'{0}' is ongeldig voor tijdlijneigenschap '{1}'.</system:String>
     <system:String x:Key="Ui.Animation.Error.DuplicateTargetId">Doel Id '{0}' wordt gedupliceerd in het document en kan niet eenduidig worden geanimeerd.</system:String>
+    <system:String x:Key="Ui.PressKey.SearchLabel">Zoeken</system:String>
+    <system:String x:Key="Ui.PressKey.SearchAutomation">PressKey-keuzes doorzoeken</system:String>
+    <system:String x:Key="Ui.PressKey.NoResults">Geen overeenkomende knoppen.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomHeading">Aangepaste numerieke waarde</system:String>
+    <system:String x:Key="Ui.PressKey.CustomDescription">Voer een geheel getal met teken in voor een door een mod gemaakte of momenteel onbekende PressKey-waarde.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomAutomation">Aangepaste numerieke PressKey-waarde</system:String>
+    <system:String x:Key="Ui.PressKey.ApplyCustom">Toepassen</system:String>
+    <system:String x:Key="Ui.PressKey.Option.ToolTip">{0}
+PC: {1}
+Controller: {2}
+Geserialiseerde waarde: {3}
+Engine-enum: {4}</system:String>
+    <system:String x:Key="Ui.PressKey.Option.Automation">{0}; pc {1}; gamepad {2}</system:String>
+    <system:String x:Key="Ui.PressKey.OpenAutomation">PressKey kiezen; huidige waarde {0}</system:String>
+    <system:String x:Key="Ui.PressKey.CustomSummary">Aangepast ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.UnrecognizedSummary">Niet herkend ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.InvalidCustom">Voer een geldig geheel getal met teken in.</system:String>
+    <system:String x:Key="Ui.Inspector.Property.PressKey.Purpose">Selecteert de toetsenbord- of controllerknophint en de activeringsbinding die door het besturingselement worden gebruikt.</system:String>
+    <system:String x:Key="Ui.PressKey.Group.None">Geen binding</system:String>
+    <system:String x:Key="Ui.PressKey.Group.FaceButtons">Actieknoppen</system:String>
+    <system:String x:Key="Ui.PressKey.Group.ShouldersAndTriggers">Schouderknoppen en triggers</system:String>
+    <system:String x:Key="Ui.PressKey.Group.DirectionalPad">Richtingspad</system:String>
+    <system:String x:Key="Ui.PressKey.Group.SystemAndSticks">Systeemknoppen en sticks</system:String>
+    <system:String x:Key="Ui.PressKey.Option.None">Geen</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadA">A-knop</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadB">B-knop</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadX">X-knop</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadY">Y-knop</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadAOrStart">A of Start</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBOrBack">B of Terug</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRShoulder">Rechter schouderknop (RB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLShoulder">Linker schouderknop (LB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRTrigger">Rechter trigger (RT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLTrigger">Linker trigger (LT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadUp">Richtingspad omhoog</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadDown">Richtingspad omlaag</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadLeft">Richtingspad links</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadRight">Richtingspad rechts</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadStart">Startknop</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBack">Terugknop</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLThumbPress">Linkerstick indrukken (L3)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRThumbPress">Rechterstick indrukken (R3)</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchLabel">Zoeken</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchAutomation">Zoek TextStyle voorinstellingen</system:String>
+    <system:String x:Key="Ui.TextStyle.NoResults">Geen overeenkomende tekststijlen.</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Top">Top-uitgelijnde aandelenstijlen</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Middle">Verticaal gecentreerde aandelenstijlen</system:String>
+    <system:String x:Key="Ui.TextStyle.SampleText">Voorbeeldtekst</system:String>
+    <system:String x:Key="Ui.TextStyle.StockUseCount">{0} voorraadgebruik</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.ToolTip">{0}
+Geserialiseerde waarde: {1}
+Hexadecimaal: {2}
+Bewijs: {3}</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.Automation">TextStyle {0}; waarde {1}</system:String>
+    <system:String x:Key="Ui.TextStyle.OpenAutomation">Kies TextStyle; huidige waarde {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnrecognizedSummary">Ongeldig TextStyle ({0})</system:String>
+    <system:String x:Key="Ui.TextStyle.ComposerHeading">Stel een stijl samen</system:String>
+    <system:String x:Key="Ui.TextStyle.Bold">Vet</system:String>
+    <system:String x:Key="Ui.TextStyle.Italic">Cursief</system:String>
+    <system:String x:Key="Ui.TextStyle.Underline">Onderstreep</system:String>
+    <system:String x:Key="Ui.TextStyle.Horizontal">Horizontaal</system:String>
+    <system:String x:Key="Ui.TextStyle.Vertical">Verticaal</system:String>
+    <system:String x:Key="Ui.TextStyle.Unspecified">Niet gespecificeerd</system:String>
+    <system:String x:Key="Ui.TextStyle.Left">Links</system:String>
+    <system:String x:Key="Ui.TextStyle.Center">Centrum</system:String>
+    <system:String x:Key="Ui.TextStyle.Right">Juist</system:String>
+    <system:String x:Key="Ui.TextStyle.Top">Boven</system:String>
+    <system:String x:Key="Ui.TextStyle.Middle">Midden</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility0010">Voorraadcompatibiliteit 0x0010</system:String>
+    <system:String x:Key="Ui.TextStyle.ScaleAware">Schaalbewuste glyphs 0x0001</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility4000">Compatibiliteit 0x4000</system:String>
+    <system:String x:Key="Ui.TextStyle.PreservedBits">Onbekende bits bewaard: {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.MixedComposer">Gemengde selectie: componeren vervangt verschillende stijlen; basis onbekende bits {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnknownBits">Onbekende bits {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyComposed">Stijl toepassen</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomHeading">Ruwe TextStyle waarde</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomDescription">Voer een decimaal bitmasker met teken of 0x-voorvoegsel in.</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomAutomation">Ruwe TextStyle numerieke waarde</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyCustom">Toepassen</system:String>
+    <system:String x:Key="Ui.TextStyle.InvalidCustom">Voer een geldig decimaal getal met teken of een geheel getal met een 0x-voorvoegsel in.</system:String>
 </ResourceDictionary>

@@ -2232,19 +2232,20 @@
                        {
                            "name":  "PressKey",
                            "type":  "WholeNumber",
-                           "category":  "Behavior",
-                           "defaultValue":  "0",
-                           "description":  "Observed in Dying Light stock XUI.",
+                           "category":  "Navigation",
+                           "defaultValue":  "22594",
+                           "description":  "Selects the keyboard or controller button hint and activation binding used by the control.",
                            "choices":  [
 
                                        ],
-                           "isAdvanced":  true,
+                           "isAdvanced":  false,
                            "isAnimatable":  true,
-                           "evidence":  "DyingLightStock",
-                           "previewSupport":  "PreserveOnly",
+                           "evidence":  "DyingLightBinary",
+                           "previewSupport":  "Exact",
                            "flags":  [
 
-                                     ]
+                                     ],
+                           "editorKind":  "PressKeyPalette"
                        },
                        {
                            "name":  "PressPath",
@@ -2823,7 +2824,8 @@
                            "previewSupport":  "Exact",
                            "flags":  [
 
-                                     ]
+                                     ],
+                           "editorKind":  "TextStylePalette"
                        },
                        {
                            "name":  "TextureWrapY",

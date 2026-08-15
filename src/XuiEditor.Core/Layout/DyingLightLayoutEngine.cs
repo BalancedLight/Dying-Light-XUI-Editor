@@ -4,6 +4,7 @@ using XuiEditor.Core.Animation;
 using XuiEditor.Core.Assets;
 using XuiEditor.Core.Diagnostics;
 using XuiEditor.Core.Documents;
+using XuiEditor.Core.Schema;
 using XuiEditor.Core.Values;
 
 namespace XuiEditor.Core.Layout;
@@ -655,23 +656,25 @@ public sealed class DyingLightLayoutEngine
             defaultColor,
             diagnostics);
         int textStyle = kind == XuiRenderKind.Text
-            ? properties.Integer("TextStyle", 0, diagnostics)
+            ? properties.TextStyle(0, diagnostics)
             : 0;
+        XuiDecodedTextStyle decodedTextStyle =
+            XuiTextStyleCodec.Decode(textStyle);
         bool bold = kind == XuiRenderKind.Text &&
                     (properties.Contains("Bold")
                         ? properties.Boolean("Bold", false, diagnostics)
-                        : (textStyle & 0x0004) != 0);
+                        : decodedTextStyle.Bold);
         bool italic = kind == XuiRenderKind.Text &&
                       (properties.Contains("Italic")
                           ? properties.Boolean("Italic", false, diagnostics)
-                          : (textStyle & 0x0002) != 0);
+                          : decodedTextStyle.Italic);
         bool underline = kind == XuiRenderKind.Text &&
                          (properties.Contains("Underline")
                              ? properties.Boolean(
                                  "Underline",
                                  false,
                                  diagnostics)
-                             : (textStyle & 0x0008) != 0);
+                             : decodedTextStyle.Underline);
         XuiTextHorizontalAlignment horizontalTextAlignment =
             kind == XuiRenderKind.Text
                 ? ParseHorizontalTextAlignment(
@@ -780,6 +783,9 @@ public sealed class DyingLightLayoutEngine
             Bold = bold,
             Italic = italic,
             Underline = underline,
+            TextStyleValue = textStyle,
+            ScaleAwareText = kind == XuiRenderKind.Text &&
+                             decodedTextStyle.ScaleAwareGlyphSizing,
             DesignTime = properties.Boolean(
                 "DesignTime",
                 false,
@@ -2228,7 +2234,7 @@ public sealed class DyingLightLayoutEngine
             instance.Visual.Contains(
                 "Button",
                 StringComparison.OrdinalIgnoreCase);
-        int pressKey = 22528;
+        int pressKey = 22594;
         string rawPressKey = properties.Text("PressKey").Trim();
         if (rawPressKey.Length > 0 &&
             XuiValueParser.TryInteger(rawPressKey, out int parsedPressKey))
@@ -2295,29 +2301,13 @@ public sealed class DyingLightLayoutEngine
 
     private static (string Keyboard, string Gamepad)
         ButtonHintForPressKey(int pressKey) =>
-        pressKey switch
-        {
-            3840 or 22528 or 22592 =>
-                ("&[PC_ENTER]&", "&[A]&"),
-            3841 or 22529 or 22593 =>
-                ("&[PC_ESC]&", "&[B]&"),
-            22530 => ("F", "&[X]&"),
-            22531 => ("C", "&[Y]&"),
-            22532 => ("Q", "&[LB]&"),
-            22533 => ("E", "&[RB]&"),
-            22534 => ("&[PC_BACK]&", "&[Back]&"),
-            22535 => ("&[PC_START]&", "&[Start]&"),
-            _ => ($"Key {pressKey}", string.Empty),
-        };
+        XuiPressKeyCatalog.TryResolve(pressKey, out XuiPressKeyOption option)
+            ? (option.KeyboardHint, option.GamepadHint)
+            : (string.Empty, string.Empty);
 
     private static bool KeyboardHintUsesSeparateBackground(int pressKey) =>
-        pressKey is not (
-            3840 or
-            3841 or
-            22528 or
-            22529 or
-            22592 or
-            22593);
+        XuiPressKeyCatalog.TryResolve(pressKey, out XuiPressKeyOption option) &&
+        option.KeyboardHintUsesSeparateBackground;
 
     private static bool ShouldAutoAdjustControlWidth(
         PropertyBag properties,
@@ -2453,7 +2443,7 @@ public sealed class DyingLightLayoutEngine
         {
             int pressKey = properties.Integer(
                 "PressKey",
-                22528,
+                22594,
                 diagnostics);
             (string keyboardHint, string gamepadHint) =
                 ButtonHintForPressKey(pressKey);
@@ -2717,7 +2707,7 @@ public sealed class DyingLightLayoutEngine
                     "T_HintPC",
                     StringComparison.OrdinalIgnoreCase))
             {
-                return keyboard;
+                return keyboard && KeyboardHint.Length > 0;
             }
 
             if (id.Equals(
@@ -2735,7 +2725,7 @@ public sealed class DyingLightLayoutEngine
                     "T_HintConsoles",
                     StringComparison.OrdinalIgnoreCase))
             {
-                return !keyboard;
+                return !keyboard && GamepadHint.Length > 0;
             }
 
             return authoredVisibility;
@@ -3054,6 +3044,28 @@ public sealed class DyingLightLayoutEngine
             if (XuiValueParser.TryInteger(value, out int result))
             {
                 return result;
+            }
+
+            Invalid(name, value, "integer", diagnostics);
+            return fallback;
+        }
+
+        public int TextStyle(
+            int fallback,
+            ICollection<XuiDiagnostic> diagnostics)
+        {
+            const string name = "TextStyle";
+            string value = Text(name);
+            if (value.Length == 0)
+            {
+                return fallback;
+            }
+
+            if (XuiTextStyleCodec.TryParse(
+                    value,
+                    out XuiDecodedTextStyle style))
+            {
+                return style.RawValue;
             }
 
             Invalid(name, value, "integer", diagnostics);

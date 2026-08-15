@@ -225,7 +225,8 @@ public sealed partial class XuiClassCatalog : IXuiClassCatalog
         bool IsAnimatable,
         XuiEvidenceLevel Evidence,
         XuiPreviewSupport PreviewSupport,
-        IReadOnlyList<string> Flags)
+        IReadOnlyList<string> Flags,
+        XuiPropertyEditorKind EditorKind = XuiPropertyEditorKind.Default)
     {
         public XuiPropertyDefinition ToDefinition() =>
             new(
@@ -239,7 +240,8 @@ public sealed partial class XuiClassCatalog : IXuiClassCatalog
                 IsAnimatable,
                 Evidence,
                 PreviewSupport,
-                Flags);
+                Flags,
+                EditorKind);
     }
 
     internal sealed record ClassDto(

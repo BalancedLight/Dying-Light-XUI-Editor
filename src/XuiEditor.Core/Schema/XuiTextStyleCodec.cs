@@ -6,13 +6,16 @@ namespace XuiEditor.Core.Schema;
 public enum XuiKnownTextStyle
 {
     None = 0,
+    ScaleAwareGlyphSizing = 0x0001,
     Italic = 0x0002,
     Bold = 0x0004,
     Underline = 0x0008,
+    Compatibility0010 = 0x0010,
     HorizontalLeft = 0x0100,
     HorizontalRight = 0x0200,
     HorizontalCenter = 0x0400,
     VerticalMiddle = 0x1000,
+    Compatibility4000 = 0x4000,
 }
 
 public enum XuiTextHorizontalStyle
@@ -25,7 +28,7 @@ public enum XuiTextHorizontalStyle
 
 public readonly record struct XuiDecodedTextStyle(int RawValue)
 {
-    public const int KnownMask = (int)(
+    public const int VisualMask = (int)(
         XuiKnownTextStyle.Italic |
         XuiKnownTextStyle.Bold |
         XuiKnownTextStyle.Underline |
@@ -33,6 +36,11 @@ public readonly record struct XuiDecodedTextStyle(int RawValue)
         XuiKnownTextStyle.HorizontalRight |
         XuiKnownTextStyle.HorizontalCenter |
         XuiKnownTextStyle.VerticalMiddle);
+    public const int CompatibilityMask = (int)(
+        XuiKnownTextStyle.ScaleAwareGlyphSizing |
+        XuiKnownTextStyle.Compatibility0010 |
+        XuiKnownTextStyle.Compatibility4000);
+    public const int KnownMask = VisualMask | CompatibilityMask;
     public const int HorizontalMask = (int)(
         XuiKnownTextStyle.HorizontalLeft |
         XuiKnownTextStyle.HorizontalRight |
@@ -40,6 +48,9 @@ public readonly record struct XuiDecodedTextStyle(int RawValue)
 
     public bool Italic =>
         Has(XuiKnownTextStyle.Italic);
+
+    public bool ScaleAwareGlyphSizing =>
+        Has(XuiKnownTextStyle.ScaleAwareGlyphSizing);
 
     public bool Bold =>
         Has(XuiKnownTextStyle.Bold);
@@ -49,6 +60,12 @@ public readonly record struct XuiDecodedTextStyle(int RawValue)
 
     public bool VerticalMiddle =>
         Has(XuiKnownTextStyle.VerticalMiddle);
+
+    public bool Compatibility0010 =>
+        Has(XuiKnownTextStyle.Compatibility0010);
+
+    public bool Compatibility4000 =>
+        Has(XuiKnownTextStyle.Compatibility4000);
 
     public XuiTextHorizontalStyle HorizontalAlignment =>
         (RawValue & HorizontalMask) switch
@@ -62,7 +79,13 @@ public readonly record struct XuiDecodedTextStyle(int RawValue)
             _ => XuiTextHorizontalStyle.Unspecified,
         };
 
-    public int UnmappedBits => RawValue & ~KnownMask;
+    // Compatibility property retained for callers that historically treated
+    // every non-visual bit as unmapped.
+    public int UnmappedBits => RawValue & ~VisualMask;
+
+    public int CompatibilityBits => RawValue & CompatibilityMask;
+
+    public int UnknownBits => RawValue & ~KnownMask;
 
     public bool Has(XuiKnownTextStyle style) =>
         (RawValue & (int)style) != 0;
@@ -133,4 +156,3 @@ public static class XuiTextStyleCodec
     public static string ToHexString(int rawValue) =>
         $"0x{rawValue:X8}";
 }
-

@@ -119,6 +119,10 @@ public sealed record XuiRenderNode(
 
     public bool Underline { get; init; }
 
+    public int TextStyleValue { get; init; }
+
+    public bool ScaleAwareText { get; init; }
+
     public bool DesignTime { get; init; }
 
     public XuiTextHorizontalAlignment HorizontalTextAlignment { get; init; }

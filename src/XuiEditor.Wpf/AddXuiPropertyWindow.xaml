@@ -1,6 +1,7 @@
 <Window x:Class="XuiEditor.Wpf.AddXuiPropertyWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:XuiEditor.Wpf.Controls"
         Title="{DynamicResource Ui.Xaml.AddXuiPropertyWindow.001}"
         Width="590"
         Height="520"
@@ -122,6 +123,14 @@
             <ComboBox x:Name="ChoiceValueCombo"
                       Grid.Column="1"
                       Visibility="Collapsed" />
+            <controls:PressKeyPicker x:Name="PressKeyValuePicker"
+                                     Grid.Column="1"
+                                     Visibility="Collapsed"
+                                     ValueCommitted="PressKeyValuePicker_ValueCommitted" />
+            <controls:TextStylePicker x:Name="TextStyleValuePicker"
+                                      Grid.Column="1"
+                                      Visibility="Collapsed"
+                                      ValueCommitted="TextStyleValuePicker_ValueCommitted" />
         </Grid>
 
         <Border Grid.Row="5"

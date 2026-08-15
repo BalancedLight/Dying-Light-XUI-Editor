@@ -67,13 +67,16 @@ Recovered `TextStyle` bits used by the renderer are:
 
 | Bit | Meaning |
 | ---: | --- |
+| `0x0001` | scale-aware glyph sizing using the smaller X/Y element scale |
 | `0x0002` | italic |
 | `0x0004` | bold |
 | `0x0008` | underline |
+| `0x0010` | recognized compatibility state; preserved without an invented effect |
 | `0x0100` | left |
 | `0x0200` | right |
 | `0x0400` | horizontal center |
 | `0x1000` | vertical middle |
+| `0x4000` | recognized compatibility state; preserved without an invented effect |
 
 Point size, uppercase, multiline behavior, text and default font color,
 outline size/color, and shadow offset/color are retained in immutable render

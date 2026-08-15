@@ -91,6 +91,7 @@ public sealed class UiLocalizationTests
         "Pivot",
         "PointSize",
         "Position",
+        "PressKey",
         "Rotation",
         "Scale",
         "ScaleWidthByResolution",
@@ -378,7 +379,7 @@ public sealed class UiLocalizationTests
         string[] expected = ExpectedInspectorHelp
             .Order(StringComparer.Ordinal)
             .ToArray();
-        Assert.AreEqual(60, actual.Length);
+        Assert.AreEqual(61, actual.Length);
         CollectionAssert.AreEqual(expected, actual);
         CollectionAssert.AreEquivalent(expected, canonical.Keys.ToArray());
 

@@ -774,6 +774,7 @@ Open it as an unsaved document?</system:String>
     <system:String x:Key="Ui.Main.Status.UndidRebind">Undid the last workspace rebind across {0:N0} files.</system:String>
     <system:String x:Key="Ui.Main.Status.UnsupportedRotation">Rotation uses an unsupported authored value and was not changed.</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Mixed">Raw TextStyle: mixed values</system:String>
+    <system:String x:Key="Ui.Main.TextStyle.RawDetailed">Raw {0} / {1} - compatibility {2} - unknown {3}</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Raw">Raw {0} / {1} · unmapped {2}</system:String>
     <system:String x:Key="Ui.Main.Timeline.MixedScopes">Mixed timeline scopes</system:String>
     <system:String x:Key="Ui.Main.Timeline.NoScope">No timeline scope</system:String>
@@ -900,4 +901,84 @@ Open it as an unsaved document?</system:String>
     <system:String x:Key="Ui.Animation.Error.SiblingSample">Could not sample all sibling properties for '{0}' at tick {1}.</system:String>
     <system:String x:Key="Ui.Animation.Error.InvalidValue">'{0}' is invalid for timeline property '{1}'.</system:String>
     <system:String x:Key="Ui.Animation.Error.DuplicateTargetId">Target Id '{0}' is duplicated in the document and cannot be animated unambiguously.</system:String>
+    <system:String x:Key="Ui.PressKey.SearchLabel">Search</system:String>
+    <system:String x:Key="Ui.PressKey.SearchAutomation">Search PressKey choices</system:String>
+    <system:String x:Key="Ui.PressKey.NoResults">No matching buttons.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomHeading">Custom numeric value</system:String>
+    <system:String x:Key="Ui.PressKey.CustomDescription">Enter a signed whole number for a mod-authored or currently unknown PressKey value.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomAutomation">Custom PressKey numeric value</system:String>
+    <system:String x:Key="Ui.PressKey.ApplyCustom">Apply</system:String>
+    <system:String x:Key="Ui.PressKey.Option.ToolTip">{0}
+PC: {1}
+Controller: {2}
+Serialized value: {3}
+Engine enum: {4}</system:String>
+    <system:String x:Key="Ui.PressKey.Option.Automation">{0}; PC {1}; controller {2}</system:String>
+    <system:String x:Key="Ui.PressKey.OpenAutomation">Choose PressKey; current value {0}</system:String>
+    <system:String x:Key="Ui.PressKey.CustomSummary">Custom ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.UnrecognizedSummary">Unrecognized ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.InvalidCustom">Enter a valid signed whole number.</system:String>
+    <system:String x:Key="Ui.Inspector.Property.PressKey.Purpose">Selects the keyboard or controller button hint and activation binding used by the control.</system:String>
+    <system:String x:Key="Ui.PressKey.Group.None">No binding</system:String>
+    <system:String x:Key="Ui.PressKey.Group.FaceButtons">Face buttons</system:String>
+    <system:String x:Key="Ui.PressKey.Group.ShouldersAndTriggers">Shoulders and triggers</system:String>
+    <system:String x:Key="Ui.PressKey.Group.DirectionalPad">Directional pad</system:String>
+    <system:String x:Key="Ui.PressKey.Group.SystemAndSticks">System buttons and sticks</system:String>
+    <system:String x:Key="Ui.PressKey.Option.None">None</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadA">A button</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadB">B button</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadX">X button</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadY">Y button</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadAOrStart">A or Start</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBOrBack">B or Back</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRShoulder">Right shoulder (RB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLShoulder">Left shoulder (LB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRTrigger">Right trigger (RT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLTrigger">Left trigger (LT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadUp">D-pad up</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadDown">D-pad down</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadLeft">D-pad left</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadRight">D-pad right</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadStart">Start button</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBack">Back button</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLThumbPress">Left stick press (L3)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRThumbPress">Right stick press (R3)</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchLabel">Search</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchAutomation">Search TextStyle presets</system:String>
+    <system:String x:Key="Ui.TextStyle.NoResults">No matching text styles.</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Top">Top-aligned stock styles</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Middle">Vertically centered stock styles</system:String>
+    <system:String x:Key="Ui.TextStyle.SampleText">Sample text</system:String>
+    <system:String x:Key="Ui.TextStyle.StockUseCount">{0} stock uses</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.ToolTip">{0}
+Serialized value: {1}
+Hexadecimal: {2}
+Evidence: {3}</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.Automation">TextStyle {0}; value {1}</system:String>
+    <system:String x:Key="Ui.TextStyle.OpenAutomation">Choose TextStyle; current value {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnrecognizedSummary">Invalid TextStyle ({0})</system:String>
+    <system:String x:Key="Ui.TextStyle.ComposerHeading">Compose a style</system:String>
+    <system:String x:Key="Ui.TextStyle.Bold">Bold</system:String>
+    <system:String x:Key="Ui.TextStyle.Italic">Italic</system:String>
+    <system:String x:Key="Ui.TextStyle.Underline">Underline</system:String>
+    <system:String x:Key="Ui.TextStyle.Horizontal">Horizontal</system:String>
+    <system:String x:Key="Ui.TextStyle.Vertical">Vertical</system:String>
+    <system:String x:Key="Ui.TextStyle.Unspecified">Unspecified</system:String>
+    <system:String x:Key="Ui.TextStyle.Left">Left</system:String>
+    <system:String x:Key="Ui.TextStyle.Center">Center</system:String>
+    <system:String x:Key="Ui.TextStyle.Right">Right</system:String>
+    <system:String x:Key="Ui.TextStyle.Top">Top</system:String>
+    <system:String x:Key="Ui.TextStyle.Middle">Middle</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility0010">Stock compatibility 0x0010</system:String>
+    <system:String x:Key="Ui.TextStyle.ScaleAware">Scale-aware glyphs 0x0001</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility4000">Compatibility 0x4000</system:String>
+    <system:String x:Key="Ui.TextStyle.PreservedBits">Preserved unknown bits: {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.MixedComposer">Mixed selection: composing replaces differing styles; base unknown bits {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnknownBits">Unknown bits {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyComposed">Apply style</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomHeading">Raw TextStyle value</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomDescription">Enter a signed decimal or 0x-prefixed whole-number bitmask.</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomAutomation">Raw TextStyle numeric value</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyCustom">Apply</system:String>
+    <system:String x:Key="Ui.TextStyle.InvalidCustom">Enter a valid signed decimal or 0x-prefixed whole number.</system:String>
 </ResourceDictionary>

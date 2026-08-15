@@ -1,0 +1,219 @@
+<UserControl x:Class="XuiEditor.Wpf.Controls.PressKeyPicker"
+             x:Name="Root"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             MinWidth="130"
+             Unloaded="Root_Unloaded">
+    <Grid>
+        <ToggleButton x:Name="OpenButton"
+                      HorizontalContentAlignment="Stretch"
+                      Checked="OpenButton_Checked"
+                      Unchecked="OpenButton_Unchecked">
+            <Grid Margin="1,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="SummaryNameText"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <Border x:Name="SummaryKeyboardBadge"
+                        Grid.Column="1"
+                        Margin="6,0,0,0"
+                        Padding="5,1"
+                        VerticalAlignment="Center"
+                        Background="{StaticResource PanelBrush}"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="2">
+                    <TextBlock x:Name="SummaryKeyboardText"
+                               FontSize="10" />
+                </Border>
+                <Border x:Name="SummaryGamepadBadge"
+                        Grid.Column="2"
+                        Margin="4,0,0,0"
+                        Padding="5,1"
+                        VerticalAlignment="Center"
+                        Background="{StaticResource PanelRaisedBrush}"
+                        BorderBrush="{StaticResource AccentBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                    <TextBlock x:Name="SummaryGamepadText"
+                               FontSize="10"
+                               Foreground="{StaticResource AccentBrush}" />
+                </Border>
+                <TextBlock Grid.Column="3"
+                           Margin="7,0,1,0"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource MutedTextBrush}"
+                           Text="▾" />
+            </Grid>
+        </ToggleButton>
+
+        <Popup x:Name="PickerPopup"
+               PlacementTarget="{Binding ElementName=OpenButton}"
+               Placement="Bottom"
+               AllowsTransparency="True"
+               StaysOpen="False"
+               Closed="PickerPopup_Closed">
+            <Border Width="540"
+                    MaxHeight="520"
+                    Margin="0,3,0,0"
+                    Padding="12"
+                    Background="{StaticResource WindowBrush}"
+                    BorderBrush="{StaticResource AccentBrush}"
+                    BorderThickness="1"
+                    CornerRadius="3"
+                    KeyboardNavigation.TabNavigation="Cycle"
+                    PreviewKeyDown="PickerPopup_PreviewKeyDown">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Margin="0,0,8,0"
+                                   VerticalAlignment="Center"
+                                   Text="{DynamicResource Ui.PressKey.SearchLabel}" />
+                        <TextBox x:Name="SearchTextBox"
+                                 Grid.Column="1"
+                                 AutomationProperties.Name="{DynamicResource Ui.PressKey.SearchAutomation}"
+                                 TextChanged="SearchTextBox_TextChanged"
+                                 KeyDown="SearchTextBox_KeyDown" />
+                    </Grid>
+
+                    <ScrollViewer Grid.Row="1"
+                                  Margin="0,8,0,0"
+                                  MaxHeight="360"
+                                  VerticalScrollBarVisibility="Auto">
+                        <Grid>
+                            <ItemsControl x:Name="GroupItems">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,0,0,8">
+                                            <TextBlock Margin="2,0,0,4"
+                                                       Text="{Binding Header}"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource AccentBrush}" />
+                                            <ItemsControl ItemsSource="{Binding Items}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <UniformGrid Columns="3" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Button MinHeight="66"
+                                                                Margin="2"
+                                                                Padding="7,5"
+                                                                HorizontalContentAlignment="Stretch"
+                                                                VerticalContentAlignment="Stretch"
+                                                                Tag="{Binding}"
+                                                                ToolTip="{Binding ToolTip}"
+                                                                AutomationProperties.Name="{Binding AutomationName}"
+                                                                Click="PickerTile_Click">
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding DisplayName}"
+                                                                           FontWeight="SemiBold"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                                <WrapPanel Margin="0,5,0,0">
+                                                                    <Border Margin="0,0,4,0"
+                                                                            Padding="5,1"
+                                                                            Background="{StaticResource PanelBrush}"
+                                                                            BorderBrush="{StaticResource BorderBrush}"
+                                                                            BorderThickness="1"
+                                                                            CornerRadius="2">
+                                                                        <Border.Style>
+                                                                            <Style TargetType="Border">
+                                                                                <Setter Property="Visibility" Value="Visible" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding HasKeyboardLabel}"
+                                                                                                 Value="False">
+                                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Border.Style>
+                                                                        <TextBlock Text="{Binding KeyboardLabel}"
+                                                                                   FontSize="10" />
+                                                                    </Border>
+                                                                    <Border Padding="5,1"
+                                                                            Background="{StaticResource PanelRaisedBrush}"
+                                                                            BorderBrush="{StaticResource AccentBrush}"
+                                                                            BorderThickness="1"
+                                                                            CornerRadius="8">
+                                                                        <Border.Style>
+                                                                            <Style TargetType="Border">
+                                                                                <Setter Property="Visibility" Value="Visible" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding HasGamepadLabel}"
+                                                                                                 Value="False">
+                                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Border.Style>
+                                                                        <TextBlock Text="{Binding GamepadLabel}"
+                                                                                   FontSize="10"
+                                                                                   Foreground="{StaticResource AccentBrush}" />
+                                                                    </Border>
+                                                                </WrapPanel>
+                                                            </StackPanel>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock x:Name="NoResultsText"
+                                       Visibility="Collapsed"
+                                       HorizontalAlignment="Center"
+                                       Margin="12"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Text="{DynamicResource Ui.PressKey.NoResults}" />
+                        </Grid>
+                    </ScrollViewer>
+
+                    <Expander Grid.Row="2"
+                              Margin="0,4,0,0"
+                              Header="{DynamicResource Ui.PressKey.CustomHeading}">
+                        <StackPanel Margin="0,7,0,0">
+                            <TextBlock Text="{DynamicResource Ui.PressKey.CustomDescription}"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       TextWrapping="Wrap" />
+                            <Grid Margin="0,7,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="CustomValueTextBox"
+                                         AutomationProperties.Name="{DynamicResource Ui.PressKey.CustomAutomation}"
+                                         TextChanged="CustomValueTextBox_TextChanged"
+                                         KeyDown="CustomValueTextBox_KeyDown" />
+                                <Button Grid.Column="1"
+                                        MinWidth="74"
+                                        Margin="7,0,0,0"
+                                        Content="{DynamicResource Ui.PressKey.ApplyCustom}"
+                                        Click="ApplyCustom_Click" />
+                            </Grid>
+                            <TextBlock x:Name="CustomErrorText"
+                                       Margin="0,5,0,0"
+                                       Foreground="{StaticResource DangerBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Expander>
+                </Grid>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

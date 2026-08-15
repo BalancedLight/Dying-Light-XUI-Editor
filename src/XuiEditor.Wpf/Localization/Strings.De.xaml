@@ -410,8 +410,8 @@
     <system:String x:Key="Ui.Inspector.Property.KeepPosX.Purpose">Behält die erstellte X-Position bei, wenn sich die Größe des übergeordneten Elements ändert.</system:String>
     <system:String x:Key="Ui.Inspector.Property.KeepPosXOnParentSizeChange.Purpose">Behält die erstellte X-Position bei, wenn sich die Größe des übergeordneten Elements ändert.</system:String>
     <system:String x:Key="Ui.Inspector.Property.KeepPosXOnResolutionChange.Purpose">Behält die erstellte X-Position bei, wenn sich die Vorschauauflösung ändert.</system:String>
-    <system:String x:Key="Ui.Inspector.Property.KeepPosY.Purpose">Behält die erstellte Y-Position bei, wenn sich die Größe des übergeordneten Elements ändert.</system:String>
-    <system:String x:Key="Ui.Inspector.Property.KeepPosYOnParentSizeChange.Purpose">Behält die erstellte Y-Position bei, wenn sich die Größe des übergeordneten Elements ändert.</system:String>
+    <system:String x:Key="Ui.Inspector.Property.KeepPosY.Purpose">Behält die erstellte Y-Position bei, wenn sich die übergeordnete Größe ändert.</system:String>
+    <system:String x:Key="Ui.Inspector.Property.KeepPosYOnParentSizeChange.Purpose">Behält die erstellte Y-Position bei, wenn sich die übergeordnete Größe ändert.</system:String>
     <system:String x:Key="Ui.Inspector.Property.KeepPosYOnResolutionChange.Purpose">Behält die erstellte Y-Position bei, wenn sich die Vorschauauflösung ändert.</system:String>
     <system:String x:Key="Ui.Inspector.Property.ScaleWidthByResolution.Purpose">Skaliert die Breite um den horizontalen Faktor der Vorschauauflösung.</system:String>
     <system:String x:Key="Ui.Inspector.Property.Text.Purpose">Legt Literaltext oder einen Lokalisierungsschlüssel fest, der durch die ausgewählte Vorschausprache aufgelöst wird.</system:String>
@@ -575,11 +575,11 @@
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT008">Es wurde ein visueller Vorlagenzyklus erkannt.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT009">Ein Bild wurde nicht gefunden und ist in der Vorschau transparent.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT010">Das Auflösungsänderungsverhalten beinhaltet eine explizite Editor-Näherung.</system:String>
-    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT011">Das Masken-Sampling beinhaltet eine explizite Editor-Näherung.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT011">Das Masken-Sampling umfasst eine explizite Editor-Näherung.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT012">Die vertikale Textausrichtung ist unbekannt. Es wird eine obere Ausrichtung verwendet.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT013">Die automatische Breite der Schaltfläche war ungültig. Die erstellte Geometrie bleibt erhalten.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT014">Das aktive Controller-Profil ändert den effektiven Vorschaustatus.</system:String>
-    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">Eine veraltete skalare oder Euler-Rotation wird beim Speichern des Dokuments in ein Dying Light-Quaternion konvertiert.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-LAYOUT015">Ein älterer Skalar oder eine Euler-Rotation wird beim Speichern des Dokuments in eine Dying Light-Quaternion konvertiert.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC001">Ein Lokalisierungskatalog konnte nicht gelesen werden.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC002">Ein Lokalisierungsschlüssel wird mehr als einmal deklariert.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-LOC003">Ein Lokalisierungskatalog verfügt über nachgestellte Bytes.</system:String>
@@ -600,7 +600,7 @@
     <system:String x:Key="Ui.Diagnostic.XUI-TL009">Ein benanntes Frame-Ziel wird im selben Bereich dupliziert.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL010">Ein benannter Frame-Befehlszyklus wurde erkannt.</system:String>
     <system:String x:Key="Ui.Diagnostic.XUI-TL011">Es wurde kein benanntes Frame-Ziel gefunden.</system:String>
-    <system:String x:Key="Ui.Diagnostic.XUI-TL012">Eine veraltete skalare oder Euler-Zeitleistenrotation wird beim Speichern des Dokuments in ein Dying Light-Quaternion konvertiert.</system:String>
+    <system:String x:Key="Ui.Diagnostic.XUI-TL012">Eine ältere Skalar- oder Euler-Timeline-Rotation wird beim Speichern des Dokuments in eine Dying Light-Quaternion konvertiert.</system:String>
     <system:String x:Key="Ui.Common.Mixed">— gemischt —</system:String>
     <system:String x:Key="Ui.Main.AddParent.Action">Wrap-Element</system:String>
     <system:String x:Key="Ui.Main.AddParent.Instruction">Wickeln Sie {0} in ein neues visuelles übergeordnetes Element ein. Die Standardgruppe verfügt über eine Identitätstransformation und die alte übergeordnete Größe, sodass das untergeordnete Element nicht springt.</system:String>
@@ -756,7 +756,7 @@ Als nicht gespeichertes Dokument öffnen?</system:String>
     <system:String x:Key="Ui.Main.Status.RenderingPng">Transparent rendern 2× PNG…</system:String>
     <system:String x:Key="Ui.Main.Status.ReplacedRawXml">Raw XML durch {0} ersetzt</system:String>
     <system:String x:Key="Ui.Main.Status.Saved">Gespeichert</system:String>
-    <system:String x:Key="Ui.Main.Status.SavedBackup">Gespeichert · Sicherung: {0}</system:String>
+    <system:String x:Key="Ui.Main.Status.SavedBackup">Gespeichert · Backup: {0}</system:String>
     <system:String x:Key="Ui.Main.Status.SelectAnimatedElement">Wählen Sie zunächst ein animiertes Element oder einen vorhandenen Keyframe aus.</system:String>
     <system:String x:Key="Ui.Main.Status.SelectOneAddChild">Wählen Sie genau ein Hierarchieelement aus, um ein untergeordnetes Element hinzuzufügen.</system:String>
     <system:String x:Key="Ui.Main.Status.SelectOneAddParent">Wählen Sie genau ein Hierarchieelement aus, um ein übergeordnetes Element hinzuzufügen.</system:String>
@@ -774,6 +774,7 @@ Als nicht gespeichertes Dokument öffnen?</system:String>
     <system:String x:Key="Ui.Main.Status.UndidRebind">Die letzte Neubindung des Arbeitsbereichs für {0:N0}-Dateien wurde rückgängig gemacht.</system:String>
     <system:String x:Key="Ui.Main.Status.UnsupportedRotation">Rotation verwendet einen nicht unterstützten erstellten Wert und wurde nicht geändert.</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Mixed">Raw TextStyle: gemischte Werte</system:String>
+    <system:String x:Key="Ui.Main.TextStyle.RawDetailed">Raw {0} / {1} – Kompatibilität {2} – unbekannt {3}</system:String>
     <system:String x:Key="Ui.Main.TextStyle.Raw">Roh {0} / {1} · nicht zugeordnetes {2}</system:String>
     <system:String x:Key="Ui.Main.Timeline.MixedScopes">Gemischte Zeitachsenbereiche</system:String>
     <system:String x:Key="Ui.Main.Timeline.NoScope">Kein Zeitleistenbereich</system:String>
@@ -791,7 +792,7 @@ Als nicht gespeichertes Dokument öffnen?</system:String>
     <system:String x:Key="Ui.Main.Workspace.CreateScreen">Bildschirm „Arbeitsbereich XUI erstellen“.</system:String>
     <system:String x:Key="Ui.Main.Workspace.CreateVisual">Erstellen Sie eine visuelle Bibliothek für den Arbeitsbereich XUI</system:String>
     <system:String x:Key="Ui.Main.Workspace.RenameXui">Arbeitsbereich XUI umbenennen</system:String>
-    <system:String x:Key="Ui.Main.Workspace.RequiredPrompt">Konfigurieren Sie zunächst einen beschreibbaren Arbeitsbereichsstamm unter Einstellungen → Dying Light-Ressourcen.</system:String>
+    <system:String x:Key="Ui.Main.Workspace.RequiredPrompt">Konfigurieren Sie zunächst einen beschreibbaren Arbeitsbereichsstamm unter Einstellungen → Dying Light Ressourcen.</system:String>
     <system:String x:Key="Ui.Main.Workspace.RequiredTitle">Arbeitsbereich erforderlich</system:String>
     <system:String x:Key="Ui.Main.Workspace.SaveBeforeTransaction">Speichern oder verwerfen Sie die aktuellen Dokumentbearbeitungen, bevor Sie arbeitsbereichsweite Referenzen ändern.</system:String>
     <system:String x:Key="Ui.Main.Workspace.UnsavedTitle">Nicht gespeichertes Dokument</system:String>
@@ -900,4 +901,84 @@ Als nicht gespeichertes Dokument öffnen?</system:String>
     <system:String x:Key="Ui.Animation.Error.SiblingSample">Es konnten nicht alle gleichgeordneten Eigenschaften für „{0}“ bei Tick {1} abgetastet werden.</system:String>
     <system:String x:Key="Ui.Animation.Error.InvalidValue">„{0}“ ist für die Timeline-Eigenschaft „{1}“ ungültig.</system:String>
     <system:String x:Key="Ui.Animation.Error.DuplicateTargetId">Ziel Id '{0}' ist im Dokument dupliziert und kann nicht eindeutig animiert werden.</system:String>
+    <system:String x:Key="Ui.PressKey.SearchLabel">Suchen</system:String>
+    <system:String x:Key="Ui.PressKey.SearchAutomation">Durchsuchen Sie die PressKey-Optionen</system:String>
+    <system:String x:Key="Ui.PressKey.NoResults">Keine passenden Knöpfe.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomHeading">Benutzerdefinierter numerischer Wert</system:String>
+    <system:String x:Key="Ui.PressKey.CustomDescription">Geben Sie eine ganze Zahl mit Vorzeichen für einen vom Mod erstellten oder derzeit unbekannten PressKey-Wert ein.</system:String>
+    <system:String x:Key="Ui.PressKey.CustomAutomation">Benutzerdefinierter numerischer PressKey-Wert</system:String>
+    <system:String x:Key="Ui.PressKey.ApplyCustom">Anwenden</system:String>
+    <system:String x:Key="Ui.PressKey.Option.ToolTip">{0}
+PC: {1}
+Controller: {2}
+Serialisierter Wert: {3}
+Engine-Enum: {4}</system:String>
+    <system:String x:Key="Ui.PressKey.Option.Automation">{0}; PC {1}; Controller {2}</system:String>
+    <system:String x:Key="Ui.PressKey.OpenAutomation">Wählen Sie „PressKey“; aktueller Wert {0}</system:String>
+    <system:String x:Key="Ui.PressKey.CustomSummary">Benutzerdefiniert ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.UnrecognizedSummary">Nicht erkannt ({0})</system:String>
+    <system:String x:Key="Ui.PressKey.InvalidCustom">Geben Sie eine gültige ganze Zahl mit Vorzeichen ein.</system:String>
+    <system:String x:Key="Ui.Inspector.Property.PressKey.Purpose">Wählt den Tastatur- oder Controller-Tastenhinweis und die Aktivierungsbindung aus, die vom Steuerelement verwendet werden.</system:String>
+    <system:String x:Key="Ui.PressKey.Group.None">Keine Bindung</system:String>
+    <system:String x:Key="Ui.PressKey.Group.FaceButtons">Gesichtsknöpfe</system:String>
+    <system:String x:Key="Ui.PressKey.Group.ShouldersAndTriggers">Schultern und Auslöser</system:String>
+    <system:String x:Key="Ui.PressKey.Group.DirectionalPad">Richtungspad</system:String>
+    <system:String x:Key="Ui.PressKey.Group.SystemAndSticks">Systemtasten und Sticks</system:String>
+    <system:String x:Key="Ui.PressKey.Option.None">Keine</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadA">Ein Knopf</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadB">B-Taste</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadX">X-Taste</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadY">Y-Taste</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadAOrStart">A oder Start</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBOrBack">B oder Zurück</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRShoulder">Rechte Schulter (RB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLShoulder">Linke Schulter (LB)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRTrigger">Rechter Abzug (RT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLTrigger">Linker Abzug (LT)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadUp">Steuerkreuz nach oben</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadDown">D-Pad nach unten</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadLeft">D-Pad links</system:String>
+    <system:String x:Key="Ui.PressKey.Option.DPadRight">Steuerkreuz rechts</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadStart">Start-Taste</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadBack">Zurück-Taste</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadLThumbPress">Linken Stick drücken (L3)</system:String>
+    <system:String x:Key="Ui.PressKey.Option.PadRThumbPress">Drücken Sie den rechten Stick (R3)</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchLabel">Suchen</system:String>
+    <system:String x:Key="Ui.TextStyle.SearchAutomation">Suchen Sie nach TextStyle-Voreinstellungen</system:String>
+    <system:String x:Key="Ui.TextStyle.NoResults">Keine passenden Textstile.</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Top">Oben ausgerichtete Standardformate</system:String>
+    <system:String x:Key="Ui.TextStyle.Group.Middle">Vertikal zentrierte Lagerstile</system:String>
+    <system:String x:Key="Ui.TextStyle.SampleText">Beispieltext</system:String>
+    <system:String x:Key="Ui.TextStyle.StockUseCount">{0} Lagerverwendungen</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.ToolTip">{0}
+Serialisierter Wert: {1}
+Hexadezimal: {2}
+Beweis: {3}</system:String>
+    <system:String x:Key="Ui.TextStyle.Option.Automation">TextStyle {0}; Wert {1}</system:String>
+    <system:String x:Key="Ui.TextStyle.OpenAutomation">Wählen Sie TextStyle; aktueller Wert {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnrecognizedSummary">Ungültiges TextStyle ({0})</system:String>
+    <system:String x:Key="Ui.TextStyle.ComposerHeading">Verfassen Sie einen Stil</system:String>
+    <system:String x:Key="Ui.TextStyle.Bold">Fett</system:String>
+    <system:String x:Key="Ui.TextStyle.Italic">Kursiv</system:String>
+    <system:String x:Key="Ui.TextStyle.Underline">Unterstreichen</system:String>
+    <system:String x:Key="Ui.TextStyle.Horizontal">Horizontal</system:String>
+    <system:String x:Key="Ui.TextStyle.Vertical">Vertikal</system:String>
+    <system:String x:Key="Ui.TextStyle.Unspecified">Nicht spezifiziert</system:String>
+    <system:String x:Key="Ui.TextStyle.Left">Links</system:String>
+    <system:String x:Key="Ui.TextStyle.Center">Mitte</system:String>
+    <system:String x:Key="Ui.TextStyle.Right">Richtig</system:String>
+    <system:String x:Key="Ui.TextStyle.Top">Top</system:String>
+    <system:String x:Key="Ui.TextStyle.Middle">Mitte</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility0010">Bestandskompatibilität 0x0010</system:String>
+    <system:String x:Key="Ui.TextStyle.ScaleAware">Skalierungsfähige Glyphen 0x0001</system:String>
+    <system:String x:Key="Ui.TextStyle.Compatibility4000">Kompatibilität 0x4000</system:String>
+    <system:String x:Key="Ui.TextStyle.PreservedBits">Erhaltene unbekannte Bits: {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.MixedComposer">Gemischte Auswahl: Komponieren ersetzt unterschiedliche Stile; Basis unbekannte Bits {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.UnknownBits">Unbekannte Bits {0}</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyComposed">Stil anwenden</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomHeading">Rohwert TextStyle</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomDescription">Geben Sie eine vorzeichenbehaftete Dezimalzahl oder eine Ganzzahl-Bitmaske mit 0x-Präfix ein.</system:String>
+    <system:String x:Key="Ui.TextStyle.CustomAutomation">Roher numerischer TextStyle-Wert</system:String>
+    <system:String x:Key="Ui.TextStyle.ApplyCustom">Anwenden</system:String>
+    <system:String x:Key="Ui.TextStyle.InvalidCustom">Geben Sie eine gültige Dezimalzahl mit Vorzeichen oder eine ganze Zahl mit dem Präfix 0x ein.</system:String>
 </ResourceDictionary>

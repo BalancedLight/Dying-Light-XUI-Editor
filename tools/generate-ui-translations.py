@@ -17,6 +17,7 @@ import re
 import time
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -57,6 +58,8 @@ TRANSLATION_OVERRIDES = {
     ("Pl", "Ui.Command.Reparent"): "Zmień element nadrzędny {0}",
     ("Nl", "Ui.Xaml.MainWindow.057"): "XUI openen (Ctrl+O)",
     ("Nl", "Ui.Xaml.MainWindow.070"): "Inzoomen",
+    ("Nl", "Ui.PressKey.Option.Automation"):
+        "{0}; pc {1}; gamepad {2}",
     ("Nl", "Ui.Xaml.StockXuiBrowserWindow.002"):
         "Browser voor standaard-XUI's",
     ("Nl", "Ui.Main.Open.Title"): "Dying Light XUI openen",
@@ -982,19 +985,40 @@ def write_xaml(code: str, catalog: dict[str, str], font: str) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
+def read_existing_catalog(code: str) -> dict[str, str]:
+    path = LOCALIZATION / f"Strings.{code}.xaml"
+    if not path.exists():
+        return {}
+    root = ET.parse(path).getroot()
+    key_name = "{http://schemas.microsoft.com/winfx/2006/xaml}Key"
+    return {
+        element.attrib[key_name]: element.text or ""
+        for element in root
+        if key_name in element.attrib
+    }
+
+
 def translate_catalog(
     code: str,
     target: str,
     english: dict[str, str],
 ) -> dict[str, str]:
+    existing = read_existing_catalog(code)
     masked_entries: list[tuple[str, str, list[str]]] = []
     for key, value in english.items():
         if key == "Ui.FontFamily":
             continue
+        if key in existing:
+            try:
+                validate_entry(key, value, existing[key])
+            except ValueError:
+                pass
+            else:
+                continue
         masked, tokens = mask_text(value, key)
         masked_entries.append((key, masked, tokens))
 
-    translated: dict[str, str] = {}
+    translated: dict[str, str] = dict(existing)
     batches = make_batches(masked_entries)
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
         futures = [
