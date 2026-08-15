@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">PNG εικόνα (*.png)|*.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)|*.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|*.xui|Όλα τα αρχεία (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">Αυτό το XUI περιέχει {0:N0} συμπλεκτικά σύμβολα χωρίς διαφυγή. Να τα διορθώσω στο πρόγραμμα επεξεργασίας και να το ανοίξω; Το αρχείο προέλευσης θα παραμείνει αμετάβλητο μέχρι να το αποθηκεύσετε.</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">Διόρθωση μορφοποίησης XUI;</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">Το "{0}" δεν είναι έγκυρο για {1}. Το βασικό καρέ δεν άλλαξε.</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">Αυτό το λανθασμένο βασικό καρέ δεν έχει αντίστοιχο στοιχείο Prop.</system:String>
@@ -736,6 +738,7 @@
     <system:String x:Key="Ui.Main.Status.NothingPasted">Δεν επικολλήθηκε τίποτα · {0:N0} μη συμβατό ή κλειδωμένο · {1:N0} έχει ήδη αντιστοιχιστεί</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">Δεν επικολλήθηκε τίποτα · κάθε ισχύουσα τιμή έχει ήδη αντιστοιχιστεί</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">Το άνοιγμα απέτυχε</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">Άνοιξε μετά από διαφυγή {0:N0} ακατέργαστων συμπλεκτών. Αποθηκεύστε για να διατηρήσετε την επισκευή μορφοποίησης.</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">Έναρξη μετοχών {0}…</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">Άνοιγμα XUI…</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">Επικολλήθηκαν τιμές ιδιοτήτων {0:N0} σε στοιχεία {1:N0} · {2:N0} μη συμβατό ή κλειδωμένο · {3:N0} έχει ήδη αντιστοιχιστεί</system:String>
@@ -981,4 +984,14 @@
     <system:String x:Key="Ui.TextStyle.CustomAutomation">Ακατέργαστη αριθμητική τιμή TextStyle</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">Εφαρμογή</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">Εισαγάγετε έναν έγκυρο υπογεγραμμένο δεκαδικό ή ακέραιο αριθμό με πρόθεμα 0x.</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">Αποθήκευση όλων</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">Κλείσιμο καρτέλας</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">Κλείσιμο εγγράφου</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">Υπάρχουν {0:N0} ανακτήσεις. Ναι: ανάκτηση όλων. Όχι: απόρριψη όλων. Ακύρωση: απόφαση αργότερα.</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">Το έγγραφο είναι ήδη ανοιχτό</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">{0:N0} έγγραφα έχουν μη αποθηκευμένες αλλαγές:\n\n{1}\n\nΝαι: αποθήκευση όλων και έξοδος. Όχι: απόρριψη όλων και έξοδος. Ακύρωση: συνέχεια επεξεργασίας.</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">Να αποθηκευτούν οι αλλαγές στο {0} πριν κλείσει η καρτέλα;</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">Δεν είναι δυνατή η αποθήκευση στο «{0}», επειδή το αρχείο είναι ήδη ανοιχτό σε άλλη καρτέλα.</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">Η αποθήκευση ολοκληρώθηκε · {0:N0} αποθηκεύτηκαν · {1:N0} δεν αποθηκεύτηκαν · {2:N0} απέτυχαν</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">Η αποθήκευση όλων ολοκληρώθηκε.\n\nΑποθηκεύτηκαν: {0:N0}\nΜη αποθηκευμένα: {1:N0}\nΑκυρώθηκαν: {2:N0}\nΑπέτυχαν: {3:N0}</system:String>
 </ResourceDictionary>

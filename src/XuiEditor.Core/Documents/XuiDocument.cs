@@ -38,6 +38,10 @@ public sealed record XuiDocumentSource(
     string? VirtualPath,
     bool IsReadOnly);
 
+public sealed record XuiDocumentFormattingRepair(
+    XuiDocument Document,
+    int EscapedAmpersandCount);
+
 public sealed class XuiDocument
 {
     private readonly XuiSyntaxParser _parser;
@@ -49,14 +53,15 @@ public sealed class XuiDocument
         XuiSyntaxTree syntaxTree,
         string? path,
         XuiDocumentSource? source,
-        XuiDocumentOptions options)
+        XuiDocumentOptions options,
+        string? baselineText = null)
     {
         _parser = parser;
         _options = options;
         SyntaxTree = syntaxTree;
         Path = path;
         Source = source;
-        _baselineText = syntaxTree.Source;
+        _baselineText = baselineText ?? syntaxTree.Source;
         History = new XuiCommandHistory(this);
     }
 
@@ -98,6 +103,27 @@ public sealed class XuiDocument
         return new XuiDocument(
             parser,
             tree,
+            fullPath,
+            new XuiDocumentSource(
+                System.IO.Path.GetFileName(fullPath),
+                fullPath,
+                null,
+                IsReadOnly: false),
+            options ?? new XuiDocumentOptions());
+    }
+
+    public static async Task<XuiDocumentFormattingRepair?>
+        TryOpenWithAmpersandFormattingRepairAsync(
+            string path,
+            XuiDocumentOptions? options = null,
+            CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        string fullPath = System.IO.Path.GetFullPath(path);
+        byte[] bytes = await File.ReadAllBytesAsync(fullPath, cancellationToken)
+            .ConfigureAwait(false);
+        return TryCreateAmpersandFormattingRepair(
+            bytes,
             fullPath,
             new XuiDocumentSource(
                 System.IO.Path.GetFileName(fullPath),
@@ -155,6 +181,43 @@ public sealed class XuiDocument
                 entry.VirtualPath,
                 entry.Origin.IsReadOnly),
             options);
+    }
+
+    public static async Task<XuiDocumentFormattingRepair?>
+        TryOpenAssetWithAmpersandFormattingRepairAsync(
+            XuiAssetEntry entry,
+            XuiDocumentOptions? options = null,
+            CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        byte[] bytes = await entry.ReadAllBytesAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return TryCreateAmpersandFormattingRepair(
+            bytes,
+            path: null,
+            new XuiDocumentSource(
+                entry.FileName,
+                entry.Origin.DisplayPath,
+                entry.VirtualPath,
+                entry.Origin.IsReadOnly),
+            options ?? new XuiDocumentOptions());
+    }
+
+    public static XuiDocument FromUnsavedText(
+        string text,
+        XuiDocumentOptions? options = null,
+        XuiTextFormat? format = null,
+        XuiDocumentSource? source = null)
+    {
+        XuiSyntaxParser parser = new();
+        XuiSyntaxTree tree = parser.Parse(text, format);
+        return new XuiDocument(
+            parser,
+            tree,
+            path: null,
+            source,
+            options ?? new XuiDocumentOptions(),
+            baselineText: "\0");
     }
 
     public void Execute(IXuiCommand command) => History.Execute(command);
@@ -274,6 +337,55 @@ public sealed class XuiDocument
         SyntaxTree = candidateTree;
         Revision++;
         Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static XuiDocumentFormattingRepair?
+        TryCreateAmpersandFormattingRepair(
+            ReadOnlySpan<byte> bytes,
+            string? path,
+            XuiDocumentSource source,
+            XuiDocumentOptions options)
+    {
+        XuiSyntaxTree unvalidatedTree;
+        try
+        {
+            unvalidatedTree = new XuiSyntaxParser(validateXml: false)
+                .Parse(bytes);
+        }
+        catch (XuiParseException)
+        {
+            return null;
+        }
+
+        if (!XuiFormattingRepair.TryEscapeBareAmpersands(
+                unvalidatedTree.Source,
+                out XuiFormattingRepairResult? repair) ||
+            repair is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            XuiSyntaxParser parser = new();
+            XuiSyntaxTree repairedTree = parser.Parse(
+                repair.Text,
+                unvalidatedTree.Format);
+            XuiDocument document = new(
+                parser,
+                repairedTree,
+                path,
+                source,
+                options,
+                unvalidatedTree.Source);
+            return new XuiDocumentFormattingRepair(
+                document,
+                repair.EscapedAmpersandCount);
+        }
+        catch (XuiParseException)
+        {
+            return null;
+        }
     }
 
     private string ResolveTargetPath(string? targetPath)

@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">PNG afbeelding (*.png)|*.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)|*.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|*.xui|Alle bestanden (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">Deze XUI bevat {0:N0} ampersands zonder escapecodes. Fix ze in de editor en open deze? Het bronbestand blijft ongewijzigd totdat u het opslaat.</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">XUI-opmaak repareren?</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">'{0}' is ongeldig voor {1}. Het hoofdframe is niet gewijzigd.</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">Dit verkeerd opgemaakte hoofdframe heeft geen bijbehorend Prop-element.</system:String>
@@ -736,6 +738,7 @@ Open het als een niet-opgeslagen document?</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPasted">Niets geplakt · {0:N0} incompatibel of vergrendeld · {1:N0} komt al overeen</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">Niets geplakt · elke toepasselijke waarde komt al overeen</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">Openen mislukt</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">Geopend na het ontsnappen van {0:N0} onbewerkte ampersands. Sla op om de opmaakreparatie te behouden.</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">Openingsvoorraad {0}…</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">XUI openen…</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">{0:N0} eigenschapswaarden geplakt in {1:N0} elementen · {2:N0} incompatibel of vergrendeld · {3:N0} komt al overeen</system:String>
@@ -981,4 +984,14 @@ Bewijs: {3}</system:String>
     <system:String x:Key="Ui.TextStyle.CustomAutomation">Ruwe TextStyle numerieke waarde</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">Toepassen</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">Voer een geldig decimaal getal met teken of een geheel getal met een 0x-voorvoegsel in.</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">Alles opslaan</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">Tabblad sluiten</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">Document sluiten</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">Er zijn {0:N0} herstelbestanden beschikbaar. Ja: alles herstellen. Nee: alles verwijderen. Annuleren: later beslissen.</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">Het document is al geopend</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">{0:N0} documenten bevatten niet-opgeslagen wijzigingen:\n\n{1}\n\nJa: alles opslaan en afsluiten. Nee: alles verwijderen en afsluiten. Annuleren: doorgaan met bewerken.</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">Wijzigingen in {0} opslaan voordat het tabblad wordt gesloten?</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">Kan niet opslaan als ‘{0}’ omdat dit bestand al in een ander tabblad is geopend.</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">Alles opslaan voltooid · {0:N0} opgeslagen · {1:N0} niet opgeslagen · {2:N0} mislukt</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">Alles opslaan is voltooid.\n\nOpgeslagen: {0:N0}\nNog niet opgeslagen: {1:N0}\nGeannuleerd: {2:N0}\nMislukt: {3:N0}</system:String>
 </ResourceDictionary>

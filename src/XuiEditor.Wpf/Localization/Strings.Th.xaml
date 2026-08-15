@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">PNG รูปภาพ (*.png)|*.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)|*.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|*.xui|ไฟล์ทั้งหมด (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">XUI นี้ประกอบด้วยเครื่องหมายแอมเปอร์แซนด์ที่ไม่ได้ใช้ Escape {0:N0} แก้ไขในตัวแก้ไขแล้วเปิดมันขึ้นมา? ไฟล์ต้นฉบับจะยังคงไม่เปลี่ยนแปลงจนกว่าคุณจะบันทึก</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">แก้ไขการจัดรูปแบบ XUI หรือไม่</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">'{0}' ไม่ถูกต้องสำหรับ {1} คีย์เฟรมไม่ได้เปลี่ยนแปลง</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">คีย์เฟรมที่มีรูปแบบไม่ถูกต้องนี้ไม่มีองค์ประกอบ Prop ที่สอดคล้องกัน</system:String>
@@ -736,6 +738,7 @@
     <system:String x:Key="Ui.Main.Status.NothingPasted">ไม่มีการวางสิ่งใด · {0:N0} เข้ากันไม่ได้หรือถูกล็อค · {1:N0} ตรงกันแล้ว</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">ไม่ได้วางเลย · ทุกค่าที่เกี่ยวข้องตรงกันแล้ว</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">เปิดล้มเหลว</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">เปิดหลังจากการหลบหนีเครื่องหมายและดิบ {0:N0} รายการ บันทึกเพื่อซ่อมแซมการจัดรูปแบบต่อไป</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">เปิดหุ้น {0}…</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">กำลังเปิด XUI...</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">วางค่าคุณสมบัติ {0:N0} ให้กับองค์ประกอบ {1:N0} · {2:N0} เข้ากันไม่ได้หรือถูกล็อค · {3:N0} ตรงกันแล้ว</system:String>
@@ -981,4 +984,14 @@
     <system:String x:Key="Ui.TextStyle.CustomAutomation">ค่าตัวเลขดิบ TextStyle</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">นำไปใช้</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">ป้อนทศนิยมที่มีเครื่องหมายกำกับที่ถูกต้องหรือจำนวนเต็มนำหน้า 0x</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">บันทึกทั้งหมด</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">ปิดแท็บ</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">ปิดเอกสาร</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">มีข้อมูลกู้คืน {0:N0} รายการ ใช่: กู้คืนทั้งหมด ไม่: ลบทั้งหมด ยกเลิก: ตัดสินใจภายหลัง</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">เอกสารนี้เปิดอยู่แล้ว</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">มีเอกสาร {0:N0} รายการที่ยังไม่ได้บันทึก:\n\n{1}\n\nใช่: บันทึกทั้งหมดและออก ไม่: ลบทั้งหมดและออก ยกเลิก: แก้ไขต่อ</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">บันทึกการเปลี่ยนแปลงของ {0} ก่อนปิดแท็บหรือไม่</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">ไม่สามารถบันทึกไปยัง “{0}” เนื่องจากไฟล์นี้เปิดอยู่ในแท็บอื่นแล้ว</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">บันทึกทั้งหมดเสร็จแล้ว · บันทึก {0:N0} · ยังไม่บันทึก {1:N0} · ล้มเหลว {2:N0}</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">บันทึกทั้งหมดเสร็จแล้ว\n\nบันทึกแล้ว: {0:N0}\nยังไม่บันทึก: {1:N0}\nยกเลิก: {2:N0}\nล้มเหลว: {3:N0}</system:String>
 </ResourceDictionary>

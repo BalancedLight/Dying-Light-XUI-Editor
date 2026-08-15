@@ -267,6 +267,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="5" />
             <RowDefinition x:Name="TimelineRow" Height="250" />
@@ -285,11 +286,16 @@
                           Click="Save_Click" />
                 <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.007}" InputGestureText="Ctrl+Shift+S"
                           Click="SaveAs_Click" />
+                <MenuItem Header="{DynamicResource Ui.Command.SaveAll}"
+                          Click="SaveAll_Click" />
                 <MenuItem x:Name="ExportPngMenuItem"
                           Header="{DynamicResource Ui.Xaml.MainWindow.008}"
                           ToolTip="{DynamicResource Ui.Xaml.MainWindow.009}"
                           Click="ExportPng_Click" />
                 <Separator />
+                <MenuItem Header="{DynamicResource Ui.Command.CloseTab}"
+                          InputGestureText="Ctrl+W"
+                          Click="CloseTab_Click" />
                 <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.010}" Click="Exit_Click" />
             </MenuItem>
             <MenuItem Header="{DynamicResource Ui.Xaml.MainWindow.011}">
@@ -523,7 +529,46 @@
             </DockPanel>
         </Border>
 
-        <Grid Grid.Row="2">
+        <TabControl x:Name="DocumentTabs"
+                    Grid.Row="2"
+                    Height="34"
+                    Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    SelectionChanged="DocumentTabs_SelectionChanged">
+            <TabControl.Template>
+                <ControlTemplate TargetType="TabControl">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Disabled">
+                            <TabPanel IsItemsHost="True" />
+                        </ScrollViewer>
+                    </Border>
+                </ControlTemplate>
+            </TabControl.Template>
+            <TabControl.ItemTemplate>
+                <DataTemplate>
+                    <DockPanel ToolTip="{Binding Location}"
+                               MaxWidth="280">
+                        <Button DockPanel.Dock="Right"
+                                Content="×"
+                                Style="{StaticResource CompactButton}"
+                                Margin="7,0,0,0"
+                                Tag="{Binding}"
+                                ToolTip="{DynamicResource Ui.DocumentTabs.CloseToolTip}"
+                                AutomationProperties.Name="{DynamicResource Ui.DocumentTabs.CloseToolTip}"
+                                Click="DocumentTabClose_Click" />
+                        <TextBlock Text="{Binding Header}"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+                    </DockPanel>
+                </DataTemplate>
+            </TabControl.ItemTemplate>
+        </TabControl>
+
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="HierarchyColumn" Width="300" />
                 <ColumnDefinition Width="5" />
@@ -1324,12 +1369,12 @@
             </Border>
         </Grid>
 
-        <GridSplitter Grid.Row="3"
+        <GridSplitter Grid.Row="4"
                       Height="5"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Stretch" />
 
-        <TabControl Grid.Row="4">
+        <TabControl Grid.Row="5">
             <TabItem x:Name="AnimationTab" Header="{DynamicResource Ui.Xaml.MainWindow.143}">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -1688,7 +1733,7 @@
             </TabItem>
         </TabControl>
 
-        <StatusBar Grid.Row="5">
+        <StatusBar Grid.Row="6">
             <StatusBarItem>
                 <TextBlock x:Name="StatusText" Text="{DynamicResource Ui.Xaml.MainWindow.205}" />
             </StatusBarItem>

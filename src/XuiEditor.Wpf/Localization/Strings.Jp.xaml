@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">PNG 画像 (*.png)|*.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)|*.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|*.xui|すべてのファイル (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">この XUI には、エスケープされていないアンパサンド {0:N0} が含まれています。エディターで修正して開きますか?ソース ファイルは保存するまで変更されません。</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">XUI のフォーマットを修正しますか?</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">'{0}' は {1} に対して無効です。キーフレームは変更されていません。</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">この不正なキーフレームには、対応する Prop 要素がありません。</system:String>
@@ -736,6 +738,7 @@
     <system:String x:Key="Ui.Main.Status.NothingPasted">何も貼り付けられません · {0:N0} は互換性がないかロックされています · {1:N0} はすでに一致しています</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">何も貼り付けられません · 該当するすべての値がすでに一致しています</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">オープンに失敗しました</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">{0:N0} 生のアンパサンドをエスケープした後に開かれます。フォーマット修復を保存するには保存します。</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">オープン在庫 {0}…</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">XUI を開きます…</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">{0:N0} プロパティ値を {1:N0} 要素に貼り付けました · {2:N0} は互換性がないかロックされています · {3:N0} はすでに一致しています</system:String>
@@ -981,4 +984,14 @@ PC: {1}
     <system:String x:Key="Ui.TextStyle.CustomAutomation">生の TextStyle 数値</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">適用</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">有効な符号付き 10 進数または 0x の接頭辞が付いた整数を入力します。</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">すべて保存</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">タブを閉じる</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">ドキュメントを閉じる</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">{0:N0} 件の復元データがあります。はい: すべて復元。いいえ: すべて破棄。キャンセル: 後で決める。</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">ドキュメントは既に開いています</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">{0:N0} 件のドキュメントに未保存の変更があります:\n\n{1}\n\nはい: すべて保存して終了。いいえ: すべて破棄して終了。キャンセル: 編集を続行。</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">タブを閉じる前に {0} の変更を保存しますか？</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">このファイルは別のタブで開かれているため、「{0}」に保存できません。</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">すべて保存完了 · 保存 {0:N0} · 未保存 {1:N0} · 失敗 {2:N0}</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">すべて保存が完了しました。\n\n保存済み: {0:N0}\n未保存: {1:N0}\nキャンセル: {2:N0}\n失敗: {3:N0}</system:String>
 </ResourceDictionary>

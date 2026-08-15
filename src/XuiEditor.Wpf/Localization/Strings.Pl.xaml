@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">Obraz PNG (*.png)|*.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)|*.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|*.xui|Wszystkie pliki (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">To XUI zawiera {0:N0} znaki ampersand bez znaków zmiany znaczenia. Naprawić je w edytorze i otworzyć? Plik źródłowy pozostanie niezmieniony do czasu zapisania.</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">Naprawić formatowanie XUI?</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">„{0}” jest nieprawidłowe dla {1}. Klatka kluczowa nie została zmieniona.</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">Ta zniekształcona klatka kluczowa nie ma odpowiadającego jej elementu Prop.</system:String>
@@ -736,6 +738,7 @@ Otworzyć go jako niezapisany dokument?</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPasted">Nic nie wklejono · {0:N0} niezgodny lub zablokowany · {1:N0} już dopasowany</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">Nic nie wklejono · każda odpowiednia wartość została już dopasowana</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">Otwarcie nie powiodło się</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">Otwarte po ucieczce przed {0:N0} surowymi znakami ampersand. Zapisz, aby zachować naprawę formatowania.</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">Otwarcie zapasów {0}…</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">Otwieranie XUI…</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">Wklejono wartości właściwości {0:N0} do elementów {1:N0} · {2:N0} niezgodne lub zablokowane · {3:N0} już dopasowane</system:String>
@@ -981,4 +984,14 @@ Dowód: {3}</system:String>
     <system:String x:Key="Ui.TextStyle.CustomAutomation">Surowa TextStyle wartość liczbowa</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">Zastosuj</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">Wprowadź prawidłową liczbę całkowitą w postaci dziesiętnej ze znakiem lub z przedrostkiem 0x.</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">Zapisz wszystko</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">Zamknij kartę</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">Zamknij dokument</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">Dostępnych jest {0:N0} odzyskanych dokumentów. Tak: odzyskaj wszystkie. Nie: odrzuć wszystkie. Anuluj: zdecyduj później.</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">Dokument jest już otwarty</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">{0:N0} dokumentów ma niezapisane zmiany:\n\n{1}\n\nTak: zapisz wszystko i zamknij. Nie: odrzuć wszystko i zamknij. Anuluj: kontynuuj edycję.</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">Zapisać zmiany w {0} przed zamknięciem karty?</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">Nie można zapisać w „{0}”, ponieważ ten plik jest już otwarty na innej karcie.</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">Zapisano wszystko · {0:N0} zapisano · {1:N0} niezapisanych · {2:N0} niepowodzeń</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">Zapisywanie wszystkiego zakończone.\n\nZapisano: {0:N0}\nNadal niezapisane: {1:N0}\nAnulowano: {2:N0}\nNiepowodzenia: {3:N0}</system:String>
 </ResourceDictionary>

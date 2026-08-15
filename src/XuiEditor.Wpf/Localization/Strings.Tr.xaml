@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">PNG resim (*.png)|*.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)|*.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|*.xui|Tüm dosyalar (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">Bu XUI, {0:N0} çıkışsız ve işaretleri içeriyor. Bunları düzenleyicide düzeltip açmak ister misiniz? Kaynak dosya siz kaydedene kadar değişmeden kalacaktır.</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">XUI biçimlendirmesi düzeltilsin mi?</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">'{0}', {1} için geçersiz. Anahtar kare değiştirilmedi.</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">Bu hatalı biçimlendirilmiş anahtar karenin karşılık gelen Prop öğesi yok.</system:String>
@@ -736,6 +738,7 @@ Kaydedilmemiş bir belge olarak açılsın mı?</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPasted">Hiçbir şey yapıştırılmadı · {0:N0} uyumsuz veya kilitli · {1:N0} zaten eşleşti</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">Hiçbir şey yapıştırılmadı · uygulanabilir tüm değerler zaten eşleşti</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">Açma başarısız oldu</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">{0:N0} ham ve işaretlerinden kaçtıktan sonra açıldı. Biçimlendirme onarımını sürdürmek için kaydedin.</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">Stok açılıyor {0}…</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">XUI açılıyor…</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">{0:N0} özellik değerleri {1:N0} öğelerine yapıştırıldı · {2:N0} uyumsuz veya kilitli · {3:N0} zaten eşleşti</system:String>
@@ -981,4 +984,14 @@ Kanıt: {3}</system:String>
     <system:String x:Key="Ui.TextStyle.CustomAutomation">Ham TextStyle sayısal değer</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">Uygula</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">Geçerli, imzalı bir ondalık sayı veya 0x önekli tam sayı girin.</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">Tümünü kaydet</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">Sekmeyi kapat</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">Belgeyi kapat</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">{0:N0} kurtarma mevcut. Evet: tümünü kurtar. Hayır: tümünü at. İptal: daha sonra karar ver.</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">Belge zaten açık</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">{0:N0} belgede kaydedilmemiş değişiklik var:\n\n{1}\n\nEvet: tümünü kaydet ve çık. Hayır: tümünü at ve çık. İptal: düzenlemeye devam et.</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">Sekmeyi kapatmadan önce {0} değişiklikleri kaydedilsin mi?</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">Bu dosya başka bir sekmede açık olduğu için “{0}” konumuna kaydedilemiyor.</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">Tümünü kaydet tamamlandı · {0:N0} kaydedildi · {1:N0} kaydedilmedi · {2:N0} başarısız</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">Tümünü kaydet tamamlandı.\n\nKaydedilen: {0:N0}\nKaydedilmeyen: {1:N0}\nİptal edilen: {2:N0}\nBaşarısız: {3:N0}</system:String>
 </ResourceDictionary>

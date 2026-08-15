@@ -890,6 +890,194 @@ public sealed class WpfSmokeTests
         }
     }
 
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void DocumentTabsKeepIndependentStateAndSaveAllDocuments()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        using TestDirectory directory = new();
+        string firstPath = directory.File("first-document.xui");
+        string secondPath = directory.File("second-document.xui");
+        const string source =
+            "<XuiCanvas><Properties><Width>100</Width><Height>100</Height></Properties>" +
+            "<MyText><Properties><Id>Label</Id><Width>100</Width><Height>20</Height>" +
+            "<Text>Before</Text></Properties></MyText></XuiCanvas>";
+        File.WriteAllText(firstPath, source);
+        File.WriteAllText(secondPath, source);
+        XuiDocument first = XuiDocument.OpenAsync(firstPath)
+            .GetAwaiter().GetResult();
+        XuiDocument second = XuiDocument.OpenAsync(secondPath)
+            .GetAwaiter().GetResult();
+        XuiSyntaxNode firstText =
+            XuiModelReader.VisualDescendants(first.Root).Single();
+        XuiSyntaxNode secondText =
+            XuiModelReader.VisualDescendants(second.Root).Single();
+
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(first);
+        window.SelectNodeKeysForTesting([firstText.Key]);
+        window.SetInspectorValueForTesting("Text", "First edit");
+        window.AttachDocumentForTesting(second);
+        window.SelectNodeKeysForTesting([secondText.Key]);
+        window.SetInspectorValueForTesting("Text", "Second edit");
+
+        Assert.AreEqual(2, window.DocumentTabCountForTesting);
+        CollectionAssert.AreEqual(
+            new[] { firstPath, secondPath },
+            window.DocumentTabLocationsForTesting.ToArray());
+        Assert.IsTrue(window.DocumentTabHeadersForTesting[0]
+            .Contains("first-document.xui", StringComparison.Ordinal));
+        Assert.IsTrue(window.DocumentTabHeadersForTesting[0]
+            .StartsWith("● ", StringComparison.Ordinal));
+        Assert.IsTrue(window.DocumentTabHeadersForTesting[1]
+            .StartsWith("● ", StringComparison.Ordinal));
+
+        window.ActivateDocumentForTesting(first);
+        Assert.AreSame(first, window.ActiveDocumentForTesting);
+        Assert.AreEqual(
+            "First edit",
+            window.ViewportForTesting.RetainedNodeTextForTesting(
+                firstText.Key));
+        CollectionAssert.AreEquivalent(
+            new[] { firstText.Key },
+            window.SelectedKeysForTesting.ToArray());
+        Assert.IsTrue(first.History.CanUndo);
+        window.ActivateDocumentForTesting(second);
+        Assert.AreEqual(
+            "Second edit",
+            window.ViewportForTesting.RetainedNodeTextForTesting(
+                secondText.Key));
+        CollectionAssert.AreEquivalent(
+            new[] { secondText.Key },
+            window.SelectedKeysForTesting.ToArray());
+        Assert.IsTrue(second.History.CanUndo);
+
+        window.ActivateDocumentForTesting(first);
+        Assert.AreEqual(
+            "First edit",
+            window.ViewportForTesting.RetainedNodeTextForTesting(
+                firstText.Key));
+
+        SynchronizationContext? priorContext = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(
+            new DispatcherSynchronizationContext(window.Dispatcher));
+        SaveAllResult result;
+        try
+        {
+            Task<SaveAllResult> save = window.SaveAllForTesting();
+            PumpDispatcherUntilCompleted(window.Dispatcher, save);
+            result = save.GetAwaiter().GetResult();
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(priorContext);
+        }
+
+        Assert.AreEqual(2, result.Saved);
+        Assert.AreEqual(0, result.RemainingDirty);
+        Assert.IsFalse(first.IsDirty);
+        Assert.IsFalse(second.IsDirty);
+        StringAssert.Contains(File.ReadAllText(firstPath), "First edit");
+        StringAssert.Contains(File.ReadAllText(secondPath), "Second edit");
+        Assert.IsFalse(window.DocumentTabHeadersForTesting[0]
+            .StartsWith("● ", StringComparison.Ordinal));
+        Assert.IsFalse(window.DocumentTabHeadersForTesting[1]
+            .StartsWith("● ", StringComparison.Ordinal));
+
+        window.ActivateDocumentForTesting(first);
+        Assert.IsTrue(window.CloseDocumentForTesting(first)
+            .GetAwaiter().GetResult());
+        Assert.AreEqual(1, window.DocumentTabCountForTesting);
+        Assert.AreSame(second, window.ActiveDocumentForTesting);
+        Assert.IsTrue(window.CloseDocumentForTesting(second)
+            .GetAwaiter().GetResult());
+        Assert.AreEqual(0, window.DocumentTabCountForTesting);
+        Assert.IsNull(window.ActiveDocumentForTesting);
+
+        static void PumpDispatcherUntilCompleted(
+            Dispatcher dispatcher,
+            Task task)
+        {
+            DispatcherFrame frame = new();
+            _ = task.ContinueWith(
+                _ => dispatcher.BeginInvoke(
+                    DispatcherPriority.Send,
+                    new Action(() => frame.Continue = false)),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            Dispatcher.PushFrame(frame);
+        }
+    }
+
+    [STATestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void SaveAllContinuesAfterAnUnsavedTabCancelsSaveAs()
+    {
+        App application = Application.Current as App ?? new App();
+        application.InitializeComponent();
+        using TestDirectory directory = new();
+        string path = directory.File("saved-document.xui");
+        const string source =
+            "<XuiCanvas><Properties><Width>1</Width></Properties></XuiCanvas>";
+        File.WriteAllText(path, source);
+        XuiDocument unsaved = XuiDocument.FromUnsavedText(source);
+        XuiDocument saved = XuiDocument.OpenAsync(path)
+            .GetAwaiter().GetResult();
+        XuiPropertyEntry width = XuiModelReader.GetProperty(
+            saved.Root,
+            saved.Text,
+            "Width")!;
+        saved.Execute(XuiCommandFactory.SetElementValue(
+            saved,
+            width.Element,
+            "2"));
+
+        using MainWindow window = new();
+        window.AttachDocumentForTesting(unsaved);
+        window.AttachDocumentForTesting(saved);
+        window.SetSavePathSelectorForTesting(document =>
+            ReferenceEquals(document, unsaved) ? null : document.Path);
+        SynchronizationContext? priorContext = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(
+            new DispatcherSynchronizationContext(window.Dispatcher));
+        SaveAllResult result;
+        try
+        {
+            Task<SaveAllResult> saveAll = window.SaveAllForTesting();
+            PumpDispatcherUntilCompleted(window.Dispatcher, saveAll);
+            result = saveAll.GetAwaiter().GetResult();
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(priorContext);
+        }
+
+        Assert.AreEqual(1, result.Saved);
+        Assert.AreEqual(1, result.Cancelled);
+        Assert.AreEqual(0, result.Failed);
+        Assert.AreEqual(1, result.RemainingDirty);
+        Assert.IsTrue(unsaved.IsDirty);
+        Assert.IsFalse(saved.IsDirty);
+        StringAssert.Contains(File.ReadAllText(path), "<Width>2</Width>");
+
+        static void PumpDispatcherUntilCompleted(
+            Dispatcher dispatcher,
+            Task task)
+        {
+            DispatcherFrame frame = new();
+            _ = task.ContinueWith(
+                _ => dispatcher.BeginInvoke(
+                    DispatcherPriority.Send,
+                    new Action(() => frame.Continue = false)),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            Dispatcher.PushFrame(frame);
+        }
+    }
+
     [TestMethod]
     public async Task DyingLightWorkshopIsWritableInsideProtectedInstallRoot()
     {
@@ -3181,6 +3369,45 @@ public sealed class WpfSmokeTests
         RecoveryService.Delete(snapshot);
         Assert.IsFalse(File.Exists(snapshot.ContentPath));
         Assert.IsFalse(File.Exists(snapshot.MetadataPath));
+    }
+
+    [TestMethod]
+    public async Task RecoverySnapshotsUseDistinctSessionKeysForUnsavedDocuments()
+    {
+        using TestDirectory directory = new();
+        string recoveryDirectory = directory.File("recovery");
+        XuiDocument first = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>1</Width></Properties></XuiCanvas>");
+        XuiDocument second = XuiDocument.FromText(
+            "<XuiCanvas><Properties><Width>2</Width></Properties></XuiCanvas>");
+
+        RecoverySnapshot firstSnapshot = await RecoveryService.WriteAsync(
+            first,
+            recoveryDirectory,
+            "session-one",
+            "first.xui",
+            "stock-a.pak",
+            "data/menu/first.xui");
+        RecoverySnapshot secondSnapshot = await RecoveryService.WriteAsync(
+            second,
+            recoveryDirectory,
+            "session-two",
+            "second.xui",
+            "stock-b.pak",
+            "data/menu/second.xui");
+        IReadOnlyList<RecoverySnapshot> discovered =
+            RecoveryService.Find(recoveryDirectory);
+
+        Assert.AreNotEqual(firstSnapshot.ContentPath, secondSnapshot.ContentPath);
+        Assert.HasCount(2, discovered);
+        CollectionAssert.AreEquivalent(
+            new List<string> { "session-one", "session-two" },
+            discovered.Select(static snapshot => snapshot.RecoveryKey).ToArray());
+        CollectionAssert.AreEquivalent(
+            new List<string> { "first.xui", "second.xui" },
+            discovered.Select(static snapshot => snapshot.DisplayName).ToArray());
+        Assert.IsTrue(discovered.Any(snapshot =>
+            snapshot.SourceVirtualPath == "data/menu/first.xui"));
     }
 
     [TestMethod]

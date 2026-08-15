@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -47,6 +48,8 @@ public partial class MainWindow : Window, IDisposable
     private static readonly XuiClassCatalog ClassCatalog =
         XuiClassCatalog.Default;
     private readonly EditorSettings _settings;
+    private readonly ObservableCollection<EditorDocumentSession>
+        _documentSessions = [];
     private readonly HashSet<string> _expanded = new(StringComparer.Ordinal);
     private readonly HashSet<string> _selectedKeys = new(StringComparer.Ordinal);
     private readonly HashSet<string> _hiddenKeys = new(StringComparer.Ordinal);
@@ -65,6 +68,7 @@ public partial class MainWindow : Window, IDisposable
     private readonly DispatcherTimer _hierarchySearchTimer;
     private readonly Stopwatch _playbackClock = new();
     private XuiDocument? _document;
+    private EditorDocumentSession? _activeSession;
     private DyingLightInstallIndex? _installIndex;
     private DyingLightAssetResolver? _assetResolver;
     private DyingLightXuiAssetCatalog? _assetCatalog;
@@ -91,6 +95,10 @@ public partial class MainWindow : Window, IDisposable
     private long _rawXmlLoadedRevision = -1;
     private XuiPreviewScenario _previewScenario = XuiPreviewScenario.Empty;
     private bool _allowClose;
+    private bool _switchingDocumentTabs;
+    private bool _forceFullViewportSynchronization;
+    private bool _closingInProgress;
+    private Func<XuiDocument, string?>? _savePathSelectorForTesting;
     private string? _recoverySuggestedPath;
     private RecoverySnapshot? _activeRecovery;
     private XuiReferenceTransactionResult? _lastReferenceTransaction;
@@ -120,6 +128,7 @@ public partial class MainWindow : Window, IDisposable
         FilteredDiagnostics = [];
         AssetRows = [];
         InitializeComponent();
+        DocumentTabs.ItemsSource = _documentSessions;
         Language = UiLocalization.XmlLanguage;
         UiLocalization.LanguageChanged += UiLocalization_LanguageChanged;
         BuildInterfaceLanguageMenu();
@@ -213,6 +222,11 @@ public partial class MainWindow : Window, IDisposable
     {
         Language = UiLocalization.XmlLanguage;
         BuildInterfaceLanguageMenu();
+        foreach (EditorDocumentSession session in _documentSessions)
+        {
+            session.RefreshChrome();
+        }
+
         foreach (HierarchyRow row in HierarchyRows)
         {
             row.RefreshLocalization();
@@ -343,6 +357,16 @@ public partial class MainWindow : Window, IDisposable
 
     internal ListBox HierarchyListForTesting => HierarchyList;
 
+    internal int DocumentTabCountForTesting => _documentSessions.Count;
+
+    internal XuiDocument? ActiveDocumentForTesting => _document;
+
+    internal IReadOnlyList<string> DocumentTabHeadersForTesting =>
+        _documentSessions.Select(static session => session.Header).ToArray();
+
+    internal IReadOnlyList<string> DocumentTabLocationsForTesting =>
+        _documentSessions.Select(static session => session.Location).ToArray();
+
     internal (double Hierarchy, double Inspector, double Timeline)
         PaneSizesForTesting =>
         (
@@ -356,6 +380,27 @@ public partial class MainWindow : Window, IDisposable
         AttachDocument(document);
         RefreshAll();
     }
+
+    internal void ActivateDocumentForTesting(XuiDocument document)
+    {
+        EditorDocumentSession session = _documentSessions.Single(candidate =>
+            ReferenceEquals(candidate.Document, document));
+        ActivateSession(session);
+    }
+
+    internal Task<SaveAllResult> SaveAllForTesting() =>
+        SaveAllDocumentsAsync(showSummary: false);
+
+    internal Task<bool> CloseDocumentForTesting(XuiDocument document)
+    {
+        EditorDocumentSession session = _documentSessions.Single(candidate =>
+            ReferenceEquals(candidate.Document, document));
+        return CloseSessionAsync(session);
+    }
+
+    internal void SetSavePathSelectorForTesting(
+        Func<XuiDocument, string?>? selector) =>
+        _savePathSelectorForTesting = selector;
 
     internal Task<bool> SaveDocumentForTesting() =>
         SaveDocumentAsync(forceSaveAs: false);
@@ -779,34 +824,41 @@ public partial class MainWindow : Window, IDisposable
         RebuildRecentFilesMenu();
         await EnsureInstallIndexAsync(showErrors: false).ConfigureAwait(true);
 
-        string? commandLineFile = Environment.GetCommandLineArgs()
+        string[] commandLineFiles = Environment.GetCommandLineArgs()
             .Skip(1)
-            .FirstOrDefault(static argument =>
+            .Where(static argument =>
                 argument.EndsWith(".xui", StringComparison.OrdinalIgnoreCase) &&
-                File.Exists(argument));
-        if (commandLineFile is not null)
+                File.Exists(argument))
+            .ToArray();
+        foreach (string commandLineFile in commandLineFiles)
         {
             await OpenDocumentAsync(commandLineFile).ConfigureAwait(true);
-            return;
         }
 
         IReadOnlyList<RecoverySnapshot> snapshots = RecoveryService.Find();
         if (snapshots.Count > 0)
         {
-            RecoverySnapshot latest = snapshots[0];
             MessageBoxResult recover = MessageBox.Show(
                 this,
                 UiLocalization.Format(
-                    "Ui.Main.RecoveryPrompt",
-                    latest.TimestampUtc.ToLocalTime(),
-                    latest.OriginalPath ??
-                    UiLocalization.Text("Ui.Main.UntitledDocument")),
+                    "Ui.Main.RecoveryManyPrompt",
+                    snapshots.Count),
                 UiLocalization.Text("Ui.Main.RecoveryTitle"),
-                MessageBoxButton.YesNo,
+                MessageBoxButton.YesNoCancel,
                 MessageBoxImage.Question);
             if (recover == MessageBoxResult.Yes)
             {
-                await OpenRecoveryAsync(latest).ConfigureAwait(true);
+                foreach (RecoverySnapshot snapshot in snapshots.Reverse())
+                {
+                    await OpenRecoveryAsync(snapshot).ConfigureAwait(true);
+                }
+            }
+            else if (recover == MessageBoxResult.No)
+            {
+                foreach (RecoverySnapshot snapshot in snapshots)
+                {
+                    RecoveryService.Delete(snapshot);
+                }
             }
         }
     }
@@ -820,31 +872,24 @@ public partial class MainWindow : Window, IDisposable
 
     private async void Open_Click(object sender, RoutedEventArgs eventArgs)
     {
-        if (!await ConfirmDiscardAsync().ConfigureAwait(true))
-        {
-            return;
-        }
-
         OpenFileDialog dialog = new()
         {
             Title = UiLocalization.Text("Ui.Main.Open.Title"),
             Filter = UiLocalization.Text("Ui.Main.Filter.XuiAll"),
             CheckFileExists = true,
-            Multiselect = false,
+            Multiselect = true,
         };
         if (dialog.ShowDialog(this) == true)
         {
-            await OpenDocumentAsync(dialog.FileName).ConfigureAwait(true);
+            foreach (string path in dialog.FileNames)
+            {
+                await OpenDocumentAsync(path).ConfigureAwait(true);
+            }
         }
     }
 
     private async void OpenStock_Click(object sender, RoutedEventArgs eventArgs)
     {
-        if (!await ConfirmDiscardAsync().ConfigureAwait(true))
-        {
-            return;
-        }
-
         if (!await EnsureInstallIndexAsync(showErrors: true).ConfigureAwait(true) ||
             _installIndex is null)
         {
@@ -870,6 +915,19 @@ public partial class MainWindow : Window, IDisposable
     private async void SaveAs_Click(object sender, RoutedEventArgs eventArgs)
     {
         await SaveDocumentAsync(forceSaveAs: true).ConfigureAwait(true);
+    }
+
+    private async void SaveAll_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        await SaveAllDocumentsAsync(showSummary: true).ConfigureAwait(true);
+    }
+
+    private async void CloseTab_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        if (_activeSession is not null)
+        {
+            await CloseSessionAsync(_activeSession).ConfigureAwait(true);
+        }
     }
 
     private async void AssetRoots_Click(object sender, RoutedEventArgs eventArgs)
@@ -898,10 +956,16 @@ public partial class MainWindow : Window, IDisposable
             _installIndex = null;
         }
 
-        await EnsureInstallIndexAsync(showErrors: false).ConfigureAwait(true);
-        if (_document is not null)
+        foreach (EditorDocumentSession session in _documentSessions)
         {
-            await RebuildAssetResolverAsync().ConfigureAwait(true);
+            session.AssetStateStale = true;
+            session.AssetBuildVersion++;
+        }
+
+        await EnsureInstallIndexAsync(showErrors: false).ConfigureAwait(true);
+        if (_activeSession is not null)
+        {
+            await RebuildAssetResolverAsync(_activeSession).ConfigureAwait(true);
         }
     }
 
@@ -4983,13 +5047,24 @@ public partial class MainWindow : Window, IDisposable
             asset.Kind is not (
                 XuiCatalogAssetKind.Screen or
                 XuiCatalogAssetKind.Visual) ||
-            asset.SourceFile is null ||
-            !await ConfirmDiscardAsync().ConfigureAwait(true))
+            asset.SourceFile is null)
         {
             return;
         }
 
         XuiResolvedFile source = asset.SourceFile;
+        EditorDocumentSession? alreadyOpen = FindOpenSourceSession(
+            source.DisplayPath,
+            source.RelativePath,
+            Path.GetFileName(source.RelativePath));
+        if (alreadyOpen is not null)
+        {
+            ActivateSession(alreadyOpen);
+            SelectOpenedVisual(asset);
+            SetStatus("Ui.Main.Status.AlreadyOpen");
+            return;
+        }
+
         if (!source.IsVirtual &&
             !asset.IsReadOnly &&
             File.Exists(source.Path))
@@ -5012,9 +5087,8 @@ public partial class MainWindow : Window, IDisposable
                     source.RelativePath,
                     IsReadOnly: true),
                 CreateDocumentOptions());
-            AttachDocument(document);
-            RefreshAll();
-            await RebuildAssetResolverAsync().ConfigureAwait(true);
+            EditorDocumentSession session = AttachDocument(document);
+            await RebuildAssetResolverAsync(session).ConfigureAwait(true);
             SelectOpenedVisual(asset);
             SetStatus("Ui.Main.Status.ReadOnlyAssetOpened");
         }
@@ -5336,10 +5410,8 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
-        if (_document?.Path is string current &&
-            current.Equals(
-                asset.SourceFile!.Path,
-                StringComparison.OrdinalIgnoreCase))
+        if (_documentSessions.Any(session =>
+                session.MatchesPath(asset.SourceFile!.Path)))
         {
             SetStatus("Ui.Main.Status.CloseBeforeDelete");
             return;
@@ -5479,7 +5551,14 @@ public partial class MainWindow : Window, IDisposable
 
     private bool EnsureWorkspaceTransactionReady()
     {
-        if (_document?.IsDirty != true)
+        string? workspace = _settings.WorkspaceRoot;
+        bool hasDirtyWorkspaceDocument =
+            !string.IsNullOrWhiteSpace(workspace) &&
+            _documentSessions.Any(session =>
+                session.Document.IsDirty &&
+                session.Document.Path is string path &&
+                PathIsInside(workspace, path));
+        if (!hasDirtyWorkspaceDocument)
         {
             return true;
         }
@@ -5497,18 +5576,59 @@ public partial class MainWindow : Window, IDisposable
     private async Task RefreshAfterWorkspaceTransactionAsync(
         XuiReferenceTransactionResult transaction)
     {
-        string? currentPath = _document?.Path;
-        if (currentPath is not null &&
-            transaction.CommittedFiles.Any(snapshot =>
-                snapshot.FilePath.Equals(
-                    currentPath,
-                    StringComparison.OrdinalIgnoreCase)))
+        HashSet<string> changedPaths = transaction.CommittedFiles
+            .Select(static snapshot => Path.GetFullPath(snapshot.FilePath))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        EditorDocumentSession[] affected = _documentSessions
+            .Where(session =>
+                session.Document.Path is string path &&
+                changedPaths.Contains(Path.GetFullPath(path)))
+            .ToArray();
+        foreach (EditorDocumentSession session in affected)
         {
-            await OpenDocumentAsync(currentPath).ConfigureAwait(true);
-            return;
+            await ReloadSessionAsync(session).ConfigureAwait(true);
         }
 
-        await RebuildAssetResolverAsync().ConfigureAwait(true);
+        foreach (EditorDocumentSession session in _documentSessions.Except(affected))
+        {
+            session.AssetStateStale = true;
+            session.AssetBuildVersion++;
+        }
+
+        if (_activeSession is not null && !affected.Contains(_activeSession))
+        {
+            await RebuildAssetResolverAsync(_activeSession).ConfigureAwait(true);
+        }
+    }
+
+    private async Task ReloadSessionAsync(EditorDocumentSession session)
+    {
+        string path = session.Document.Path ??
+            throw new InvalidOperationException(
+                "Only file-backed XUI documents can be reloaded.");
+        XuiDocument replacement = await XuiDocument.OpenAsync(
+            path,
+            CreateDocumentOptions()).ConfigureAwait(true);
+        bool wasActive = ReferenceEquals(session, _activeSession);
+        if (wasActive)
+        {
+            PersistActiveSession();
+        }
+
+        XuiDocument previous = session.Document;
+        previous.Changed -= Document_Changed;
+        previous.History.HistoryChanged -= History_HistoryChanged;
+        session.ReplaceDocument(replacement);
+        replacement.Changed += Document_Changed;
+        replacement.History.HistoryChanged += History_HistoryChanged;
+        if (wasActive)
+        {
+            _activeSession = null;
+            _document = null;
+            ActivateSession(session);
+        }
+
+        await RebuildAssetResolverAsync(session).ConfigureAwait(true);
     }
 
     private bool TryGetWorkspaceRoot(out string workspace)
@@ -5575,6 +5695,10 @@ public partial class MainWindow : Window, IDisposable
                  eventArgs.Key == Key.S)
         {
             SaveAs_Click(this, new RoutedEventArgs());
+        }
+        else if (modifiers == ModifierKeys.Control && eventArgs.Key == Key.W)
+        {
+            CloseTab_Click(this, new RoutedEventArgs());
         }
         else if (!editingText &&
                  modifiers == ModifierKeys.Control &&
@@ -5679,31 +5803,56 @@ public partial class MainWindow : Window, IDisposable
 
     private async void Window_Closing(object? sender, CancelEventArgs eventArgs)
     {
-        if (!_allowClose && _document?.IsDirty == true)
+        if (!_allowClose && _documentSessions.Any(static session =>
+                session.Document.IsDirty))
         {
-            MessageBoxResult result = MessageBox.Show(
-                this,
-                UiLocalization.Text("Ui.Main.Unsaved.ClosePrompt"),
-                UiLocalization.Text("Ui.Main.Unsaved.Title"),
-                MessageBoxButton.YesNoCancel,
-                MessageBoxImage.Warning);
-            if (result == MessageBoxResult.Cancel)
+            eventArgs.Cancel = true;
+            if (_closingInProgress)
             {
-                eventArgs.Cancel = true;
                 return;
             }
 
+            _closingInProgress = true;
+            EditorDocumentSession[] dirtySessions = _documentSessions
+                .Where(static session => session.Document.IsDirty)
+                .ToArray();
+            string documents = string.Join(
+                Environment.NewLine,
+                dirtySessions.Select(static session =>
+                    $"• {session.DisplayName} — {session.Location}"));
+            MessageBoxResult result = MessageBox.Show(
+                this,
+                UiLocalization.Format(
+                        "Ui.Main.ExitReview.Prompt",
+                        dirtySessions.Length,
+                        documents)
+                    .Replace("\\n", Environment.NewLine, StringComparison.Ordinal),
+                UiLocalization.Text("Ui.Main.Unsaved.Title"),
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning);
             if (result == MessageBoxResult.Yes)
             {
-                eventArgs.Cancel = true;
-                if (await SaveDocumentAsync(forceSaveAs: false).ConfigureAwait(true))
+                SaveAllResult saveResult = await SaveAllDocumentsAsync(
+                    showSummary: true).ConfigureAwait(true);
+                if (saveResult.RemainingDirty == 0)
                 {
                     _allowClose = true;
                     Close();
                 }
-
-                return;
             }
+            else if (result == MessageBoxResult.No)
+            {
+                foreach (EditorDocumentSession session in dirtySessions)
+                {
+                    DeleteRecovery(session);
+                }
+
+                _allowClose = true;
+                Close();
+            }
+
+            _closingInProgress = false;
+            return;
         }
 
         SaveWindowSettings();
@@ -5713,71 +5862,283 @@ public partial class MainWindow : Window, IDisposable
 
     private async Task OpenDocumentAsync(string path)
     {
+        string fullPath = Path.GetFullPath(path);
+        EditorDocumentSession? alreadyOpen = _documentSessions.FirstOrDefault(
+            session => session.MatchesPath(fullPath));
+        if (alreadyOpen is not null)
+        {
+            ActivateSession(alreadyOpen);
+            SetStatus("Ui.Main.Status.AlreadyOpen");
+            return;
+        }
+
         using DelegateDisposable loading = BeginViewportLoading();
+        XuiDocument document;
+        int escapedAmpersandCount = 0;
         try
         {
             SetStatus("Ui.Main.Status.OpeningXui");
-            XuiDocument document = await XuiDocument.OpenAsync(
-                path,
+            document = await XuiDocument.OpenAsync(
+                fullPath,
                 CreateDocumentOptions()).ConfigureAwait(true);
-            AttachDocument(document);
-            _recoverySuggestedPath = null;
-            _activeRecovery = null;
-            AddRecentFile(path);
-            RefreshAll();
-            await RebuildAssetResolverAsync().ConfigureAwait(true);
-            SetStatus("Ui.Main.Status.Ready");
+        }
+        catch (XuiParseException exception)
+        {
+            XuiDocumentFormattingRepair? repair =
+                await PromptToRepairAmpersandFormattingAsync(
+                    () => XuiDocument
+                        .TryOpenWithAmpersandFormattingRepairAsync(
+                            fullPath,
+                            CreateDocumentOptions()),
+                    exception,
+                    "Ui.Main.Error.OpenXui",
+                    "Ui.Main.Status.OpenFailed").ConfigureAwait(true);
+            if (repair is null)
+            {
+                return;
+            }
+
+            document = repair.Document;
+            escapedAmpersandCount = repair.EscapedAmpersandCount;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException)
+        {
+            ShowOpenError(exception, "Ui.Main.Error.OpenXui");
+            SetStatus("Ui.Main.Status.OpenFailed");
+            return;
+        }
+
+        try
+        {
+            EditorDocumentSession session = AttachDocument(document);
+            AddRecentFile(fullPath);
+            await RebuildAssetResolverAsync(session).ConfigureAwait(true);
+            SetStatus(
+                escapedAmpersandCount > 0
+                    ? "Ui.Main.Status.OpenedAfterFormatRepair"
+                    : "Ui.Main.Status.Ready",
+                escapedAmpersandCount);
         }
         catch (Exception exception) when (
             exception is IOException or
             UnauthorizedAccessException or
             XuiParseException)
         {
-            MessageBox.Show(
-                this,
-                UiLocalization.Format(
-                    "Ui.Common.ErrorDetails",
-                    exception.Message),
-                UiLocalization.Text("Ui.Main.Error.OpenXui"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            ShowOpenError(exception, "Ui.Main.Error.OpenXui");
             SetStatus("Ui.Main.Status.OpenFailed");
         }
     }
 
+    private async void DocumentTabs_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs eventArgs)
+    {
+        if (_switchingDocumentTabs ||
+            DocumentTabs.SelectedItem is not EditorDocumentSession session ||
+            ReferenceEquals(session, _activeSession))
+        {
+            return;
+        }
+
+        ActivateSession(session);
+        if (session.AssetStateStale)
+        {
+            await RebuildAssetResolverAsync(session).ConfigureAwait(true);
+        }
+    }
+
+    private async void DocumentTabClose_Click(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        eventArgs.Handled = true;
+        if (sender is Button { Tag: EditorDocumentSession session })
+        {
+            await CloseSessionAsync(session).ConfigureAwait(true);
+        }
+    }
+
+    private async Task<bool> CloseSessionAsync(EditorDocumentSession session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        if (!_documentSessions.Contains(session))
+        {
+            return true;
+        }
+
+        ActivateSession(session);
+        if (session.Document.IsDirty)
+        {
+            MessageBoxResult result = MessageBox.Show(
+                this,
+                UiLocalization.Format(
+                    "Ui.Main.Unsaved.CloseTabPrompt",
+                    session.DisplayName),
+                UiLocalization.Text("Ui.Main.Unsaved.Title"),
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning);
+            if (result == MessageBoxResult.Cancel)
+            {
+                return false;
+            }
+
+            if (result == MessageBoxResult.Yes)
+            {
+                DocumentSaveOutcome outcome = await SaveSessionAsync(
+                    session,
+                    forceSaveAs: false).ConfigureAwait(true);
+                if (outcome is DocumentSaveOutcome.Cancelled or
+                    DocumentSaveOutcome.Failed)
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                DeleteRecovery(session);
+            }
+        }
+
+        int index = _documentSessions.IndexOf(session);
+        DetachSession(session);
+        if (_documentSessions.Count == 0)
+        {
+            ClearActiveSession();
+        }
+        else
+        {
+            int nextIndex = Math.Min(index, _documentSessions.Count - 1);
+            ActivateSession(_documentSessions[nextIndex]);
+        }
+
+        return true;
+    }
+
     private async Task OpenAssetDocumentAsync(XuiAssetEntry entry)
     {
+        EditorDocumentSession? alreadyOpen = FindOpenSourceSession(
+            entry.Origin.DisplayPath,
+            entry.VirtualPath,
+            entry.FileName);
+        if (alreadyOpen is not null)
+        {
+            ActivateSession(alreadyOpen);
+            SetStatus("Ui.Main.Status.AlreadyOpen");
+            return;
+        }
+
         using DelegateDisposable loading = BeginViewportLoading();
+        XuiDocument document;
+        int escapedAmpersandCount = 0;
         try
         {
             SetStatus(
                 "Ui.Main.Status.OpeningStock",
                 entry.FileName);
-            XuiDocument document = await XuiDocument.OpenAssetAsync(
+            document = await XuiDocument.OpenAssetAsync(
                 entry,
                 CreateDocumentOptions()).ConfigureAwait(true);
-            AttachDocument(document);
-            _recoverySuggestedPath = null;
-            _activeRecovery = null;
-            RefreshAll();
-            await RebuildAssetResolverAsync().ConfigureAwait(true);
-            SetStatus("Ui.Main.Status.StockOpened");
+        }
+        catch (XuiParseException exception)
+        {
+            XuiDocumentFormattingRepair? repair =
+                await PromptToRepairAmpersandFormattingAsync(
+                    () => XuiDocument
+                        .TryOpenAssetWithAmpersandFormattingRepairAsync(
+                            entry,
+                            CreateDocumentOptions()),
+                    exception,
+                    "Ui.Main.Error.OpenStock",
+                    "Ui.Main.Status.StockOpenFailed").ConfigureAwait(true);
+            if (repair is null)
+            {
+                return;
+            }
+
+            document = repair.Document;
+            escapedAmpersandCount = repair.EscapedAmpersandCount;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException)
+        {
+            ShowOpenError(exception, "Ui.Main.Error.OpenStock");
+            SetStatus("Ui.Main.Status.StockOpenFailed");
+            return;
+        }
+
+        try
+        {
+            EditorDocumentSession session = AttachDocument(document);
+            await RebuildAssetResolverAsync(session).ConfigureAwait(true);
+            SetStatus(
+                escapedAmpersandCount > 0
+                    ? "Ui.Main.Status.OpenedAfterFormatRepair"
+                    : "Ui.Main.Status.StockOpened",
+                escapedAmpersandCount);
         }
         catch (Exception exception) when (
             exception is IOException or
             UnauthorizedAccessException or
             XuiParseException)
         {
-            MessageBox.Show(
-                this,
-                UiLocalization.Format(
-                    "Ui.Common.ErrorDetails",
-                    exception.Message),
-                UiLocalization.Text("Ui.Main.Error.OpenStock"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            ShowOpenError(exception, "Ui.Main.Error.OpenStock");
             SetStatus("Ui.Main.Status.StockOpenFailed");
         }
+    }
+
+    private async Task<XuiDocumentFormattingRepair?>
+        PromptToRepairAmpersandFormattingAsync(
+            Func<Task<XuiDocumentFormattingRepair?>> tryOpenRepairAsync,
+            XuiParseException parseException,
+            string errorTitleResourceKey,
+            string failureStatusResourceKey)
+    {
+        XuiDocumentFormattingRepair? repair;
+        try
+        {
+            repair = await tryOpenRepairAsync().ConfigureAwait(true);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException)
+        {
+            ShowOpenError(exception, errorTitleResourceKey);
+            SetStatus(failureStatusResourceKey);
+            return null;
+        }
+
+        if (repair is null)
+        {
+            ShowOpenError(parseException, errorTitleResourceKey);
+            SetStatus(failureStatusResourceKey);
+            return null;
+        }
+
+        MessageBoxResult decision = MessageBox.Show(
+            this,
+            UiLocalization.Format(
+                "Ui.Main.FormatRepair.Prompt",
+                repair.EscapedAmpersandCount),
+            UiLocalization.Text("Ui.Main.FormatRepair.Title"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (decision != MessageBoxResult.Yes)
+        {
+            SetStatus("Ui.Main.Status.Ready");
+            return null;
+        }
+
+        return repair;
+    }
+
+    private void ShowOpenError(Exception exception, string titleResourceKey)
+    {
+        MessageBox.Show(
+            this,
+            UiLocalization.Format("Ui.Common.ErrorDetails", exception.Message),
+            UiLocalization.Text(titleResourceKey),
+            MessageBoxButton.OK,
+            MessageBoxImage.Error);
     }
 
     private async Task OpenRecoveryAsync(RecoverySnapshot snapshot)
@@ -5788,15 +6149,27 @@ public partial class MainWindow : Window, IDisposable
             byte[] bytes = await File.ReadAllBytesAsync(
                 snapshot.ContentPath).ConfigureAwait(true);
             XuiSyntaxTree tree = new XuiSyntaxParser().Parse(bytes);
-            XuiDocument document = XuiDocument.FromText(
+            XuiDocumentSource? source = snapshot.SourceOrigin is null
+                ? null
+                : new XuiDocumentSource(
+                    snapshot.DisplayName ??
+                    (snapshot.OriginalPath is null
+                        ? UiLocalization.Text("Ui.Main.UntitledDocument")
+                        : Path.GetFileName(snapshot.OriginalPath)),
+                    snapshot.SourceOrigin,
+                    snapshot.SourceVirtualPath,
+                    IsReadOnly: true);
+            XuiDocument document = XuiDocument.FromUnsavedText(
                 tree.Source,
                 CreateDocumentOptions(),
-                tree.Format);
-            AttachDocument(document);
-            _recoverySuggestedPath = snapshot.OriginalPath;
-            _activeRecovery = snapshot;
-            RefreshAll();
-            await RebuildAssetResolverAsync().ConfigureAwait(true);
+                tree.Format,
+                source);
+            EditorDocumentSession session = AttachDocument(
+                document,
+                snapshot.OriginalPath,
+                snapshot,
+                snapshot.RecoveryKey ?? snapshot.OriginalPath ?? "untitled");
+            await RebuildAssetResolverAsync(session).ConfigureAwait(true);
             SetStatus("Ui.Main.Status.RecoveryOpened");
         }
         catch (Exception exception) when (
@@ -5813,19 +6186,199 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private void AttachDocument(XuiDocument document)
+    private EditorDocumentSession AttachDocument(
+        XuiDocument document,
+        string? recoverySuggestedPath = null,
+        RecoverySnapshot? activeRecovery = null,
+        string? recoveryKey = null)
     {
-        if (_document is not null)
+        EditorDocumentSession candidate = new(
+            document,
+            recoverySuggestedPath,
+            activeRecovery,
+            recoveryKey);
+        EditorDocumentSession? existing = _documentSessions.FirstOrDefault(
+            session => string.Equals(
+                session.Identity,
+                candidate.Identity,
+                StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
         {
-            _document.Changed -= Document_Changed;
-            _document.History.HistoryChanged -= History_HistoryChanged;
+            candidate.Dispose();
+            ActivateSession(existing);
+            return existing;
         }
 
-        _document = document;
-        _document.Changed += Document_Changed;
-        _document.History.HistoryChanged += History_HistoryChanged;
+        document.Changed += Document_Changed;
+        document.History.HistoryChanged += History_HistoryChanged;
+        _documentSessions.Add(candidate);
+        ActivateSession(candidate);
+        return candidate;
+    }
+
+    private EditorDocumentSession? FindOpenSourceSession(
+        string origin,
+        string? virtualPath,
+        string displayName) =>
+        _documentSessions.FirstOrDefault(session =>
+            session.Document.Path is null &&
+            session.Document.Source is { } source &&
+            string.Equals(
+                source.Origin,
+                origin,
+                StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(
+                source.VirtualPath,
+                virtualPath,
+                StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(
+                source.DisplayName,
+                displayName,
+                StringComparison.OrdinalIgnoreCase));
+
+    private void ActivateSession(EditorDocumentSession session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        if (!_documentSessions.Contains(session))
+        {
+            throw new InvalidOperationException("The document session is not open.");
+        }
+
+        if (ReferenceEquals(session, _activeSession))
+        {
+            SelectDocumentTab(session);
+            return;
+        }
+
+        PersistActiveSession();
+        StopPlayback();
+        _activeSession = session;
+        _document = session.Document;
+        _recoverySuggestedPath = session.RecoverySuggestedPath;
+        _activeRecovery = session.ActiveRecovery;
+        ReplaceSet(_expanded, session.Expanded);
+        ReplaceSet(_selectedKeys, session.SelectedKeys);
+        ReplaceSet(_hiddenKeys, session.HiddenKeys);
+        _hiddenKeysBeforeIsolation = CloneSet(session.HiddenKeysBeforeIsolation);
+        ReplaceSet(_forceShownKeys, session.ForceShownKeys);
+        ReplaceSet(_lockedKeys, session.LockedKeys);
+        _expansionBeforeFilter = CloneSet(session.ExpansionBeforeFilter);
+        _filterActive = session.FilterActive;
+        _lastHierarchyFilter = session.LastHierarchyFilter;
+        _selectedNamedFrameKey = session.SelectedNamedFrameKey;
+        _rawXmlLoadedNodeKey = session.RawXmlLoadedNodeKey;
+        _rawXmlLoadedRevision = session.RawXmlLoadedRevision;
+        _assetResolver = session.AssetResolver;
+        _assetCatalog = session.AssetCatalog;
+        _layoutSession = session.LayoutSession;
+        _hierarchyIndex = session.HierarchyIndex;
+        _timelineSet = session.TimelineSet;
+        _timelineWorkspace = session.TimelineWorkspace;
+        _allDiagnostics = session.AllDiagnostics;
+        _evaluationDiagnostics = session.EvaluationDiagnostics;
+        _evaluationDiagnosticsInitialized =
+            session.EvaluationDiagnosticsInitialized;
+        _textureDiagnostics.Clear();
+        foreach ((string key, IReadOnlyList<XuiDiagnostic> diagnostics) in
+                 session.TextureDiagnostics)
+        {
+            _textureDiagnostics[key] = diagnostics;
+        }
+
+        _hierarchySearchTimer.Stop();
+        HierarchySearch.Text = session.HierarchyFilter;
+        Viewport.SetAssetResolver(_assetResolver);
+        if (_assetCatalog is null)
+        {
+            AssetRows.ReplaceAll([]);
+            UpdateAssetEmptyState();
+        }
+        else
+        {
+            RefreshAssetRows();
+        }
+
+        SelectDocumentTab(session);
+        _forceFullViewportSynchronization = true;
+        RefreshAll();
+        Viewport.RestoreViewState(session.ViewportState);
+    }
+
+    private void PersistActiveSession()
+    {
+        if (_activeSession is not EditorDocumentSession session)
+        {
+            return;
+        }
+
+        ReplaceSet(session.Expanded, _expanded);
+        ReplaceSet(session.SelectedKeys, _selectedKeys);
+        ReplaceSet(session.HiddenKeys, _hiddenKeys);
+        session.HiddenKeysBeforeIsolation = CloneSet(_hiddenKeysBeforeIsolation);
+        ReplaceSet(session.ForceShownKeys, _forceShownKeys);
+        ReplaceSet(session.LockedKeys, _lockedKeys);
+        session.ExpansionBeforeFilter = CloneSet(_expansionBeforeFilter);
+        session.FilterActive = _filterActive;
+        session.HierarchyFilter = HierarchySearch.Text;
+        session.LastHierarchyFilter = _lastHierarchyFilter;
+        session.SelectedNamedFrameKey = _selectedNamedFrameKey;
+        session.RawXmlLoadedNodeKey = _rawXmlLoadedNodeKey;
+        session.RawXmlLoadedRevision = _rawXmlLoadedRevision;
+        session.AssetResolver = _assetResolver;
+        session.AssetCatalog = _assetCatalog;
+        session.LayoutSession = _layoutSession;
+        session.HierarchyIndex = _hierarchyIndex;
+        session.TimelineSet = _timelineSet;
+        session.TimelineWorkspace = _timelineWorkspace;
+        session.AllDiagnostics = _allDiagnostics;
+        session.EvaluationDiagnostics = _evaluationDiagnostics;
+        session.EvaluationDiagnosticsInitialized =
+            _evaluationDiagnosticsInitialized;
+        session.TextureDiagnostics.Clear();
+        foreach ((string key, IReadOnlyList<XuiDiagnostic> diagnostics) in
+                 _textureDiagnostics)
+        {
+            session.TextureDiagnostics[key] = diagnostics;
+        }
+
+        session.RecoverySuggestedPath = _recoverySuggestedPath;
+        session.ActiveRecovery = _activeRecovery;
+        session.ViewportState = Viewport.CaptureViewState();
+    }
+
+    private void SelectDocumentTab(EditorDocumentSession session)
+    {
+        if (ReferenceEquals(DocumentTabs.SelectedItem, session))
+        {
+            return;
+        }
+
+        _switchingDocumentTabs = true;
+        DocumentTabs.SelectedItem = session;
+        _switchingDocumentTabs = false;
+    }
+
+    private void DetachSession(EditorDocumentSession session)
+    {
+        session.Document.Changed -= Document_Changed;
+        session.Document.History.HistoryChanged -= History_HistoryChanged;
+        _documentSessions.Remove(session);
+        session.Dispose();
+        if (ReferenceEquals(session, _activeSession))
+        {
+            _activeSession = null;
+            _document = null;
+        }
+    }
+
+    private void ClearActiveSession()
+    {
+        StopPlayback();
+        _activeSession = null;
+        _document = null;
+        _recoverySuggestedPath = null;
+        _activeRecovery = null;
         _expanded.Clear();
-        _expanded.Add(document.Root.Key);
         _selectedKeys.Clear();
         _hiddenKeys.Clear();
         _hiddenKeysBeforeIsolation = null;
@@ -5834,27 +6387,58 @@ public partial class MainWindow : Window, IDisposable
         _selectedNamedFrameKey = null;
         TimelineEditor.SelectKeyFrame(null);
         _layoutSession = null;
+        _timelineSet = null;
         _timelineWorkspace = null;
         _hierarchyIndex = null;
+        _assetResolver = null;
+        _assetCatalog = null;
+        _allDiagnostics = [];
         _evaluationDiagnostics = [];
         _evaluationDiagnosticsInitialized = false;
-        StopPlayback();
+        _textureDiagnostics.Clear();
+        HierarchyRows.ReplaceAll([]);
+        InspectorProperties.ReplaceAll([]);
+        FilteredDiagnostics.ReplaceAll([]);
+        AssetRows.ReplaceAll([]);
+        TimelineEditor.SetData(null, [], 0);
+        Viewport.SetAssetResolver(null);
+        Viewport.SetFrame(null);
+        Viewport.RestoreViewState(null);
+        DocumentPathText.Text = string.Empty;
+        DocumentStatsText.Text = string.Empty;
+        UpdateAssetEmptyState();
+        UpdateChrome();
     }
 
-    private async Task RebuildAssetResolverAsync()
+    private static HashSet<string>? CloneSet(HashSet<string>? source) =>
+        source is null ? null : new HashSet<string>(source, StringComparer.Ordinal);
+
+    private static void ReplaceSet(
+        HashSet<string> target,
+        IEnumerable<string> source)
     {
-        if (_document is null)
+        target.Clear();
+        target.UnionWith(source);
+    }
+
+    private async Task RebuildAssetResolverAsync(
+        EditorDocumentSession? session = null)
+    {
+        session ??= _activeSession;
+        if (session is null || !_documentSessions.Contains(session))
         {
             return;
         }
 
+        XuiDocument document = session.Document;
+        int buildVersion = ++session.AssetBuildVersion;
         using DelegateDisposable loading = BeginViewportLoading();
         await EnsureInstallIndexAsync(showErrors: false).ConfigureAwait(true);
         List<XuiAssetRoot> roots = [];
         XuiDocumentAssetContext? documentContext =
-            _document.Path is null
+            document.Path is null
                 ? null
-                : XuiDocumentAssetContext.Discover(_document.Path);
+                : XuiDocumentAssetContext.Discover(document.Path);
         string? documentAssetRoot =
             documentContext?.Root.FullPath;
         AssetRootSetting? configuredDocumentRoot =
@@ -5867,12 +6451,12 @@ public partial class MainWindow : Window, IDisposable
                     .OrderByDescending(static root => root.Path.Length)
                     .FirstOrDefault();
         bool documentIsInsideInstall =
-            _document.Path is not null &&
+            document.Path is not null &&
             !string.IsNullOrWhiteSpace(
                 _settings.DyingLightInstallPath) &&
             PathIsInside(
                 _settings.DyingLightInstallPath,
-                _document.Path);
+                document.Path);
         if (documentContext is not null &&
             documentAssetRoot is not null &&
             Directory.Exists(documentAssetRoot) &&
@@ -5910,38 +6494,68 @@ public partial class MainWindow : Window, IDisposable
             sources.Add(_installIndex);
         }
 
-        _assetResolver = new DyingLightAssetResolver(
+        DyingLightAssetResolver resolver = new(
             roots,
             fontMappings: _settings.FontMappings,
             sources: sources,
             locale: _settings.Locale,
             inputGlyphScheme: _settings.InputGlyphScheme);
-        _assetCatalog = null;
-        AssetRows.ReplaceAll([]);
-        UpdateAssetEmptyState();
-        _textureDiagnostics.Clear();
-        _layoutSession = null;
-        Viewport.SetAssetResolver(null);
-        SetAssetStatus("Ui.Main.Asset.IndexingExternal");
+        session.AssetResolver = resolver;
+        session.AssetCatalog = null;
+        session.LayoutSession = null;
+        session.TextureDiagnostics.Clear();
+        if (ReferenceEquals(session, _activeSession))
+        {
+            _assetResolver = resolver;
+            _assetCatalog = null;
+            AssetRows.ReplaceAll([]);
+            UpdateAssetEmptyState();
+            _textureDiagnostics.Clear();
+            _layoutSession = null;
+            Viewport.SetAssetResolver(null);
+            SetAssetStatus("Ui.Main.Asset.IndexingExternal");
+        }
+
         try
         {
-            await _assetResolver.RebuildAsync().ConfigureAwait(true);
-            _assetCatalog = new DyingLightXuiAssetCatalog(_assetResolver);
-            RefreshAssetRows();
-            Viewport.SetAssetResolver(_assetResolver);
-            int diagnosticCount = _assetResolver.Diagnostics.Count;
-            SetAssetStatus(
-                "Ui.Main.Asset.Summary",
-                _assetResolver.Files.Count,
-                _assetResolver.Localization?.Entries.Count ?? 0,
-                DyingLightInstallProfile.NormalizeLocale(
-                    _settings.Locale),
-                diagnosticCount);
-            RefreshEvaluation();
+            await resolver.RebuildAsync().ConfigureAwait(true);
+            if (!_documentSessions.Contains(session) ||
+                session.AssetBuildVersion != buildVersion)
+            {
+                return;
+            }
+
+            session.AssetCatalog = new DyingLightXuiAssetCatalog(resolver);
+            session.AssetStateStale = false;
+            if (ReferenceEquals(session, _activeSession))
+            {
+                _assetResolver = resolver;
+                _assetCatalog = session.AssetCatalog;
+                RefreshAssetRows();
+                Viewport.SetAssetResolver(resolver);
+                int diagnosticCount = resolver.Diagnostics.Count;
+                SetAssetStatus(
+                    "Ui.Main.Asset.Summary",
+                    resolver.Files.Count,
+                    resolver.Localization?.Entries.Count ?? 0,
+                    DyingLightInstallProfile.NormalizeLocale(
+                        _settings.Locale),
+                    diagnosticCount);
+                RefreshEvaluation();
+            }
         }
         catch (OperationCanceledException)
         {
-            SetAssetStatus("Ui.Main.Asset.IndexingCancelled");
+            if (session.AssetBuildVersion != buildVersion)
+            {
+                return;
+            }
+
+            session.AssetStateStale = true;
+            if (ReferenceEquals(session, _activeSession))
+            {
+                SetAssetStatus("Ui.Main.Asset.IndexingCancelled");
+            }
         }
     }
 
@@ -6096,10 +6710,25 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
+        EditorDocumentSession? session = _documentSessions.FirstOrDefault(
+            candidate => ReferenceEquals(candidate.Document, sender));
+        if (session is null)
+        {
+            return;
+        }
+
+        session.RefreshChrome();
+        session.RecoveryPending = session.Document.IsDirty;
         _recoveryTimer.Stop();
-        if (_document?.IsDirty == true)
+        if (_documentSessions.Any(static candidate =>
+                candidate.RecoveryPending))
         {
             _recoveryTimer.Start();
+        }
+
+        if (!ReferenceEquals(session, _activeSession))
+        {
+            return;
         }
 
         if (_suppressRefresh)
@@ -6118,14 +6747,18 @@ public partial class MainWindow : Window, IDisposable
             if (!_disposed && !Dispatcher.HasShutdownStarted)
             {
                 _ = Dispatcher.InvokeAsync(
-                    UpdateChrome,
+                    () => History_HistoryChanged(sender, eventArgs),
                     DispatcherPriority.DataBind);
             }
 
             return;
         }
 
-        UpdateChrome();
+        if (_activeSession is not null &&
+            ReferenceEquals(_activeSession.Document.History, sender))
+        {
+            UpdateChrome();
+        }
     }
 
     private void RefreshAll()
@@ -6167,7 +6800,10 @@ public partial class MainWindow : Window, IDisposable
                 XuiTimelineEvaluationState.Initial,
                 BuildRenderContext());
             XuiRenderFrame frame = sample.Frame;
-            Viewport.SetSample(sample);
+            Viewport.SetSample(
+                sample,
+                _forceFullViewportSynchronization);
+            _forceFullViewportSynchronization = false;
             Viewport.SetSelectedKeys(_selectedKeys);
             Viewport.SetHiddenKeys(EditorHiddenKeys());
             Viewport.SetLockedKeys(EditorLockedKeys());
@@ -8366,46 +9002,99 @@ public partial class MainWindow : Window, IDisposable
 
     private async Task<bool> SaveDocumentAsync(bool forceSaveAs)
     {
-        if (_document is null)
+        if (_activeSession is null)
         {
             return true;
         }
 
+        DocumentSaveOutcome outcome = await SaveSessionAsync(
+            _activeSession,
+            forceSaveAs).ConfigureAwait(true);
+        return outcome is DocumentSaveOutcome.Saved or
+            DocumentSaveOutcome.Unchanged;
+    }
+
+    private async Task<DocumentSaveOutcome> SaveSessionAsync(
+        EditorDocumentSession session,
+        bool forceSaveAs)
+    {
+        XuiDocument document = session.Document;
         string? target = null;
-        if (forceSaveAs || _document.Path is null)
+        if (forceSaveAs || document.Path is null)
         {
-            SaveFileDialog dialog = new()
+            ActivateSession(session);
+            if (_savePathSelectorForTesting is not null)
             {
-                Title = UiLocalization.Text("Ui.Main.SaveAs.Title"),
-                Filter = UiLocalization.Text("Ui.Main.Filter.XuiAll"),
-                AddExtension = true,
-                DefaultExt = ".xui",
-                FileName = Path.GetFileName(
-                    _recoverySuggestedPath ??
-                    _document.Path ??
-                    _document.DisplayName),
-                InitialDirectory = InitialSaveDirectory(),
-            };
-            if (dialog.ShowDialog(this) != true)
+                target = _savePathSelectorForTesting(document);
+            }
+            else
             {
-                return false;
+                SaveFileDialog dialog = new()
+                {
+                    Title = UiLocalization.Text("Ui.Main.SaveAs.Title"),
+                    Filter = UiLocalization.Text("Ui.Main.Filter.XuiAll"),
+                    AddExtension = true,
+                    DefaultExt = ".xui",
+                    FileName = Path.GetFileName(
+                        session.RecoverySuggestedPath ??
+                        document.Path ??
+                        document.DisplayName),
+                    InitialDirectory = InitialSaveDirectory(session),
+                };
+                if (dialog.ShowDialog(this) == true)
+                {
+                    target = dialog.FileName;
+                }
             }
 
-            target = dialog.FileName;
+            if (string.IsNullOrWhiteSpace(target))
+            {
+                return DocumentSaveOutcome.Cancelled;
+            }
+
+            target = Path.GetFullPath(target);
+            EditorDocumentSession? collision = _documentSessions.FirstOrDefault(
+                candidate => !ReferenceEquals(candidate, session) &&
+                    candidate.MatchesPath(target));
+            if (collision is not null)
+            {
+                MessageBox.Show(
+                    this,
+                    UiLocalization.Format(
+                        "Ui.Main.Save.PathAlreadyOpen",
+                        target),
+                    UiLocalization.Text("Ui.Main.Error.SaveXui"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return DocumentSaveOutcome.Failed;
+            }
         }
 
         try
         {
-            string? priorPath = _document.Path;
-            XuiSaveResult result = await _document.SaveAsync(target).ConfigureAwait(true);
+            string? priorPath = document.Path;
+            XuiSaveResult result = await document.SaveAsync(target)
+                .ConfigureAwait(true);
             RecoveryService.DeleteForPath(priorPath);
-            if (_activeRecovery is not null)
+            DeleteRecovery(session);
+            session.RecoverySuggestedPath = null;
+            session.RecoveryPending = false;
+            bool pathChanged = !string.Equals(
+                priorPath,
+                result.Path,
+                StringComparison.OrdinalIgnoreCase);
+            session.AssetStateStale |= pathChanged;
+            if (pathChanged)
             {
-                RecoveryService.Delete(_activeRecovery);
+                session.AssetBuildVersion++;
+            }
+            session.RefreshChrome();
+            if (ReferenceEquals(session, _activeSession))
+            {
+                _recoverySuggestedPath = null;
                 _activeRecovery = null;
             }
 
-            _recoverySuggestedPath = null;
             AddRecentFile(result.Path);
             SetStatus(
                 result.Disposition == XuiSaveDisposition.Unchanged
@@ -8417,14 +9106,22 @@ public partial class MainWindow : Window, IDisposable
                     ? string.Empty
                     : Path.GetFileName(result.BackupPath));
             UpdateChrome();
-            return true;
+            if (pathChanged && ReferenceEquals(session, _activeSession))
+            {
+                await RebuildAssetResolverAsync(session).ConfigureAwait(true);
+            }
+
+            return result.Disposition == XuiSaveDisposition.Unchanged
+                ? DocumentSaveOutcome.Unchanged
+                : DocumentSaveOutcome.Saved;
         }
         catch (UnauthorizedAccessException exception)
         {
             if (!forceSaveAs)
             {
                 SetStatus("Ui.Main.Status.SourceReadOnly");
-                return await SaveDocumentAsync(forceSaveAs: true).ConfigureAwait(true);
+                return await SaveSessionAsync(session, forceSaveAs: true)
+                    .ConfigureAwait(true);
             }
 
             MessageBox.Show(
@@ -8435,7 +9132,7 @@ public partial class MainWindow : Window, IDisposable
                 UiLocalization.Text("Ui.Main.Error.SaveXui"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-            return false;
+            return DocumentSaveOutcome.Failed;
         }
         catch (Exception exception) when (
             exception is IOException or
@@ -8452,49 +9149,134 @@ public partial class MainWindow : Window, IDisposable
                 UiLocalization.Text("Ui.Main.Error.SaveXui"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-            return false;
+            return DocumentSaveOutcome.Failed;
         }
     }
 
-    private async Task<bool> ConfirmDiscardAsync()
+    private async Task<SaveAllResult> SaveAllDocumentsAsync(bool showSummary)
     {
-        if (_document?.IsDirty != true)
+        EditorDocumentSession? original = _activeSession;
+        EditorDocumentSession[] dirtySessions = _documentSessions
+            .Where(static session => session.Document.IsDirty)
+            .ToArray();
+        if (dirtySessions.Length == 0)
         {
-            return true;
+            SetStatus("Ui.Main.Status.NoChanges");
+            return new SaveAllResult(0, 0, 0, 0, 0);
         }
 
-        MessageBoxResult result = MessageBox.Show(
-            this,
-            UiLocalization.Text("Ui.Main.Unsaved.OpenPrompt"),
-            UiLocalization.Text("Ui.Main.Unsaved.Title"),
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Warning);
-        return result switch
+        int saved = 0;
+        int unchanged = 0;
+        int cancelled = 0;
+        int failed = 0;
+        foreach (EditorDocumentSession session in dirtySessions)
         {
-            MessageBoxResult.Yes => await SaveDocumentAsync(false).ConfigureAwait(true),
-            MessageBoxResult.No => true,
-            _ => false,
-        };
+            DocumentSaveOutcome outcome = await SaveSessionAsync(
+                session,
+                forceSaveAs: false).ConfigureAwait(true);
+            switch (outcome)
+            {
+                case DocumentSaveOutcome.Saved:
+                    saved++;
+                    break;
+                case DocumentSaveOutcome.Unchanged:
+                    unchanged++;
+                    break;
+                case DocumentSaveOutcome.Cancelled:
+                    cancelled++;
+                    break;
+                case DocumentSaveOutcome.Failed:
+                    failed++;
+                    break;
+            }
+        }
+
+        if (original is not null && _documentSessions.Contains(original))
+        {
+            ActivateSession(original);
+        }
+
+        int remainingDirty = _documentSessions.Count(static session =>
+            session.Document.IsDirty);
+        SaveAllResult result = new(
+            saved,
+            unchanged,
+            cancelled,
+            failed,
+            remainingDirty);
+        SetStatus(
+            "Ui.Main.Status.SaveAllSummary",
+            saved + unchanged,
+            remainingDirty,
+            failed);
+        if (showSummary && (cancelled > 0 || failed > 0))
+        {
+            MessageBox.Show(
+                this,
+                UiLocalization.Format(
+                        "Ui.Main.SaveAll.Summary",
+                        saved + unchanged,
+                        remainingDirty,
+                        cancelled,
+                        failed)
+                    .Replace("\\n", Environment.NewLine, StringComparison.Ordinal),
+                UiLocalization.Text("Ui.Command.SaveAll"),
+                MessageBoxButton.OK,
+                failed > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+        }
+
+        return result;
     }
 
     private async void RecoveryTimer_Tick(object? sender, EventArgs eventArgs)
     {
         _recoveryTimer.Stop();
-        if (_document?.IsDirty != true)
+        bool failed = false;
+        foreach (EditorDocumentSession session in _documentSessions.Where(
+                     static candidate =>
+                         candidate.RecoveryPending &&
+                         candidate.Document.IsDirty).ToArray())
         {
-            return;
+            try
+            {
+                XuiDocumentSource? source = session.Document.Source;
+                session.ActiveRecovery = await RecoveryService.WriteAsync(
+                    session.Document,
+                    session.RecoveryKey,
+                    session.DisplayName,
+                    source?.Origin,
+                    source?.VirtualPath).ConfigureAwait(true);
+                session.RecoveryPending = false;
+                if (ReferenceEquals(session, _activeSession))
+                {
+                    _activeRecovery = session.ActiveRecovery;
+                }
+            }
+            catch (IOException)
+            {
+                failed = true;
+            }
         }
 
-        try
+        SetStatus(failed
+            ? "Ui.Main.Status.RecoveryFailed"
+            : "Ui.Main.Status.RecoverySaved");
+        if (failed)
         {
-            _activeRecovery = await RecoveryService.WriteAsync(
-                _document).ConfigureAwait(true);
-            SetStatus("Ui.Main.Status.RecoverySaved");
+            _recoveryTimer.Start();
         }
-        catch (IOException)
+    }
+
+    private static void DeleteRecovery(EditorDocumentSession session)
+    {
+        if (session.ActiveRecovery is not null)
         {
-            SetStatus("Ui.Main.Status.RecoveryFailed");
+            RecoveryService.Delete(session.ActiveRecovery);
+            session.ActiveRecovery = null;
         }
+
+        RecoveryService.DeleteForPath(session.Document.Path);
+        session.RecoveryPending = false;
     }
 
     private void SetStatus(string key, params object?[] arguments)
@@ -8572,6 +9354,7 @@ public partial class MainWindow : Window, IDisposable
 
     private void UpdateChrome()
     {
+        _activeSession?.RefreshChrome();
         string display = _document is null
             ? UiLocalization.Text("Ui.Main.Untitled")
             : _document.Path is null && _recoverySuggestedPath is not null
@@ -8722,10 +9505,7 @@ public partial class MainWindow : Window, IDisposable
             };
             item.Click += async (_, _) =>
             {
-                if (await ConfirmDiscardAsync().ConfigureAwait(true))
-                {
-                    await OpenDocumentAsync(path).ConfigureAwait(true);
-                }
+                await OpenDocumentAsync(path).ConfigureAwait(true);
             };
             RecentFilesMenu.Items.Add(item);
         }
@@ -8742,7 +9522,7 @@ public partial class MainWindow : Window, IDisposable
         _settings.TimelineHeight = TimelineRow.ActualHeight;
     }
 
-    private string InitialSaveDirectory()
+    private string InitialSaveDirectory(EditorDocumentSession? session = null)
     {
         if (!string.IsNullOrWhiteSpace(_settings.WorkspaceRoot) &&
             Directory.Exists(_settings.WorkspaceRoot))
@@ -8750,7 +9530,10 @@ public partial class MainWindow : Window, IDisposable
             return _settings.WorkspaceRoot;
         }
 
-        string? suggestedDirectory = Path.GetDirectoryName(_recoverySuggestedPath);
+        string? suggestedDirectory = Path.GetDirectoryName(
+            session?.RecoverySuggestedPath ??
+            session?.Document.Path ??
+            _recoverySuggestedPath);
         if (suggestedDirectory is not null && Directory.Exists(suggestedDirectory))
         {
             return suggestedDirectory;
@@ -9085,6 +9868,13 @@ public partial class MainWindow : Window, IDisposable
         _playbackTimer.Stop();
         _recoveryTimer.Stop();
         _hierarchySearchTimer.Stop();
+        foreach (EditorDocumentSession session in _documentSessions)
+        {
+            session.Document.Changed -= Document_Changed;
+            session.Document.History.HistoryChanged -= History_HistoryChanged;
+            session.Dispose();
+        }
+
         GC.SuppressFinalize(this);
     }
 }

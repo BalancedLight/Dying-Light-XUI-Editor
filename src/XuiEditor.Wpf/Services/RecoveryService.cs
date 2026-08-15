@@ -10,7 +10,16 @@ public sealed record RecoverySnapshot(
     string MetadataPath,
     string ContentPath,
     string? OriginalPath,
-    DateTime TimestampUtc);
+    DateTime TimestampUtc)
+{
+    public string? RecoveryKey { get; init; }
+
+    public string? DisplayName { get; init; }
+
+    public string? SourceOrigin { get; init; }
+
+    public string? SourceVirtualPath { get; init; }
+}
 
 public static class RecoveryService
 {
@@ -28,17 +37,54 @@ public static class RecoveryService
         await WriteAsync(
             document,
             RecoveryDirectory,
+            recoveryKey: null,
+            displayName: null,
+            sourceOrigin: null,
+            sourceVirtualPath: null,
+            cancellationToken).ConfigureAwait(false);
+
+    public static async Task<RecoverySnapshot> WriteAsync(
+        XuiDocument document,
+        string recoveryKey,
+        string? displayName,
+        string? sourceOrigin,
+        string? sourceVirtualPath,
+        CancellationToken cancellationToken = default) =>
+        await WriteAsync(
+            document,
+            RecoveryDirectory,
+            recoveryKey,
+            displayName,
+            sourceOrigin,
+            sourceVirtualPath,
             cancellationToken).ConfigureAwait(false);
 
     internal static async Task<RecoverySnapshot> WriteAsync(
         XuiDocument document,
         string recoveryDirectory,
+        CancellationToken cancellationToken = default) =>
+        await WriteAsync(
+            document,
+            recoveryDirectory,
+            recoveryKey: null,
+            displayName: null,
+            sourceOrigin: null,
+            sourceVirtualPath: null,
+            cancellationToken).ConfigureAwait(false);
+
+    internal static async Task<RecoverySnapshot> WriteAsync(
+        XuiDocument document,
+        string recoveryDirectory,
+        string? recoveryKey,
+        string? displayName,
+        string? sourceOrigin,
+        string? sourceVirtualPath,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentException.ThrowIfNullOrWhiteSpace(recoveryDirectory);
         Directory.CreateDirectory(recoveryDirectory);
-        string identity = document.Path ?? "untitled";
+        string identity = recoveryKey ?? document.Path ?? "untitled";
         string key = Convert.ToHexString(
             SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..24];
         string contentPath = Path.Combine(recoveryDirectory, key + ".xui");
@@ -53,7 +99,13 @@ public static class RecoveryService
                 document.Format.Encode(document.Text),
                 cancellationToken).ConfigureAwait(false);
             string metadata = JsonSerializer.Serialize(
-                new RecoveryMetadata(document.Path, timestamp),
+                new RecoveryMetadata(
+                    document.Path,
+                    timestamp,
+                    recoveryKey,
+                    displayName ?? document.DisplayName,
+                    sourceOrigin ?? document.Source?.Origin,
+                    sourceVirtualPath ?? document.Source?.VirtualPath),
                 JsonOptions);
             await File.WriteAllTextAsync(
                 metadataTemporary,
@@ -72,7 +124,13 @@ public static class RecoveryService
             metadataPath,
             contentPath,
             document.Path,
-            timestamp);
+            timestamp)
+        {
+            RecoveryKey = recoveryKey,
+            DisplayName = displayName ?? document.DisplayName,
+            SourceOrigin = sourceOrigin ?? document.Source?.Origin,
+            SourceVirtualPath = sourceVirtualPath ?? document.Source?.VirtualPath,
+        };
     }
 
     public static IReadOnlyList<RecoverySnapshot> Find() =>
@@ -107,7 +165,13 @@ public static class RecoveryService
                         metadataPath,
                         contentPath,
                         metadata.OriginalPath,
-                        metadata.TimestampUtc));
+                        metadata.TimestampUtc)
+                    {
+                        RecoveryKey = metadata.RecoveryKey,
+                        DisplayName = metadata.DisplayName,
+                        SourceOrigin = metadata.SourceOrigin,
+                        SourceVirtualPath = metadata.SourceVirtualPath,
+                    });
                 }
             }
             catch (JsonException)
@@ -158,5 +222,9 @@ public static class RecoveryService
 
     private sealed record RecoveryMetadata(
         string? OriginalPath,
-        DateTime TimestampUtc);
+        DateTime TimestampUtc,
+        string? RecoveryKey = null,
+        string? DisplayName = null,
+        string? SourceOrigin = null,
+        string? SourceVirtualPath = null);
 }

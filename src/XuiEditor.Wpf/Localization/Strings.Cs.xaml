@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">PNG obrázek (*.png)|*.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)|*.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|*.xui|Všechny soubory (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">Tento XUI obsahuje {0:N0} ampersandy bez escapování. Opravit je v editoru a otevřít? Zdrojový soubor zůstane nezměněn, dokud jej neuložíte.</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">Opravit formátování XUI?</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">„{0}“ je pro {1} neplatné. Klíčový snímek nebyl změněn.</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">Tento chybně tvarovaný klíčový snímek nemá žádný odpovídající prvek Prop.</system:String>
@@ -736,6 +738,7 @@ Otevřít jej jako neuložený dokument?</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPasted">Nebylo vloženo nic · {0:N0} nekompatibilní nebo zamčené · {1:N0} již odpovídá</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">Nic nevloženo · všechny použitelné hodnoty již odpovídají</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">Otevření se nezdařilo</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">Otevřeno po escapování {0:N0} nezpracovaných ampersandů. Uložte, chcete-li zachovat opravu formátování.</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">Počáteční sklad {0}…</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">Otevírání XUI…</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">Vložené hodnoty vlastnosti {0:N0} do prvků {1:N0} · {2:N0} nekompatibilní nebo uzamčené · {3:N0} již odpovídá</system:String>
@@ -981,4 +984,14 @@ Důkaz: {3}</system:String>
     <system:String x:Key="Ui.TextStyle.CustomAutomation">Nezpracovaná číselná hodnota TextStyle</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">Použít</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">Zadejte platné desetinné číslo se znaménkem nebo celé číslo s předponou 0x.</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">Uložit vše</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">Zavřít kartu</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">Zavřít dokument</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">Je k dispozici {0:N0} obnovených dokumentů. Ano: obnovit vše. Ne: zahodit vše. Zrušit: rozhodnout později.</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">Dokument je již otevřen</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">{0:N0} dokumentů obsahuje neuložené změny:\n\n{1}\n\nAno: uložit vše a ukončit. Ne: zahodit vše a ukončit. Zrušit: pokračovat v úpravách.</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">Uložit změny v {0} před zavřením karty?</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">Nelze uložit do „{0}“, protože je tento soubor již otevřen na jiné kartě.</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">Uložení dokončeno · {0:N0} uloženo · {1:N0} neuloženo · {2:N0} selhání</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">Uložení všech dokumentů dokončeno.\n\nUloženo: {0:N0}\nStále neuloženo: {1:N0}\nZrušeno: {2:N0}\nSelhání: {3:N0}</system:String>
 </ResourceDictionary>

@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">PNG imagem (*.png)|*.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)|*.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|*.xui|Todos os arquivos (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">Este XUI contém {0:N0} e comercial sem escape. Corrigi-los no editor e abri-lo? O arquivo de origem permanecerá inalterado até você salvá-lo.</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">Corrigir a formatação XUI?</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">'{0}' é inválido para {1}. O quadro-chave não foi alterado.</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">Este quadro-chave malformado não possui nenhum elemento Prop correspondente.</system:String>
@@ -736,6 +738,7 @@ Abri-lo como um documento não salvo?</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPasted">Nada colado · {0:N0} incompatível ou bloqueado · {1:N0} já correspondido</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">Nada colado · todos os valores aplicáveis já correspondidos</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">Falha ao abrir</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">Aberto após escapar do e comercial bruto {0:N0}. Salve para manter o reparo da formatação.</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">Estoque inicial {0}…</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">Abrindo XUI…</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">Valores de propriedade {0:N0} colados em elementos {1:N0} · {2:N0} incompatíveis ou bloqueados · {3:N0} já correspondidos</system:String>
@@ -981,4 +984,14 @@ Evidência: {3}</system:String>
     <system:String x:Key="Ui.TextStyle.CustomAutomation">Valor numérico bruto TextStyle</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">Aplicar</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">Insira um decimal assinado válido ou um número inteiro com prefixo 0x.</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">Salvar tudo</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">Fechar aba</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">Fechar documento</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">Há {0:N0} recuperações disponíveis. Sim: recuperar tudo. Não: descartar tudo. Cancelar: decidir depois.</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">O documento já está aberto</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">{0:N0} documentos têm alterações não salvas:\n\n{1}\n\nSim: salvar tudo e sair. Não: descartar tudo e sair. Cancelar: continuar editando.</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">Salvar as alterações em {0} antes de fechar a aba?</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">Não é possível salvar em “{0}” porque o arquivo já está aberto em outra aba.</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">Salvar tudo concluído · {0:N0} salvos · {1:N0} não salvos · {2:N0} falharam</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">Salvar tudo foi concluído.\n\nSalvos: {0:N0}\nAinda não salvos: {1:N0}\nCancelados: {2:N0}\nFalharam: {3:N0}</system:String>
 </ResourceDictionary>

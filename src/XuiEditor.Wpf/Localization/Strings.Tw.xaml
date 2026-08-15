@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">PNG影像(*.png)|*.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)|*.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|*.xui|所有檔案 (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">此 XUI 包含 {0:N0} 未轉義的 &amp; 符號。在編輯器中修復它們並打開它？來源檔案將保持不變，直到您儲存。</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">修復 XUI 格式？</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">“{0}”對於 {1} 無效。關鍵影格沒有改變。</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">此格式錯誤的關鍵影格沒有對應的 Prop 元素。</system:String>
@@ -736,6 +738,7 @@
     <system:String x:Key="Ui.Main.Status.NothingPasted">未貼上任何內容 · {0:N0} 不相容或鎖定 · {1:N0} 已匹配</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">沒有貼上任何內容·每個適用的值都已匹配</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">打開失敗</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">轉義 {0:N0} 原始 &amp; 符號後開啟。儲存以保留格式修復。</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">開盤庫存{0}...</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">正在開啟 XUI...</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">將 {0:N0} 屬性值貼到 {1:N0} 元素 · {2:N0} 不相容或鎖定 · {3:N0} 已匹配</system:String>
@@ -981,4 +984,14 @@
     <system:String x:Key="Ui.TextStyle.CustomAutomation">原始 TextStyle 數值</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">套用</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">輸入有效的帶符號小數或以 0x 為前綴的整數。</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">全部儲存</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">關閉分頁</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">關閉文件</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">有 {0:N0} 個復原快照。是：全部復原。否：全部捨棄。取消：稍後決定。</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">文件已開啟</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">{0:N0} 個文件有未儲存的變更：\n\n{1}\n\n是：全部儲存並結束。否：全部捨棄並結束。取消：繼續編輯。</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">關閉分頁前要儲存 {0} 的變更嗎？</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">無法儲存到「{0}」，因為該檔案已在另一個分頁中開啟。</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">全部儲存完成 · 已儲存 {0:N0} · 未儲存 {1:N0} · 失敗 {2:N0}</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">全部儲存完成。\n\n已儲存：{0:N0}\n仍未儲存：{1:N0}\n已取消：{2:N0}\n失敗：{3:N0}</system:String>
 </ResourceDictionary>

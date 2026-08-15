@@ -7,6 +7,19 @@ namespace XuiEditor.Tests;
 [TestClass]
 public sealed class DocumentRoundTripTests
 {
+    [TestMethod]
+    public void UnsavedTextFactoryPreservesContentAndRequiresSaving()
+    {
+        const string source =
+            "<XuiCanvas><Properties><Width>1</Width></Properties></XuiCanvas>";
+
+        XuiDocument document = XuiDocument.FromUnsavedText(source);
+
+        Assert.AreEqual(source, document.Text);
+        Assert.IsNull(document.Path);
+        Assert.IsTrue(document.IsDirty);
+    }
+
     private const string LosslessFixture =
         "<?xui tool='legacy'?>\r\n" +
         "<XuiCanvas version=\"000c\" odd='kept'>\r\n" +
@@ -108,6 +121,72 @@ public sealed class DocumentRoundTripTests
     {
         Assert.ThrowsExactly<XuiParseException>(() =>
             XuiDocument.FromText(source));
+    }
+
+    [TestMethod]
+    public void AmpersandFormattingRepairPreservesValidXmlContexts()
+    {
+        const string source =
+            "<?xui keep&this?>\n" +
+            "<XuiCanvas data=\"left&right\">\n" +
+            "  <!-- keep & in a comment -->\n" +
+            "  <![CDATA[keep & in CDATA]]>\n" +
+            "  <Properties><Text>&Token_One&amp; &#38; &not-an-entity; &</Text></Properties>\n" +
+            "</XuiCanvas>";
+        const string expected =
+            "<?xui keep&this?>\n" +
+            "<XuiCanvas data=\"left&amp;right\">\n" +
+            "  <!-- keep & in a comment -->\n" +
+            "  <![CDATA[keep & in CDATA]]>\n" +
+            "  <Properties><Text>&amp;Token_One&amp; &#38; &amp;not-an-entity; &amp;</Text></Properties>\n" +
+            "</XuiCanvas>";
+
+        bool repaired = XuiFormattingRepair.TryEscapeBareAmpersands(
+            source,
+            out XuiFormattingRepairResult? result);
+
+        Assert.IsTrue(repaired);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(4, result.EscapedAmpersandCount);
+        Assert.AreEqual(expected, result.Text);
+        _ = XuiDocument.FromText(result.Text);
+    }
+
+    [TestMethod]
+    public async Task AmpersandFormattingRepairLeavesSourceUntouchedUntilSave()
+    {
+        using TestDirectory directory = new();
+        string path = directory.File("formatting-repair.xui");
+        const string source =
+            "<XuiCanvas><Properties><Text>&Example_Key&</Text></Properties></XuiCanvas>";
+        const string repairedSource =
+            "<XuiCanvas><Properties><Text>&amp;Example_Key&amp;</Text></Properties></XuiCanvas>";
+        await File.WriteAllTextAsync(path, source, new UTF8Encoding(false));
+
+        await Assert.ThrowsExactlyAsync<XuiParseException>(
+            () => XuiDocument.OpenAsync(path));
+        XuiDocumentFormattingRepair? repair =
+            await XuiDocument.TryOpenWithAmpersandFormattingRepairAsync(path);
+
+        Assert.IsNotNull(repair);
+        Assert.AreEqual(2, repair.EscapedAmpersandCount);
+        Assert.IsTrue(repair.Document.IsDirty);
+        Assert.AreEqual(repairedSource, repair.Document.Text);
+        Assert.AreEqual(
+            "&Example_Key&",
+            XuiModelReader.GetPropertyValue(
+                repair.Document.Root,
+                repair.Document.Text,
+                "Text"));
+        Assert.AreEqual(source, await File.ReadAllTextAsync(path));
+        Assert.IsFalse(File.Exists(path + ".bak"));
+
+        XuiSaveResult saved = await repair.Document.SaveAsync();
+
+        Assert.AreEqual(XuiSaveDisposition.Saved, saved.Disposition);
+        Assert.IsFalse(repair.Document.IsDirty);
+        Assert.AreEqual(repairedSource, await File.ReadAllTextAsync(path));
+        Assert.AreEqual(source, await File.ReadAllTextAsync(path + ".bak"));
     }
 
     [TestMethod]

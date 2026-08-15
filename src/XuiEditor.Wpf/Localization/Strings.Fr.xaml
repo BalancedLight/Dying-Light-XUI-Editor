@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">PNG image (*.png)|*.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)|*.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|*.xui|Tous les fichiers (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">Ce XUI contient {0:N0} esperluettes non échappées. Les corriger dans l'éditeur et l'ouvrir ? Le fichier source restera inchangé jusqu'à ce que vous l'enregistriez.</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">Corriger le formatage XUI ?</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">'{0}' n'est pas valide pour {1}. L'image clé n'a pas été modifiée.</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">Cette image clé mal formée n’a aucun élément Prop correspondant.</system:String>
@@ -736,6 +738,7 @@ L'ouvrir en tant que document non enregistré ?</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPasted">Rien de collé · {0:N0} incompatible ou verrouillé · {1:N0} déjà trouvé une correspondance</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">Rien de collé · chaque valeur applicable correspond déjà</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">Échec de l'ouverture</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">Ouvert après avoir échappé {0:N0} esperluettes brutes. Enregistrez pour conserver la réparation de formatage.</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">Stock d’ouverture {0}…</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">Ouverture XUI…</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">Valeurs de propriété {0:N0} collées dans des éléments {1:N0} · {2:N0} incompatibles ou verrouillées · {3:N0} déjà correspondantes</system:String>
@@ -981,4 +984,14 @@ Preuve : {3}</system:String>
     <system:String x:Key="Ui.TextStyle.CustomAutomation">Valeur numérique brute TextStyle</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">Appliquer</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">Entrez un nombre décimal signé valide ou un nombre entier préfixé par 0x.</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">Tout enregistrer</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">Fermer l’onglet</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">Fermer le document</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">{0:N0} récupérations sont disponibles. Oui : tout récupérer. Non : tout supprimer. Annuler : décider plus tard.</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">Le document est déjà ouvert</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">{0:N0} documents contiennent des modifications non enregistrées :\n\n{1}\n\nOui : tout enregistrer et quitter. Non : tout supprimer et quitter. Annuler : continuer l’édition.</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">Enregistrer les modifications de {0} avant de fermer son onglet ?</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">Impossible d’enregistrer dans « {0} » car ce fichier est déjà ouvert dans un autre onglet.</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">Tout enregistrer terminé · {0:N0} enregistrés · {1:N0} non enregistrés · {2:N0} échecs</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">Tout enregistrer est terminé.\n\nEnregistrés : {0:N0}\nEncore non enregistrés : {1:N0}\nAnnulés : {2:N0}\nÉchecs : {3:N0}</system:String>
 </ResourceDictionary>

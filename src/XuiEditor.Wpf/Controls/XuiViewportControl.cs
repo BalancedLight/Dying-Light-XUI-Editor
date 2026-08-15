@@ -134,6 +134,11 @@ public sealed class XuiTextureDiagnosticsEventArgs : EventArgs
     public IReadOnlyList<XuiDiagnostic> Diagnostics { get; }
 }
 
+internal sealed record XuiViewportViewState(
+    double Zoom,
+    Vector Pan,
+    BitmapSource? ReferenceImage);
+
 public sealed class XuiViewportControl : FrameworkElement
 {
     private const double RulerSize = 22;
@@ -443,6 +448,17 @@ public sealed class XuiViewportControl : FrameworkElement
 
     public double Zoom => _zoom;
 
+    internal XuiViewportViewState CaptureViewState() =>
+        new(_zoom, _pan, _referenceImage);
+
+    internal void RestoreViewState(XuiViewportViewState? state)
+    {
+        _zoom = state?.Zoom ?? 1;
+        _pan = state?.Pan ?? default;
+        _referenceImage = state?.ReferenceImage;
+        ResizePresentation();
+    }
+
     public bool HasRenderedFrame => _frame is not null;
 
     public XuiVector2 LogicalPointFromControl(Point point) =>
@@ -514,6 +530,11 @@ public sealed class XuiViewportControl : FrameworkElement
     internal int RetainedNodeVisualCountForTesting => _nodeVisuals.Count;
 
     internal XuiRenderFrame? FrameForTesting => _frame;
+
+    internal string? RetainedNodeTextForTesting(string nodeKey) =>
+        _nodeVisuals.TryGetValue(nodeKey, out NodeVisual? visual)
+            ? visual.Node.Text
+            : null;
 
     internal long NodeContentRedrawCountForTesting =>
         _nodeContentRedrawCount;
@@ -899,10 +920,13 @@ public sealed class XuiViewportControl : FrameworkElement
         }
     }
 
-    public void SetSample(XuiRenderSample sample)
+    public void SetSample(
+        XuiRenderSample sample,
+        bool forceFullSynchronization = false)
     {
         ArgumentNullException.ThrowIfNull(sample);
-        if (sample.FullEvaluationRequired ||
+        if (forceFullSynchronization ||
+            sample.FullEvaluationRequired ||
             sample.ChangedRenderNodeKeys.Count > 0)
         {
             EndNavigationCache();
@@ -910,7 +934,7 @@ public sealed class XuiViewportControl : FrameworkElement
 
         XuiRenderFrame? previous = _frame;
         _frame = sample.Frame;
-        if (sample.FullEvaluationRequired)
+        if (forceFullSynchronization || sample.FullEvaluationRequired)
         {
             SynchronizeNodeVisuals();
         }

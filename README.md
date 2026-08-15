@@ -50,6 +50,11 @@ workspace before it can be saved.
   duplicate properties, unknown nodes, line endings, and encoding.
 - Atomic same-directory saves with one backup, external-change detection,
   undo/redo, recent files, and isolated recovery snapshots.
+- Session-only document tabs keep several loose, stock, or recovered XUI files
+  open at once. Each tab retains its own selection, undo history, hierarchy and
+  timeline state, viewport camera, reference overlay, and recovery snapshot.
+  Tab tooltips show the full file or virtual asset location. **Save All** saves
+  every dirty tab while `Ctrl+S` and **Save As** target only the selected tab.
 - An indexed, virtualized, fixed-height hierarchy with stable expansion
   state, debounced search, collapse/reveal commands, breadcrumbs, and
   synchronized selection. Rows can be dragged onto other elements to
@@ -177,6 +182,8 @@ fake labels into the rendered scene.
 | Action | Shortcut |
 | --- | --- |
 | Open / save / save as | `Ctrl+O` / `Ctrl+S` / `Ctrl+Shift+S` |
+| Close selected document tab | `Ctrl+W` |
+| Save all open documents | File > Save All |
 | Copy / advanced-copy / paste inspector properties | `Ctrl+C` / `Ctrl+Shift+C` / `Ctrl+V` |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Y` |
 | Duplicate / delete | `Ctrl+D` / `Delete` |

@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">PNG imagen (*.png)|&gt;*.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)|&gt;*.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|&gt;*.xui|Todos los archivos (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">Este XUI contiene {0:N0} símbolos comerciales sin escape. ¿Arreglarlos en el editor y abrirlo? El archivo fuente permanecerá sin cambios hasta que lo guarde.</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">¿Reparar el formato XUI?</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">'{0}' no es válido para {1}. El fotograma clave no se modificó.</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">Este fotograma clave con formato incorrecto no tiene ningún elemento Prop correspondiente.</system:String>
@@ -736,6 +738,7 @@
     <system:String x:Key="Ui.Main.Status.NothingPasted">No se pegó nada · {0:N0} incompatible o bloqueado · {1:N0} ya coincide</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">No se pegó nada · todos los valores aplicables ya coinciden</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">Error al abrir</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">Se abrió después de escapar de {0:N0} símbolos sin formato. Guarde para mantener la reparación del formato.</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">Apertura de acciones {0}…</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">Abriendo XUI…</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">Valores de propiedad {0:N0} pegados en elementos {1:N0} · {2:N0} incompatibles o bloqueados · {3:N0} ya coincidentes</system:String>
@@ -981,4 +984,14 @@ Evidencia: {3}</system:String>
     <system:String x:Key="Ui.TextStyle.CustomAutomation">Valor numérico TextStyle sin procesar</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">Aplicar</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">Introduzca un decimal con signo válido o un número entero con prefijo 0x.</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">Guardar todo</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">Cerrar pestaña</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">Cerrar documento</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">Hay {0:N0} recuperaciones disponibles. Sí: recuperar todo. No: descartar todo. Cancelar: decidir más tarde.</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">El documento ya está abierto</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">{0:N0} documentos tienen cambios sin guardar:\n\n{1}\n\nSí: guardar todo y salir. No: descartar todo y salir. Cancelar: seguir editando.</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">¿Guardar los cambios de {0} antes de cerrar su pestaña?</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">No se puede guardar en «{0}» porque el archivo ya está abierto en otra pestaña.</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">Guardado completo · {0:N0} guardados · {1:N0} sin guardar · {2:N0} fallidos</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">Guardado completo.\n\nGuardados: {0:N0}\nAún sin guardar: {1:N0}\nCancelados: {2:N0}\nFallidos: {3:N0}</system:String>
 </ResourceDictionary>

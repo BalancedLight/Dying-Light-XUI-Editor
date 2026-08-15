@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">PNG Bild (*.png)|*.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)|*.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|*.xui|Alle Dateien (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">Dieses XUI enthält {0:N0} kaufmännische Und-Zeichen ohne Escapezeichen. Sie im Editor reparieren und öffnen? Die Quelldatei bleibt bis zum Speichern unverändert.</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">XUI-Formatierung korrigieren?</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">'{0}' ist ungültig für {1}. Der Keyframe wurde nicht geändert.</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">Dieser fehlerhafte Keyframe hat kein entsprechendes Prop-Element.</system:String>
@@ -736,6 +738,7 @@ Als nicht gespeichertes Dokument öffnen?</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPasted">Nichts eingefügt · {0:N0} inkompatibel oder gesperrt · {1:N0} bereits übereinstimmend</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">Es wurde nichts eingefügt · alle anwendbaren Werte stimmten bereits überein</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">Öffnen fehlgeschlagen</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">Geöffnet nach dem Escapezeichen von {0:N0} rohen kaufmännischen Und-Zeichen. Speichern Sie, um die Formatierungsreparatur beizubehalten.</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">Eröffnungsbestand {0}…</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">Öffnen XUI…</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">{0:N0}-Eigenschaftswerte wurden in {1:N0}-Elemente eingefügt · {2:N0} inkompatibel oder gesperrt · {3:N0} bereits übereinstimmend</system:String>
@@ -981,4 +984,14 @@ Beweis: {3}</system:String>
     <system:String x:Key="Ui.TextStyle.CustomAutomation">Roher numerischer TextStyle-Wert</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">Anwenden</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">Geben Sie eine gültige Dezimalzahl mit Vorzeichen oder eine ganze Zahl mit dem Präfix 0x ein.</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">Alle speichern</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">Tab schließen</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">Dokument schließen</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">{0:N0} Wiederherstellungen sind verfügbar. Ja: alle wiederherstellen. Nein: alle verwerfen. Abbrechen: später entscheiden.</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">Dokument ist bereits geöffnet</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">{0:N0} Dokumente haben ungespeicherte Änderungen:\n\n{1}\n\nJa: alle speichern und beenden. Nein: alle verwerfen und beenden. Abbrechen: weiter bearbeiten.</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">Änderungen an {0} vor dem Schließen des Tabs speichern?</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">Speichern unter „{0}“ ist nicht möglich, da die Datei bereits in einem anderen Tab geöffnet ist.</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">Alle speichern abgeschlossen · {0:N0} gespeichert · {1:N0} ungespeichert · {2:N0} fehlgeschlagen</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">Alle speichern abgeschlossen.\n\nGespeichert: {0:N0}\nNoch ungespeichert: {1:N0}\nAbgebrochen: {2:N0}\nFehlgeschlagen: {3:N0}</system:String>
 </ResourceDictionary>

@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">PNG image (*.png)|*.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)|*.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|*.xui|All files (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">This XUI contains {0:N0} unescaped ampersands. Fix them in the editor and open it? The source file will remain unchanged until you save.</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">Fix XUI formatting?</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">'{0}' is invalid for {1}. The keyframe was not changed.</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">This malformed keyframe has no corresponding Prop element.</system:String>
@@ -736,6 +738,7 @@ Open it as an unsaved document?</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPasted">Nothing pasted · {0:N0} incompatible or locked · {1:N0} already matched</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">Nothing pasted · every applicable value already matched</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">Open failed</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">Opened after escaping {0:N0} raw ampersands. Save to keep the formatting repair.</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">Opening stock {0}…</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">Opening XUI…</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">Pasted {0:N0} property values to {1:N0} elements · {2:N0} incompatible or locked · {3:N0} already matched</system:String>
@@ -981,4 +984,14 @@ Evidence: {3}</system:String>
     <system:String x:Key="Ui.TextStyle.CustomAutomation">Raw TextStyle numeric value</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">Apply</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">Enter a valid signed decimal or 0x-prefixed whole number.</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">Save All</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">Close Tab</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">Close document</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">{0:N0} recovery snapshots are available. Yes: recover all. No: discard all. Cancel: decide later.</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">Document is already open</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">{0:N0} documents have unsaved changes:\n\n{1}\n\nYes: save all and exit. No: discard all and exit. Cancel: keep editing.</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">Save changes to {0} before closing its tab?</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">Cannot save to '{0}' because that file is already open in another tab.</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">Save All complete · {0:N0} saved · {1:N0} remain unsaved · {2:N0} failed</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">Save All finished.\n\nSaved: {0:N0}\nStill unsaved: {1:N0}\nCanceled: {2:N0}\nFailed: {3:N0}</system:String>
 </ResourceDictionary>

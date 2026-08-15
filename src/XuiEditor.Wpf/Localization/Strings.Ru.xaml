@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">Изображение PNG (*.png)|*.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)|*.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|*.xui|Все файлы (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">Этот XUI содержит {0:N0} неэкранированные амперсанды. Исправить их в редакторе и открыть? Исходный файл останется неизменным до тех пор, пока вы его не сохраните.</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">Исправить форматирование XUI?</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">'{0}' недействителен для {1}. Ключевой кадр не изменился.</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">Этот неверный ключевой кадр не имеет соответствующего элемента Prop.</system:String>
@@ -736,6 +738,7 @@
     <system:String x:Key="Ui.Main.Status.NothingPasted">Ничего не вставлено · {0:N0} несовместимо или заблокировано · {1:N0} уже соответствует</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">Ничего не вставлено · все применимые значения уже сопоставлены</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">Открыть не удалось</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">Открыт после экранирования необработанных амперсандов {0:N0}. Сохраните, чтобы сохранить восстановление форматирования.</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">Открытие акции {0}…</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">Открытие XUI…</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">Значения свойств {0:N0} вставлены в элементы {1:N0} · {2:N0} несовместимы или заблокированы · {3:N0} уже сопоставлены</system:String>
@@ -981,4 +984,14 @@
     <system:String x:Key="Ui.TextStyle.CustomAutomation">Необработанное числовое значение TextStyle</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">Применить</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">Введите допустимое десятичное число со знаком или целое число с префиксом 0x.</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">Сохранить все</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">Закрыть вкладку</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">Закрыть документ</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">Доступно восстановлений: {0:N0}. Да: восстановить все. Нет: удалить все. Отмена: решить позже.</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">Документ уже открыт</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">Документов с несохранёнными изменениями: {0:N0}.\n\n{1}\n\nДа: сохранить все и выйти. Нет: удалить все и выйти. Отмена: продолжить редактирование.</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">Сохранить изменения в {0} перед закрытием вкладки?</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">Нельзя сохранить в «{0}»: этот файл уже открыт в другой вкладке.</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">Сохранение завершено · сохранено: {0:N0} · не сохранено: {1:N0} · ошибок: {2:N0}</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">Сохранение всех документов завершено.\n\nСохранено: {0:N0}\nНе сохранено: {1:N0}\nОтменено: {2:N0}\nОшибок: {3:N0}</system:String>
 </ResourceDictionary>

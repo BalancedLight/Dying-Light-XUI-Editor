@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">PNG图像(*.png)|*.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)|*.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|*.xui|所有文件 (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">此 XUI 包含 {0:N0} 未转义的 &amp; 符号。在编辑器中修复它们并打开它？源文件将保持不变，直到您保存。</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">修复 XUI 格式？</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">“{0}”对于 {1} 无效。关键帧没有改变。</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">此格式错误的关键帧没有相应的 Prop 元素。</system:String>
@@ -736,6 +738,7 @@
     <system:String x:Key="Ui.Main.Status.NothingPasted">未粘贴任何内容 · {0:N0} 不兼容或锁定 · {1:N0} 已匹配</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">没有粘贴任何内容·每个适用的值都已匹配</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">打开失败</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">转义 {0:N0} 原始 &amp; 符号后打开。保存以保留格式修复。</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">开盘库存{0}...</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">正在打开 XUI...</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">将 {0:N0} 属性值粘贴到 {1:N0} 元素 · {2:N0} 不兼容或锁定 · {3:N0} 已匹配</system:String>
@@ -981,4 +984,14 @@
     <system:String x:Key="Ui.TextStyle.CustomAutomation">原始 TextStyle 数值</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">应用</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">输入有效的带符号小数或以 0x 为前缀的整数。</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">全部保存</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">关闭标签页</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">关闭文档</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">有 {0:N0} 个恢复快照。是：全部恢复。否：全部丢弃。取消：稍后决定。</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">文档已打开</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">{0:N0} 个文档有未保存的更改：\n\n{1}\n\n是：全部保存并退出。否：全部丢弃并退出。取消：继续编辑。</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">关闭标签页前保存对 {0} 的更改吗？</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">无法保存到“{0}”，因为该文件已在另一个标签页中打开。</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">全部保存完成 · 已保存 {0:N0} · 未保存 {1:N0} · 失败 {2:N0}</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">全部保存完成。\n\n已保存：{0:N0}\n仍未保存：{1:N0}\n已取消：{2:N0}\n失败：{3:N0}</system:String>
 </ResourceDictionary>

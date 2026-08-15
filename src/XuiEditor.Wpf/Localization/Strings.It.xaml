@@ -650,6 +650,8 @@
     <system:String x:Key="Ui.Main.Filter.Png">PNG immagine (*.png)| *.png</system:String>
     <system:String x:Key="Ui.Main.Filter.Xui">Dying Light XUI (*.xui)| *.xui</system:String>
     <system:String x:Key="Ui.Main.Filter.XuiAll">Dying Light XUI (*.xui)|&gt;*.xui&gt;|Tutti i file (*.*)|*.*</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Prompt">Questo XUI contiene {0:N0} e commerciali senza caratteri di escape. Correggerli nell'editor e aprirlo? Il file sorgente rimarrà invariato fino al salvataggio.</system:String>
+    <system:String x:Key="Ui.Main.FormatRepair.Title">Correggere la formattazione di XUI?</system:String>
     <system:String x:Key="Ui.Main.Hierarchy.Count">{0:N0}</system:String>
     <system:String x:Key="Ui.Main.Keyframe.InvalidValue">'{0}' non è valido per {1}. Il fotogramma chiave non è stato modificato.</system:String>
     <system:String x:Key="Ui.Main.Keyframe.MissingProp">Questo fotogramma chiave dal formato non valido non ha un elemento Prop corrispondente.</system:String>
@@ -736,6 +738,7 @@ Aprirlo come documento non salvato?</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPasted">Niente incollato · {0:N0} incompatibile o bloccato · {1:N0} già corrispondente</system:String>
     <system:String x:Key="Ui.Main.Status.NothingPastedMatched">Niente incollato · ogni valore applicabile già corrispondente</system:String>
     <system:String x:Key="Ui.Main.Status.OpenFailed">Apertura non riuscita</system:String>
+    <system:String x:Key="Ui.Main.Status.OpenedAfterFormatRepair">Aperto dopo essere sfuggito a {0:N0} e commerciale non elaborata. Salva per mantenere la riparazione della formattazione.</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningStock">Stock di apertura {0}...</system:String>
     <system:String x:Key="Ui.Main.Status.OpeningXui">Apertura XUI…</system:String>
     <system:String x:Key="Ui.Main.Status.PastedProperties">Valori delle proprietà {0:N0} incollati negli elementi {1:N0} · {2:N0} incompatibile o bloccato · {3:N0} già corrispondente</system:String>
@@ -981,4 +984,14 @@ Prova: {3}</system:String>
     <system:String x:Key="Ui.TextStyle.CustomAutomation">Valore numerico TextStyle non elaborato</system:String>
     <system:String x:Key="Ui.TextStyle.ApplyCustom">Applica</system:String>
     <system:String x:Key="Ui.TextStyle.InvalidCustom">Immettere un numero intero decimale con segno valido o un numero intero con prefisso 0x.</system:String>
+    <system:String x:Key="Ui.Command.SaveAll">Salva tutto</system:String>
+    <system:String x:Key="Ui.Command.CloseTab">Chiudi scheda</system:String>
+    <system:String x:Key="Ui.DocumentTabs.CloseToolTip">Chiudi documento</system:String>
+    <system:String x:Key="Ui.Main.RecoveryManyPrompt">Sono disponibili {0:N0} recuperi. Sì: recupera tutto. No: elimina tutto. Annulla: decidi più tardi.</system:String>
+    <system:String x:Key="Ui.Main.Status.AlreadyOpen">Il documento è già aperto</system:String>
+    <system:String x:Key="Ui.Main.ExitReview.Prompt">{0:N0} documenti contengono modifiche non salvate:\n\n{1}\n\nSì: salva tutto ed esci. No: elimina tutto ed esci. Annulla: continua a modificare.</system:String>
+    <system:String x:Key="Ui.Main.Unsaved.CloseTabPrompt">Salvare le modifiche a {0} prima di chiudere la scheda?</system:String>
+    <system:String x:Key="Ui.Main.Save.PathAlreadyOpen">Impossibile salvare in “{0}” perché il file è già aperto in un’altra scheda.</system:String>
+    <system:String x:Key="Ui.Main.Status.SaveAllSummary">Salvataggio completato · {0:N0} salvati · {1:N0} non salvati · {2:N0} non riusciti</system:String>
+    <system:String x:Key="Ui.Main.SaveAll.Summary">Salvataggio completato.\n\nSalvati: {0:N0}\nAncora non salvati: {1:N0}\nAnnullati: {2:N0}\nNon riusciti: {3:N0}</system:String>
 </ResourceDictionary>
