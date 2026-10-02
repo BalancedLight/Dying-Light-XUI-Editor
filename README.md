@@ -203,8 +203,11 @@ Shift-click for multi-selection.
 
 ## Build and validate
 
-The SDK is pinned by `global.json`; NuGet versions and lock files are
-committed.
+The exact SDK version is pinned by `global.json`; NuGet versions and lock
+files are committed. When upgrading the SDK, regenerate the lock files with
+`dotnet restore XuiEditor.slnx --force-evaluate` in the same change, then
+validate with `--locked-mode`. SDK updates can change implicit dependencies
+such as `Microsoft.NET.ILLink.Tasks`.
 
 ```powershell
 dotnet restore XuiEditor.slnx --locked-mode
